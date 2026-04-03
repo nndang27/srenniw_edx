@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* CurricuLLM brand color palette */
+:root {
+  --background: #ffffff;
+  --foreground: #333333;
+
+  /* Brand blues */
+  --brand-50:  #eef2ff;
+  --brand-100: #dde6ff;
+  --brand-200: #c3d3fb;
+  --brand-300: #9ab4f5;
+  --brand-400: #6b8fe1;
+  --brand-500: #577edb;
+  --brand-600: #446dd5;
+  --brand-700: #315bcf;
+  --brand-800: #2448b8;
+  --brand-900: #1a379c;
+
+  /* Neutrals */
+  --muted-bg:  #f7f8fc;
+  --muted-fg:  #666666;
+  --border:    #eeeeee;
+  --card:      #ffffff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-brand-50:  var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+
+  --color-muted:     var(--muted-bg);
+  --color-border-default: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--muted-bg); }
+::-webkit-scrollbar-thumb { background: var(--brand-200); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--brand-400); }
