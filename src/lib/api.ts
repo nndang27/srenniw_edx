@@ -76,6 +76,12 @@ export function useApi() {
     })
   }
 
+  const getProfile = async () => {
+    const res = await fetch(`${BASE_URL}/api/parent/profile`, { headers: await headers() })
+    if (!res.ok) throw await res.json()
+    return res.json()
+  }
+
   // ---- Chat rooms (shared) ----
   const getChatRooms = async (role: 'teacher' | 'parent'): Promise<ChatRoom[]> => {
     const res = await fetch(`${BASE_URL}/api/${role}/chat-rooms`, { headers: await headers() })
@@ -83,5 +89,5 @@ export function useApi() {
     return res.json()
   }
 
-  return { getClasses, createClass, submitCompose, getTeacherBriefs, getBriefFeedback, getInbox, markRead, submitFeedback, updateLanguage, getChatRooms }
+  return { getClasses, createClass, submitCompose, getTeacherBriefs, getBriefFeedback, getInbox, markRead, submitFeedback, updateLanguage, getProfile, getChatRooms }
 }
