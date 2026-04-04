@@ -20,11 +20,12 @@ async def websocket_chatbot(websocket: WebSocket, parent_id: str, token: str):
 
             user_message = data["content"]
             brief_id = data.get("brief_id")
+            feature = data.get("feature", "summarize")
 
             full_response = ""
             try:
                 # Stream tokens from agent pipeline
-                async for token_text in stream_chatbot_response(user_message, brief_id):
+                async for token_text in stream_chatbot_response(user_message, brief_id, feature):
                     full_response += token_text
                     await websocket.send_json({"type": "token", "token": token_text})
                 await websocket.send_json({"type": "done", "full_content": full_response})
@@ -32,3 +33,5 @@ async def websocket_chatbot(websocket: WebSocket, parent_id: str, token: str):
                 await websocket.send_json({"type": "error", "message": str(e)})
     except WebSocketDisconnect:
         pass
+
+

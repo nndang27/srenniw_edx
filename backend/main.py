@@ -20,3 +20,14 @@ app.include_router(chatbot.router)
 @app.get("/health")
 def health():
     return {"status": "ok", "version": "1.0.0"}
+
+from routers import game
+app.include_router(game.router)
+
+# Trigger tool registration at startup
+import agent.tools.curricullm_tools
+import agent.tools.supabase_tools
+import agent.tools.summarize
+import agent.tools.diary
+import agent.tools.suggestion
+import agent.tools.game

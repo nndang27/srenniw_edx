@@ -1,0 +1,4 @@
+Testing /api/game/generate endpoint...
+Status Code: 200
+Response: {'code': 'export default function App() { return <div>Dummy React Game for addition to 10</div> }', 'game_type': 'drag_and_drop'}
+E2E Test Passed Successfully!
