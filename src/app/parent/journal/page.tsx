@@ -1,11 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2 } from 'lucide-react'
 import { useApi } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { saveJournalEntry, getTodayDate } from '@/lib/journal'
 import type { Notification } from '@/types'
 
 const COGNITIVE_LEVELS = [
@@ -24,11 +24,22 @@ const EMOTIONS = [
   { id: 5, emoji: '😄', label: 'Happy' },
 ]
 
+const SUBJECTS = [
+  { id: 'Maths', label: 'Maths', emoji: '🔢' },
+  { id: 'Science', label: 'Science', emoji: '🔬' },
+  { id: 'English', label: 'English', emoji: '📖' },
+  { id: 'HSIE', label: 'HSIE', emoji: '🌏' },
+  { id: 'Creative Arts', label: 'Creative Arts', emoji: '🎨' },
+  { id: 'PE', label: 'PE', emoji: '⚽' },
+]
+
 export default function JournalPage() {
   const api = useApi()
   const router = useRouter()
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
   const [selectedEmotion, setSelectedEmotion] = useState<number | null>(null)
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null)
+  const [timeSpent, setTimeSpent] = useState(30)
   const [notes, setNotes] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -48,8 +59,8 @@ export default function JournalPage() {
   }
 
   const handleSave = async () => {
-    if (selectedLevel === null || selectedEmotion === null) {
-      showToast('Please select both understanding level and mood.')
+    if (selectedLevel === null || selectedEmotion === null || selectedSubject === null) {
+      showToast('Please select understanding level, mood, and subject.')
       return
     }
 
@@ -57,13 +68,22 @@ export default function JournalPage() {
     try {
       const emotionLabel = EMOTIONS.find(e => e.id === selectedEmotion)?.label || ''
       const levelLabel = COGNITIVE_LEVELS.find(l => l.id === selectedLevel)?.label || ''
-      const message = `Journal: Understanding=${levelLabel} (${selectedLevel}/5), Mood=${emotionLabel}${notes ? '. ' + notes : ''}`
 
+      // Save structured entry to localStorage
+      saveJournalEntry({
+        date: getTodayDate(),
+        timestamp: Date.now(),
+        cognitiveLevel: selectedLevel,
+        emotion: emotionLabel,
+        subject: selectedSubject,
+        timeSpent,
+        notes,
+      })
+
+      // Also submit to API if a brief exists
+      const message = `Journal: Subject=${selectedSubject}, Understanding=${levelLabel} (${selectedLevel}/5), Mood=${emotionLabel}, Time=${timeSpent}min${notes ? '. ' + notes : ''}`
       if (latestBriefId) {
-        await api.submitFeedback(latestBriefId, message)
-      } else {
-        // Store locally if no brief yet
-        localStorage.setItem('journal_entry', message)
+        await api.submitFeedback(latestBriefId, message).catch(console.error)
       }
 
       showToast('Journal saved! ✨ Here are today\'s activity ideas.')
@@ -84,7 +104,7 @@ export default function JournalPage() {
         </div>
       )}
 
-      <div className="text-center mb-8">
+      <div className="text-center mb-8 mt-2">
         <h2 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Today&apos;s Learning Journal</h2>
         <p className="text-lg text-slate-500">How did learning go today? Takes 30 seconds.</p>
       </div>
@@ -162,7 +182,59 @@ export default function JournalPage() {
 
           <div className="h-px w-full bg-slate-100" />
 
-          {/* Section 3: Notes */}
+          {/* Section 3: Subject Tag */}
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold text-slate-800">What subject did they focus on?</h3>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {SUBJECTS.map(sub => (
+                <button
+                  key={sub.id}
+                  onClick={() => setSelectedSubject(sub.id)}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all duration-200 text-center
+                    ${selectedSubject === sub.id
+                      ? 'border-emerald-400 bg-emerald-50 shadow-sm scale-105'
+                      : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'}`}
+                >
+                  <span className="text-2xl">{sub.emoji}</span>
+                  <span className={`text-xs font-semibold ${selectedSubject === sub.id ? 'text-emerald-700' : 'text-slate-600'}`}>
+                    {sub.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-px w-full bg-slate-100" />
+
+          {/* Section 4: Time Spent */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-800">Time spent learning</h3>
+              <span className="text-2xl font-bold text-emerald-600">{timeSpent} min</span>
+            </div>
+            <div className="relative">
+              <input
+                type="range"
+                min={0}
+                max={120}
+                step={5}
+                value={timeSpent}
+                onChange={e => setTimeSpent(Number(e.target.value))}
+                className="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-emerald-500"
+              />
+              <div className="flex justify-between text-xs text-slate-400 mt-1">
+                <span>0 min</span>
+                <span>30 min</span>
+                <span>60 min</span>
+                <span>90 min</span>
+                <span>120 min</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px w-full bg-slate-100" />
+
+          {/* Section 5: Notes */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-slate-700">Any observations? (Optional)</h3>
             <Textarea
