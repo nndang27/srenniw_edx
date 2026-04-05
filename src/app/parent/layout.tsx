@@ -7,7 +7,7 @@ import type { Language } from '@/types'
 import CommunicationHub from '@/components/shared/CommunicationHub'
 
 const navItems = [
-  { href: '/parent/digest', label: 'Digest', icon: BookOpen },
+  { href: '/parent/digest', label: 'Quick Peek', icon: BookOpen },
   { href: '/parent/journal', label: 'Journal', icon: BookMarked },
   { href: '/parent/action', label: 'Activities', icon: Lightbulb },
   { href: '/parent/play', label: 'Play', icon: Gamepad2 },
