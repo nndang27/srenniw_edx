@@ -19,7 +19,7 @@ export default function TikTokHookPanel({ videos }: { videos: string[] }) {
   };
 
   return (
-    <div className="relative flex items-center justify-center w-full max-w-sm mx-auto h-[600px] sm:h-[700px]">
+    <div className="relative flex justify-center w-full max-w-sm mx-auto h-[600px] sm:h-[700px] mb-20">
       <div className="bg-slate-900 rounded-[2.5rem] p-4 shadow-2xl relative border-[8px] border-slate-800 flex-1 h-full overflow-hidden flex flex-col w-full">
         {/* Mobile Notch Mock */}
         <div className="absolute top-0 inset-x-0 h-6 bg-slate-800 rounded-b-2xl w-1/3 mx-auto z-20"></div>
@@ -52,22 +52,22 @@ export default function TikTokHookPanel({ videos }: { videos: string[] }) {
         </div>
       </div>
 
-      {/* Manual Scroll Controls (Absolute Positioning to preserve panel size) */}
+      {/* Manual Scroll Controls (Positioned at the bottom to avoid horizontal clipping) */}
       {videos.length > 1 && (
-        <div className="absolute -right-3 sm:-right-16 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-10 shrink-0">
+        <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 flex gap-4 z-10 shrink-0 w-max">
           <button
             onClick={scrollUp}
-            className="flex items-center justify-center bg-white p-3 rounded-full hover:bg-slate-50 transition-all hover:scale-110 active:scale-95 shadow-xl border border-slate-100 text-slate-400 hover:text-indigo-600 focus:outline-none"
+            className="flex items-center justify-center bg-white p-4 rounded-full hover:bg-slate-50 transition-all hover:scale-110 active:scale-95 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-100 text-slate-500 hover:text-indigo-600 focus:outline-none"
             aria-label="Scroll Up"
           >
-            <ChevronUp className="w-6 h-6" />
+            <ChevronUp className="w-7 h-7" />
           </button>
           <button
             onClick={scrollDown}
-            className="flex items-center justify-center bg-white p-3 rounded-full hover:bg-slate-50 transition-all hover:scale-110 active:scale-95 shadow-xl border border-slate-100 text-slate-400 hover:text-indigo-600 focus:outline-none"
+            className="flex items-center justify-center bg-white p-4 rounded-full hover:bg-slate-50 transition-all hover:scale-110 active:scale-95 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-100 text-slate-500 hover:text-indigo-600 focus:outline-none"
             aria-label="Scroll Down"
           >
-            <ChevronDown className="w-6 h-6" />
+            <ChevronDown className="w-7 h-7" />
           </button>
         </div>
       )}
