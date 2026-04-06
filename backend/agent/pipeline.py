@@ -26,17 +26,27 @@ from agent.subagents.summarize_agent import get_subagent_spec as summarize_spec
 from agent.subagents.diary_agent import get_subagent_spec as diary_spec
 from agent.subagents.suggestion_agent import get_subagent_spec as suggestion_spec
 from agent.subagents.game_agent import get_subagent_spec as game_spec
+from agent.subagents.homework_agent import get_subagent_spec as homework_spec
 from agent.tools.curricullm_tools import get_shared_curricullm_tools
 from agent.tools.supabase_tools import get_shared_supabase_tools
+from langchain_openai import ChatOpenAI
 
 # ── Orchestrator model (fallback nếu subagent không set model riêng) ─────────
 _ORCHESTRATOR_MODEL = os.getenv("AGENT_MODEL", "anthropic:claude-sonnet-4-6")
 
 _shared_tools = get_shared_curricullm_tools() + get_shared_supabase_tools()
 
+
+model = ChatOpenAI(
+    model="gemma4:e4b", #"minimax-m2.5:cloud",
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+    temperature=0.7,
+)
+
 # ── Orchestrator: dùng cho run_agent_pipeline (teacher compose) ──────────────
 _orchestrator = create_deep_agent(
-    model=resolve_model(_ORCHESTRATOR_MODEL),
+    model=model,
     tools=_shared_tools,
     system_prompt="""You are an educational AI orchestrator for Australian primary schools.
 
@@ -60,16 +70,17 @@ Always delegate — do not process content yourself.""",
 def _build_feature_agent(spec_fn):
     spec = spec_fn()
     return create_deep_agent(
-        model=resolve_model(spec.get("model", _ORCHESTRATOR_MODEL)),
+        model=model,   # dùng cùng minimax via ollama
         tools=list(spec.get("tools", [])),
         system_prompt=spec["system_prompt"],
     )
 
 _feature_agents = {
-    "summarize": _build_feature_agent(summarize_spec),
-    "diary":     _build_feature_agent(diary_spec),
+    "summarize":  _build_feature_agent(summarize_spec),
+    "diary":      _build_feature_agent(diary_spec),
     "suggestion": _build_feature_agent(suggestion_spec),
-    "game":      _build_feature_agent(game_spec),
+    "game":       _build_feature_agent(game_spec),
+    "homework":   _build_feature_agent(homework_spec),
 }
 
 
@@ -137,7 +148,7 @@ async def stream_chatbot_response(
             )
 
     full_message = context_prefix + user_message
-    agent = _feature_agents.get(feature, _feature_agents["summarize"])
+    agent = _feature_agents.get(feature, _feature_agents["homework"])
 
     try:
         async for chunk in agent.astream(

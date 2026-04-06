@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import teacher, parent, chat, chatbot
+from routers import teacher, parent, chat, chatbot, insights
 
 app = FastAPI(title="Srenniw API", version="1.0.0")
 
@@ -23,6 +23,7 @@ def health():
 
 from routers import game
 app.include_router(game.router)
+app.include_router(insights.router)
 
 # Trigger tool registration at startup
 import agent.tools.curricullm_tools
