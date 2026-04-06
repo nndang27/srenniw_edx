@@ -2,7 +2,7 @@
 import { Poppins } from 'next/font/google'
 import { UserButton } from '@clerk/nextjs'
 import { Settings, Bell, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import TeacherSettingsModal from './_components/TeacherSettingsModal'
 import TeacherChatBubble from './_components/TeacherChatBubble'
 
@@ -28,10 +28,21 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bellOpen, setBellOpen] = useState(false)
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS)
+  const bellRef = useRef<HTMLDivElement>(null)
 
   const unreadCount = notifications.filter(n => !n.read).length
-
   const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+
+  useEffect(() => {
+    if (!bellOpen) return
+    const handler = (e: MouseEvent) => {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [bellOpen])
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-100 via-blue-50/40 to-violet-50/30">
@@ -42,7 +53,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
         </span>
         <div className="flex items-center gap-3">
           {/* Notification Bell */}
-          <div className="relative">
+          <div className="relative" ref={bellRef}>
             <button
               onClick={() => setBellOpen(o => !o)}
               className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100/80 transition-colors relative"
