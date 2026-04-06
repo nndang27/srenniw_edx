@@ -2,12 +2,13 @@
 import { useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
+  ArrowLeft, ChevronLeft, ChevronRight,
   BookOpen, Zap, Dumbbell, NotebookPen, MessageSquare, RefreshCw,
   Calendar, Target, GraduationCap, Clock,
   Car, UtensilsCrossed, Bath, ShoppingCart, Blocks, CookingPot,
   ChefHat, MapPin, Palette,
 } from 'lucide-react'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import {
   getScheduleForDate,
   getQuickPeekForSchedule,
@@ -1004,7 +1005,6 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   const nextSubject = subjectIndex < schedule.length - 1 ? schedule[subjectIndex + 1] : null
 
   const [activeTab, setActiveTab] = useState<TabId>('journey')
-  const [diveOpen, setDiveOpen] = useState(false)
   const [promptIndex, setPromptIndex] = useState(0)
   const [crossSubjectIndex, setCrossSubjectIndex] = useState(() => Math.floor(Math.random() * 8))
   const [crossSubjectVisible, setCrossSubjectVisible] = useState(true)
@@ -1074,62 +1074,122 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
 
   /* ─── Tab content renderers ── */
 
-  const renderJourney = () => (
-    <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-      {/* Left: content */}
-      <div className="flex-1 space-y-6 min-w-0">
-        {/* Essence card */}
-        <div className="backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg p-5 space-y-3" style={{ background: bgColor }}>
-            <p className="text-sm font-medium text-slate-800 leading-relaxed">{quickPeek.essence_text}</p>
-            <div className="border-t border-slate-200/60 pt-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Real-life example</p>
-              <p className="text-sm text-slate-700 leading-relaxed">{quickPeek.relatable_example}</p>
+  const renderJourney = () => {
+    return (
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+        {/* Left: content */}
+        <div className="flex-1 space-y-6 min-w-0">
+          {/* 60-Second Summary card */}
+          <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-indigo-50 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+            <div className="mb-3">
+              <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-bold uppercase tracking-wider rounded-full">
+                {subject}
+              </span>
             </div>
-        </div>
+            <h3 className="text-xl font-extrabold text-slate-800 tracking-tight mb-3">
+              ✨ The 60-Second Summary
+            </h3>
+            <p className="text-base text-slate-600 leading-relaxed font-medium">
+              {quickPeek.essence_text}
+            </p>
+            <div className="mt-5 p-4 bg-indigo-50/70 rounded-2xl border border-indigo-100/50">
+              <span className="font-bold text-indigo-900 block mb-1">Real-world example:</span>
+              <p className="italic text-slate-700 leading-relaxed text-sm">
+                {quickPeek.relatable_example}
+              </p>
+            </div>
+          </div>
 
-        {/* Dive Deeper accordion */}
-        <div className="rounded-2xl border border-white/50 bg-white/60 backdrop-blur-xl overflow-hidden">
-          <button
-            onClick={() => setDiveOpen(v => !v)}
-            className="w-full flex items-center justify-between px-5 py-4 text-sm font-semibold text-slate-700 hover:bg-white/80 transition-colors"
-          >
-            <span>Dive Deeper</span>
-            {diveOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-          </button>
-          {diveOpen && (
-            <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 mt-4">Core Concept</p>
-                <p className="text-sm text-slate-700 leading-relaxed">{quickPeek.core_concept}</p>
-              </div>
+          {/* Dive Deeper — shadcn Accordion */}
+          <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+            <h3 className="text-lg font-bold text-slate-700 mb-5 flex items-center gap-2">
+              🚀 Dive Deeper
+            </h3>
+            <Accordion type="single" collapsible className="w-full space-y-3">
+              <AccordionItem
+                value="core-concept"
+                className="border border-slate-100 rounded-2xl px-5 data-[state=open]:bg-slate-50/50 data-[state=open]:border-slate-200 transition-all duration-300"
+              >
+                <AccordionTrigger className="text-base font-bold text-slate-800 hover:text-indigo-600 hover:no-underline py-4 text-left">
+                  Core Concept
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-600 text-sm leading-relaxed pb-4">
+                  {quickPeek.core_concept}
+                </AccordionContent>
+              </AccordionItem>
+
               {Object.keys(quickPeek.key_vocabulary).length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Key Vocabulary</p>
-                  <div className="space-y-2">
-                    {Object.entries(quickPeek.key_vocabulary).map(([term, def]) => (
-                      <div key={term} className="rounded-xl p-3" style={{ background: bgColor }}>
-                        <p className="text-xs font-bold" style={{ color }}>{term}</p>
-                        <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{def}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <AccordionItem
+                  value="key-vocabulary"
+                  className="border border-slate-100 rounded-2xl px-5 data-[state=open]:bg-slate-50/50 data-[state=open]:border-slate-200 transition-all duration-300"
+                >
+                  <AccordionTrigger className="text-base font-bold text-slate-800 hover:text-indigo-600 hover:no-underline py-4 text-left">
+                    Key Vocabulary
+                  </AccordionTrigger>
+                  <AccordionContent className="text-slate-600 text-sm leading-relaxed pb-4">
+                    <ul className="space-y-2">
+                      {Object.entries(quickPeek.key_vocabulary).map(([term, def]) => (
+                        <li key={term} className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                          <span className="font-bold text-slate-800 shrink-0">{term}:</span>
+                          <span className="text-slate-600">{def}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </AccordionContent>
+                </AccordionItem>
               )}
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Why This Matters</p>
-                <p className="text-sm text-slate-700 leading-relaxed">{quickPeek.why_this_matters}</p>
-              </div>
-            </div>
-          )}
+
+              <AccordionItem
+                value="why-this-matters"
+                className="border border-slate-100 rounded-2xl px-5 data-[state=open]:bg-slate-50/50 data-[state=open]:border-slate-200 transition-all duration-300"
+              >
+                <AccordionTrigger className="text-base font-bold text-slate-800 hover:text-indigo-600 hover:no-underline py-4 text-left">
+                  Why This Matters
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-600 text-sm leading-relaxed pb-4">
+                  {quickPeek.why_this_matters}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+
+          {/* Subject navigation */}
+          <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-100">
+            {prevSubject ? (
+              <button
+                onClick={() => router.push(`/parent/day/${date}/${encodeURIComponent(prevSubject.subject)}`)}
+                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                <ChevronLeft size={15} />
+                <div className="text-left">
+                  <p className="text-[10px] text-slate-400 leading-none mb-0.5">Previous</p>
+                  <p className="font-medium">{prevSubject.subject}</p>
+                </div>
+              </button>
+            ) : <div />}
+            {nextSubject ? (
+              <button
+                onClick={() => router.push(`/parent/day/${date}/${encodeURIComponent(nextSubject.subject)}`)}
+                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                <div className="text-right">
+                  <p className="text-[10px] text-slate-400 leading-none mb-0.5">Next</p>
+                  <p className="font-medium">{nextSubject.subject}</p>
+                </div>
+                <ChevronRight size={15} />
+              </button>
+            ) : <div />}
+          </div>
+        </div>
+
+        {/* Right: TikTok panel */}
+        <div className="w-full lg:w-[340px] shrink-0">
+          <TikTokHookPanel videos={quickPeek.videos} />
         </div>
       </div>
-
-      {/* Right: TikTok panel — always shown */}
-      <div className="lg:w-[340px] shrink-0">
-        <TikTokHookPanel videos={quickPeek.videos} />
-      </div>
-    </div>
-  )
+    )
+  }
 
   const CROSS_SUBJECT_ACTIVITIES = [
     {
@@ -1628,15 +1688,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
         {/* Tab content */}
         <div className="flex-1 overflow-auto">
             <div className={`px-4 py-5 ${activeTab === 'journal' ? 'max-w-2xl mx-auto' : activeTab === 'activity' ? 'max-w-4xl mx-auto' : ''}`}>
-              {activeTab === 'journey' && (
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <BookOpen size={15} style={{ color }} />
-                    <h2 className="text-sm font-bold text-slate-700">Quick Peek</h2>
-                  </div>
-                  {renderJourney()}
-                </div>
-              )}
+              {activeTab === 'journey' && renderJourney()}
               {activeTab === 'activity' && renderActivity()}
               {activeTab === 'journal' && (
                 <div>
@@ -1648,34 +1700,6 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
                 </div>
               )}
 
-              {/* Subject navigation arrows */}
-              <div className="flex items-center justify-between pt-6 pb-8 mt-6 border-t border-slate-100">
-                {prevSubject ? (
-                  <button
-                    onClick={() => router.push(`/parent/day/${date}/${encodeURIComponent(prevSubject.subject)}`)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/50 bg-white/60 backdrop-blur-sm hover:bg-white/80 text-sm font-medium text-slate-600 shadow-sm transition-all hover:scale-105 active:scale-95"
-                  >
-                    <ChevronLeft size={16} />
-                    <div className="text-left">
-                      <p className="text-[10px] text-slate-400 leading-none mb-0.5">Previous</p>
-                      <p>{prevSubject.subject}</p>
-                    </div>
-                  </button>
-                ) : <div />}
-
-                {nextSubject ? (
-                  <button
-                    onClick={() => router.push(`/parent/day/${date}/${encodeURIComponent(nextSubject.subject)}`)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/50 bg-white/60 backdrop-blur-sm hover:bg-white/80 text-sm font-medium text-slate-600 shadow-sm transition-all hover:scale-105 active:scale-95"
-                  >
-                    <div className="text-right">
-                      <p className="text-[10px] text-slate-400 leading-none mb-0.5">Next</p>
-                      <p>{nextSubject.subject}</p>
-                    </div>
-                    <ChevronRight size={16} />
-                  </button>
-                ) : <div />}
-              </div>
             </div>
         </div>
       </div>

@@ -180,16 +180,18 @@ export default function TeacherSettingsModal({ open, onClose }: Props) {
                   { key: 'notifyParentMessage' as const, label: 'Parent messages', desc: 'Alert when a parent sends you a message' },
                   { key: 'notifyWeeklySummary' as const, label: 'Weekly class summary', desc: 'Receive a weekly digest every Monday' },
                 ].map(({ key, label, desc }) => (
-                  <div key={key} className="flex items-start justify-between gap-4 py-3 border-b border-slate-100 last:border-0">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">{label}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
+                  <div key={key} className="flex items-center justify-between w-full py-3 border-b border-gray-100 last:border-0">
+                    <div className="flex-1 pr-4">
+                      <p className="text-sm font-medium text-gray-800">{label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
                     </div>
                     <button
+                      role="switch"
+                      aria-checked={settings[key]}
                       onClick={() => set(key, !settings[key])}
-                      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 mt-0.5 ${settings[key] ? 'bg-blue-500' : 'bg-slate-200'}`}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${settings[key] ? 'bg-blue-500' : 'bg-gray-200'}`}
                     >
-                      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings[key] ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${settings[key] ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
                 ))}

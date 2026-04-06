@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   LineChart, Line, ResponsiveContainer,
 } from 'recharts'
 import { Search, TrendingUp, TrendingDown, Minus } from 'lucide-react'
@@ -57,25 +57,57 @@ function ClassView({ cls, subject }: Props) {
     }
   })
 
-  // Emotion line chart — last 14 days
+  // Class avg table — Subject | Avg Level | Trend | Top Student | Needs Support
   const today = new Date('2026-04-06')
-  const dates = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(today)
-    d.setDate(d.getDate() - (13 - i))
-    return d.toISOString().split('T')[0]
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today); d.setDate(d.getDate() - i); return d.toISOString().split('T')[0]
+  })
+  const prev7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today); d.setDate(d.getDate() - 7 - i); return d.toISOString().split('T')[0]
   })
 
-  const emotions = ['Happy', 'Curious', 'Excited', 'Anxious', 'Disengaged']
-  const emotionLineData = dates.map(date => {
-    const point: Record<string, string | number> = {
-      date: new Date(date).toLocaleDateString('en-AU', { month: 'short', day: 'numeric' }),
+  const classAvgTable = SUBJECTS.map(subj => {
+    const entries = cls.students.flatMap(s => s.journalEntries.filter(e => e.subject === subj))
+    const avg = entries.length ? entries.reduce((a, e) => a + e.cognitiveLevel, 0) / entries.length : 0
+
+    const recentEntries = cls.students.flatMap(s => s.journalEntries.filter(e => e.subject === subj && last7.includes(e.date)))
+    const olderEntries = cls.students.flatMap(s => s.journalEntries.filter(e => e.subject === subj && prev7.includes(e.date)))
+    const recentAvg = recentEntries.length ? recentEntries.reduce((a, e) => a + e.cognitiveLevel, 0) / recentEntries.length : avg
+    const olderAvg = olderEntries.length ? olderEntries.reduce((a, e) => a + e.cognitiveLevel, 0) / olderEntries.length : avg
+    const trend = recentAvg > olderAvg + 0.2 ? 'up' : recentAvg < olderAvg - 0.2 ? 'down' : 'flat'
+
+    const studentAvgs = cls.students.map(s => {
+      const e = s.journalEntries.filter(e => e.subject === subj)
+      return { name: s.name.split(' ')[0], avg: e.length ? e.reduce((a, b) => a + b.cognitiveLevel, 0) / e.length : 0 }
+    }).filter(s => s.avg > 0).sort((a, b) => b.avg - a.avg)
+
+    return {
+      subj,
+      avg: parseFloat(avg.toFixed(1)),
+      trend,
+      topStudent: studentAvgs[0]?.name ?? '—',
+      needsSupport: studentAvgs[studentAvgs.length - 1]?.name ?? '—',
     }
-    emotions.forEach(em => {
-      const count = cls.students.filter(s => s.journalEntries.some(e => e.date === date && e.emotion === em)).length
-      point[em] = count
-    })
-    return point
   })
+
+  // Student × Subject heatmap
+  const heatmapData = cls.students.map(s => {
+    const row: Record<string, number> = {}
+    SUBJECTS.forEach(subj => {
+      const e = s.journalEntries.filter(e => e.subject === subj)
+      row[subj] = e.length ? parseFloat((e.reduce((a, b) => a + b.cognitiveLevel, 0) / e.length).toFixed(1)) : 0
+    })
+    return { name: s.name.split(' ')[0], ...row }
+  })
+
+  const heatColor = (v: number) => {
+    if (!v) return 'bg-slate-100 text-slate-300'
+    if (v < 2) return 'bg-red-200 text-red-700'
+    if (v < 3) return 'bg-amber-200 text-amber-700'
+    if (v < 4) return 'bg-yellow-200 text-yellow-700'
+    if (v < 4.5) return 'bg-blue-200 text-blue-700'
+    return 'bg-emerald-200 text-emerald-700'
+  }
 
   // Auto-generated strengths/areas
   const subjectAvgs = SUBJECTS.map(subj => {
@@ -120,21 +152,96 @@ function ClassView({ cls, subject }: Props) {
         </div>
       </div>
 
-      {/* Emotion trend */}
-      <div className="backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-5 shadow-sm">
-        <h3 className="font-bold text-slate-800 mb-4 text-sm">Emotion Trends — Last 14 Days</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={emotionLineData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} interval={2} />
-            <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
-            <Tooltip contentStyle={{ borderRadius: 12, border: 'none', fontSize: 11 }} />
-            <Legend wrapperStyle={{ fontSize: 10 }} />
-            {emotions.map(em => (
-              <Line key={em} type="monotone" dataKey={em} stroke={EMOTION_COLORS[em]} strokeWidth={1.5} dot={false} />
+      {/* Academic Performance Table */}
+      <div className="backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-5 shadow-sm overflow-x-auto">
+        <h3 className="font-bold text-slate-800 mb-4 text-sm">Class Academic Performance by Subject</h3>
+        <table className="w-full text-xs min-w-[480px]">
+          <thead>
+            <tr className="border-b border-slate-100">
+              {['Subject', 'Avg Level', 'Trend', 'Top Student', 'Needs Support'].map(h => (
+                <th key={h} className="text-left pb-2 pr-4 text-[10px] font-bold text-slate-400 uppercase tracking-wide">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {classAvgTable.map(({ subj, avg, trend, topStudent, needsSupport }) => (
+              <tr key={subj} className="border-b border-slate-50 hover:bg-slate-50/50">
+                <td className="py-2.5 pr-4">
+                  <span className="font-semibold text-slate-700">{subj}</span>
+                </td>
+                <td className="py-2.5 pr-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${(avg / 5) * 100}%`, backgroundColor: SUBJECT_COLORS[subj] }} />
+                    </div>
+                    <span className="font-bold text-slate-700">{avg}</span>
+                  </div>
+                </td>
+                <td className="py-2.5 pr-4">
+                  {trend === 'up' ? (
+                    <span className="flex items-center gap-1 text-emerald-600 font-semibold"><TrendingUp size={11} /> Up</span>
+                  ) : trend === 'down' ? (
+                    <span className="flex items-center gap-1 text-red-500 font-semibold"><TrendingDown size={11} /> Down</span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-slate-400 font-semibold"><Minus size={11} /> Stable</span>
+                  )}
+                </td>
+                <td className="py-2.5 pr-4">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">{topStudent}</span>
+                </td>
+                <td className="py-2.5">
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">{needsSupport}</span>
+                </td>
+              </tr>
             ))}
-          </LineChart>
-        </ResponsiveContainer>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Student Performance Heatmap */}
+      <div className="backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-5 shadow-sm overflow-x-auto">
+        <h3 className="font-bold text-slate-800 mb-1 text-sm">Student × Subject Heatmap</h3>
+        <p className="text-[10px] text-slate-400 mb-4">Average cognitive level per student per subject</p>
+        <div className="min-w-[480px]">
+          {/* Header row */}
+          <div className="grid gap-1 mb-1" style={{ gridTemplateColumns: `80px repeat(${SUBJECTS.length}, 1fr)` }}>
+            <div />
+            {SUBJECTS.map(s => (
+              <div key={s} className="text-[9px] font-bold text-slate-400 text-center truncate px-1">{s.slice(0, 5)}</div>
+            ))}
+          </div>
+          {/* Data rows */}
+          <div className="space-y-0.5">
+            {heatmapData.map(row => (
+              <div key={row.name} className="grid gap-1 items-center" style={{ gridTemplateColumns: `80px repeat(${SUBJECTS.length}, 1fr)` }}>
+                <span className="text-[10px] text-slate-600 font-medium truncate">{row.name}</span>
+                {SUBJECTS.map(subj => {
+                  const v = (row as unknown as Record<string, number>)[subj] ?? 0
+                  return (
+                    <div key={subj} className={`h-6 rounded flex items-center justify-center text-[10px] font-bold ${heatColor(v)}`}>
+                      {v > 0 ? v.toFixed(1) : '—'}
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+          {/* Legend */}
+          <div className="flex items-center gap-3 mt-3 flex-wrap">
+            {[
+              { label: '< 2.0', cls: 'bg-red-200 text-red-700' },
+              { label: '2.0–3.0', cls: 'bg-amber-200 text-amber-700' },
+              { label: '3.0–4.0', cls: 'bg-yellow-200 text-yellow-700' },
+              { label: '4.0–4.5', cls: 'bg-blue-200 text-blue-700' },
+              { label: '4.5–5.0', cls: 'bg-emerald-200 text-emerald-700' },
+            ].map(({ label, cls }) => (
+              <div key={label} className="flex items-center gap-1">
+                <div className={`w-4 h-3 rounded text-[8px] flex items-center justify-center ${cls}`} />
+                <span className="text-[9px] text-slate-500">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Strengths & growth */}
