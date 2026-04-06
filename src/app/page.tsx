@@ -2,99 +2,71 @@
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { GraduationCap, Home } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Poppins } from 'next/font/google'
+
+const poppins = Poppins({ subsets: ['latin'], weight: ['800'] })
 
 export default function HomePage() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoaded) return
-    if (!user) return
+    if (!isLoaded || !user) return
     const role = user.publicMetadata?.role as string
-    if (role === 'teacher') router.push('/teacher/dashboard')
-    else if (role === 'parent') router.push('/parent/digest')
+    if (role === 'teacher') router.push('/teacher')
+    else if (role === 'parent') router.push('/parent')
   }, [user, isLoaded, router])
 
   return (
-    <div className="min-h-[calc(100vh-57px)] bg-slate-50 flex flex-col">
-      <main className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12">
-        <div className="max-w-4xl w-full text-center mb-12">
-          <span className="inline-block text-xs font-semibold tracking-widest uppercase text-blue-600 bg-blue-50 px-3 py-1 rounded-full mb-4">
-            Powered by CurricuLLM
-          </span>
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight">
-            Where education meets <span className="text-emerald-500">real life</span>.
-          </h1>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Bridging communication between teachers and parents through AI — translated into any language, instantly.
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50/40 to-violet-50/30 flex flex-col items-center justify-center px-4 py-12">
+      {/* Branding */}
+      <div className="mb-10 text-center">
+        <span className={`${poppins.className} text-3xl font-extrabold bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent tracking-tight`}>
+          LearnBridge
+        </span>
+        <p className="text-slate-500 text-sm mt-2">Connecting home and school through AI</p>
+      </div>
+
+      {/* Role cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-2xl">
+        {/* Teacher */}
+        <button
+          onClick={() => router.push('/teacher')}
+          className="group backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-8 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200 text-left"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center text-3xl mb-5 group-hover:scale-110 transition-transform duration-200">
+            👨‍🏫
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-1">I&apos;m a Teacher</h2>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            Manage your class, share curriculum, and communicate with parents — all in one place.
           </p>
-        </div>
+          <div className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-500 text-white text-xs font-semibold rounded-full group-hover:bg-blue-600 transition-colors">
+            Enter Teacher Portal →
+          </div>
+        </button>
 
-        <div className="grid md:grid-cols-2 gap-8 w-full max-w-4xl">
-          {/* Teacher Portal */}
-          <Card
-            className="group relative overflow-hidden border-2 border-transparent hover:border-blue-200 transition-all duration-300 shadow-sm hover:shadow-xl cursor-pointer"
-            onClick={() => router.push('/teacher/dashboard')}
-            data-testid="card-teacher-portal"
-          >
-            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-              <GraduationCap size={120} />
-            </div>
-            <CardHeader className="pb-4 relative z-10">
-              <div className="w-16 h-16 rounded-2xl bg-blue-100 text-blue-500 flex items-center justify-center mb-6">
-                <GraduationCap size={32} />
-              </div>
-              <CardTitle className="text-3xl font-bold text-slate-900">Teacher Portal</CardTitle>
-            </CardHeader>
-            <CardContent className="relative z-10 flex flex-col">
-              <CardDescription className="text-lg text-slate-600 mb-8">
-                Share this week&apos;s curriculum in minutes. Our AI simplifies it for families automatically.
-              </CardDescription>
-              <Button
-                size="lg"
-                className="w-full text-lg h-14 rounded-xl"
-                onClick={e => { e.stopPropagation(); router.push('/teacher/dashboard') }}
-                data-testid="button-enter-teacher"
-              >
-                Enter Portal
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Parent */}
+        <button
+          onClick={() => router.push('/parent')}
+          className="group backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-8 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200 text-left"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center text-3xl mb-5 group-hover:scale-110 transition-transform duration-200">
+            👨‍👩‍👧
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-1">I&apos;m a Parent</h2>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            Stay connected to your child&apos;s learning with daily insights, activities, and direct teacher chat.
+          </p>
+          <div className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-500 text-white text-xs font-semibold rounded-full group-hover:bg-emerald-600 transition-colors">
+            Go to Family Dashboard →
+          </div>
+        </button>
+      </div>
 
-          {/* Family Dashboard */}
-          <Card
-            className="group relative overflow-hidden border-2 border-transparent hover:border-emerald-200 transition-all duration-300 shadow-sm hover:shadow-xl cursor-pointer"
-            onClick={() => router.push('/parent/digest')}
-            data-testid="card-family-dashboard"
-          >
-            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Home size={120} />
-            </div>
-            <CardHeader className="pb-4 relative z-10">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-500 flex items-center justify-center mb-6">
-                <Home size={32} />
-              </div>
-              <CardTitle className="text-3xl font-bold text-slate-900">Family Dashboard</CardTitle>
-            </CardHeader>
-            <CardContent className="relative z-10 flex flex-col">
-              <CardDescription className="text-lg text-slate-600 mb-8">
-                Stay connected to your child&apos;s learning with personalised activities and daily insights.
-              </CardDescription>
-              <Button
-                size="lg"
-                className="w-full text-lg h-14 rounded-xl bg-emerald-500 hover:bg-emerald-600"
-                onClick={e => { e.stopPropagation(); router.push('/parent/digest') }}
-                data-testid="button-enter-parent"
-              >
-                Go to Dashboard
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+      <p className="mt-10 text-[11px] text-slate-400 text-center">
+        Powered by CurricuLLM · Built for EDX Hackathon 2026
+      </p>
     </div>
   )
 }
