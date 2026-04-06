@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { X, Send, Sparkles, User, GraduationCap } from 'lucide-react'
+import { X, Send, Sparkles, User, GraduationCap, MessageCircle } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { useApi } from '@/lib/api'
 import { useChatbot, useChat } from '@/lib/websocket'
@@ -49,7 +49,7 @@ export default function CommunicationHub() {
   const handleAiSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!aiInput.trim() || isStreaming) return
-    sendAiMessage(aiInput.trim())
+    sendAiMessage(aiInput.trim(), undefined, 'homework')
     setAiInput('')
   }
 
@@ -61,10 +61,20 @@ export default function CommunicationHub() {
   }
 
   const handleChipClick = (chip: string) => {
-    if (!isStreaming) sendAiMessage(chip)
+    if (!isStreaming) sendAiMessage(chip, undefined, 'homework')
   }
 
-  const CHIPS = ['What does this mean?', 'Give me easier activities', 'Explain in Vietnamese', 'Why is this important?']
+  const CHIPS = [
+    '📐 Help with tonight\'s maths',
+    '😰 My child hates school',
+    '🗓️ Best homework routine?',
+    '🍎 Foods that help focus',
+    '💬 Questions to ask after school',
+    '🧠 My child says they\'re stupid',
+  ]
+
+  const isTeacherRedirect = (text: string) =>
+    text.toLowerCase().includes('chat tab') || text.toLowerCase().includes('message the teacher')
 
   return (
     <>
@@ -122,9 +132,9 @@ export default function CommunicationHub() {
         {/* AI Chat Tab */}
         {activeTab === 'ai' && (
           <>
-            <div className="px-4 py-3 bg-blue-50/50 border-b border-blue-100 mt-4">
+            <div className="px-4 py-2.5 bg-blue-50/50 border-b border-blue-100 mt-4">
               <p className="text-xs text-blue-800 text-center font-medium">
-                CurricuLLM knows exactly what your child is learning. Ask for tips or explanations!
+                Homework · Wellbeing · Study routines · Parenting tips
               </p>
             </div>
             <ScrollArea className="flex-1 p-4">
@@ -135,28 +145,58 @@ export default function CommunicationHub() {
                       <Sparkles className="w-4 h-4 text-blue-500" />
                     </div>
                     <div className="bg-slate-100 rounded-2xl rounded-tl-sm p-3 text-sm text-slate-700">
-                      Hi! I&apos;m your AI curriculum assistant. Ask me anything about what your child is learning!
+                      Hi! I&apos;m your Learning Companion. Ask me about homework, your child&apos;s wellbeing, study tips, or anything on your mind! 😊
                     </div>
                   </div>
                 )}
-                {history.map((msg, i) => (
-                  <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-slate-200' : 'bg-blue-50'}`}>
-                      {msg.role === 'user' ? <User className="w-4 h-4 text-slate-500" /> : <Sparkles className="w-4 h-4 text-blue-500" />}
+                {history.map((msg, i) => {
+                  const redirect = msg.role === 'assistant' && isTeacherRedirect(msg.content)
+                  return (
+                    <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-slate-200' : redirect ? 'bg-amber-50' : 'bg-blue-50'}`}>
+                        {msg.role === 'user'
+                          ? <User className="w-4 h-4 text-slate-500" />
+                          : redirect
+                            ? <MessageCircle className="w-4 h-4 text-amber-500" />
+                            : <Sparkles className="w-4 h-4 text-blue-500" />
+                        }
+                      </div>
+                      <div className={`rounded-2xl p-3 text-sm max-w-[80%] whitespace-pre-wrap ${
+                        msg.role === 'user'
+                          ? 'bg-blue-500 text-white rounded-tr-sm'
+                          : redirect
+                            ? 'bg-amber-50 border border-amber-200 text-amber-900 rounded-tl-sm'
+                            : 'bg-slate-100 text-slate-700 rounded-tl-sm'
+                      }`}>
+                        {redirect && (
+                          <p className="text-[10px] font-bold text-amber-700 mb-1 uppercase tracking-wide">💬 Tip: Message the teacher</p>
+                        )}
+                        {msg.content}
+                      </div>
                     </div>
-                    <div className={`rounded-2xl p-3 text-sm max-w-[80%] ${msg.role === 'user' ? 'bg-blue-500 text-white rounded-tr-sm' : 'bg-slate-100 text-slate-700 rounded-tl-sm'}`}>
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
                 {streamingText && (
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
                       <Sparkles className="w-4 h-4 text-blue-500" />
                     </div>
-                    <div className="bg-slate-100 rounded-2xl rounded-tl-sm p-3 text-sm text-slate-700 max-w-[80%]">
+                    <div className="bg-slate-100 rounded-2xl rounded-tl-sm p-3 text-sm text-slate-700 max-w-[80%] whitespace-pre-wrap">
                       {streamingText}
                       <span className="inline-block w-0.5 h-3.5 bg-blue-500 ml-0.5 animate-pulse align-middle rounded" />
+                    </div>
+                  </div>
+                )}
+                {isStreaming && !streamingText && (
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-4 h-4 text-blue-500" />
+                    </div>
+                    <div className="bg-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 flex gap-1 items-center">
+                      {[0, 1, 2].map(i => (
+                        <span key={i} className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce"
+                          style={{ animationDelay: `${i * 0.15}s` }} />
+                      ))}
                     </div>
                   </div>
                 )}
@@ -180,7 +220,7 @@ export default function CommunicationHub() {
             <div className="p-4 border-t border-slate-100 bg-white">
               <form onSubmit={handleAiSubmit} className="flex gap-2">
                 <Input
-                  placeholder="Ask CurricuLLM..."
+                  placeholder="Ask about homework, wellbeing, study tips…"
                   value={aiInput}
                   onChange={e => setAiInput(e.target.value)}
                   className="rounded-full bg-slate-50 border-slate-200"
