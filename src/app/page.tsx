@@ -15,7 +15,7 @@ export default function HomePage() {
     if (!user) return
     const role = user.publicMetadata?.role as string
     if (role === 'teacher') router.push('/teacher/dashboard')
-    else if (role === 'parent') router.push('/parent/digest')
+    else if (role === 'parent') router.push('/parent')
   }, [user, isLoaded, router])
 
   return (
@@ -67,7 +67,7 @@ export default function HomePage() {
           {/* Family Dashboard */}
           <Card
             className="group relative overflow-hidden border-2 border-transparent hover:border-emerald-200 transition-all duration-300 shadow-sm hover:shadow-xl cursor-pointer"
-            onClick={() => router.push('/parent/digest')}
+            onClick={() => router.push('/parent')}
             data-testid="card-family-dashboard"
           >
             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -86,7 +86,7 @@ export default function HomePage() {
               <Button
                 size="lg"
                 className="w-full text-lg h-14 rounded-xl bg-emerald-500 hover:bg-emerald-600"
-                onClick={e => { e.stopPropagation(); router.push('/parent/digest') }}
+                onClick={e => { e.stopPropagation(); router.push('/parent') }}
                 data-testid="button-enter-parent"
               >
                 Go to Dashboard

@@ -155,11 +155,9 @@ export default function CalendarPage() {
             return (
               <div
                 key={dateStr}
-                onClick={() => hasClasses && router.push(`/parent/day/${dateStr}`)}
-                className={`min-h-32 p-1.5 flex flex-col gap-1 transition-colors
+                className={`min-h-32 p-1.5 flex flex-col gap-1
                   ${isWeekend ? 'bg-slate-50/60' : 'bg-white'}
                   ${isToday ? 'bg-blue-50/40' : ''}
-                  ${hasClasses ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default'}
                   ${isPast && !isToday ? 'opacity-60' : ''}`}
               >
                 {schedule.map((cls, j) => {
@@ -168,7 +166,8 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={j}
-                      className="rounded-md px-1.5 py-1 text-left overflow-hidden"
+                      onClick={() => router.push(`/parent/day/${dateStr}/${encodeURIComponent(cls.subject)}`)}
+                      className="rounded-md px-1.5 py-1 text-left overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                       style={{ background: bgColor, borderLeft: `3px solid ${color}` }}
                     >
                       <p className="text-[10px] font-bold truncate" style={{ color }}>{cls.subject}</p>
