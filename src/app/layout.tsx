@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
-import HeaderAuth from '@/components/shared/HeaderAuth'
+import ConditionalHeader from '@/components/shared/ConditionalHeader'
 import './globals.css'
 
 const jakarta = Plus_Jakarta_Sans({
@@ -20,12 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={jakarta.className}>
       <body>
         <ClerkProvider>
-          <header className="border-b border-[#eeeeee] px-6 py-3 flex items-center justify-between bg-white sticky top-0 z-50 shadow-sm">
-            <a href="/" className="font-semibold text-lg tracking-tight text-[#315bcf]">
-              Srenniw
-            </a>
-            <HeaderAuth />
-          </header>
+          <ConditionalHeader />
           <main>{children}</main>
         </ClerkProvider>
       </body>

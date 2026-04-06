@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 import CalendarPage from './calendar/page'
 import ProgressPage from './progress/page'
-import DashboardPage from './journal/dashboard/page'
+import InsightsPage from './insights/page'
 
 export default function ParentDashboard() {
   useEffect(() => {
@@ -16,22 +16,24 @@ export default function ParentDashboard() {
 
   return (
     <div>
-      <section id="section-calendar" className="h-[calc(100vh-89px)] overflow-hidden">
+      <section id="section-calendar" className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white/60">
         <CalendarPage />
       </section>
 
-      <section id="section-progress" className="min-h-[calc(100vh-89px)] border-t border-slate-200">
-        <div className="px-4 py-3 border-b border-slate-200 bg-white">
-          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Progress</h2>
+      <section id="section-progress" className="min-h-screen bg-gradient-to-b from-violet-50/40 to-white/60">
+        <div className="px-6 pt-10 pb-2">
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Progress</h2>
+          <p className="text-slate-500 mt-1">Track the learning journey over time</p>
         </div>
         <ProgressPage />
       </section>
 
-      <section id="section-insights" className="min-h-[calc(100vh-89px)] border-t border-slate-200">
-        <div className="px-4 py-3 border-b border-slate-200 bg-white">
-          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Insights</h2>
+      <section id="section-insights" className="min-h-screen bg-gradient-to-b from-emerald-50/40 to-white/60">
+        <div className="px-6 pt-10 pb-2">
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Insights</h2>
+          <p className="text-slate-500 mt-1">AI-powered learning intelligence</p>
         </div>
-        <DashboardPage />
+        <InsightsPage />
       </section>
     </div>
   )
