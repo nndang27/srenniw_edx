@@ -16,7 +16,7 @@ cd srenniw_edx
 
 **Frontend (Next.js):**
 ```bash
-cd frontend
+cd src
 pnpm install
 pnpm dev
 ```
