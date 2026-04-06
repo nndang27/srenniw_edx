@@ -70,21 +70,21 @@ def check_openrouter_version() -> None:
 
 
 def resolve_model(model: str | BaseChatModel) -> BaseChatModel:
-    """Resolve a model string to a `BaseChatModel`.
+    """Resolve a model string to a ``BaseChatModel``.
 
-    If `model` is already a `BaseChatModel`, returns it unchanged.
-
-    String models are resolved via `init_chat_model`. OpenAI models
-    (prefixed with `openai:`) default to the Responses API.
-
-    OpenRouter models include default app attribution headers unless overridden
-    via `OPENROUTER_APP_URL` / `OPENROUTER_APP_TITLE` env vars.
+    Supported provider prefixes:
+    - ``anthropic:claude-sonnet-4-6``   → langchain-anthropic
+    - ``openai:gpt-4o``                 → langchain-openai (Responses API)
+    - ``google:gemini-2.0-flash``       → langchain-google-genai (requires install)
+    - ``zhipuai:glm-4`` / ``glm:glm-4`` → ZhipuAI OpenAI-compat endpoint
+    - ``openrouter:google/gemini-pro``  → OpenRouter proxy (requires install)
+    - bare string e.g. ``claude-sonnet-4-6`` → langchain init_chat_model
 
     Args:
-        model: Model string or pre-configured model instance.
+        model: Model string (``provider:model-name``) or pre-configured instance.
 
     Returns:
-        Resolved `BaseChatModel` instance.
+        Resolved ``BaseChatModel`` instance.
     """
     if isinstance(model, BaseChatModel):
         return model
@@ -93,6 +93,23 @@ def resolve_model(model: str | BaseChatModel) -> BaseChatModel:
     if model.startswith("openrouter:"):
         check_openrouter_version()
         return init_chat_model(model, **_openrouter_attribution_kwargs())
+    if model.startswith("google:"):
+        try:
+            from langchain_google_genai import ChatGoogleGenerativeAI  # noqa: PLC0415
+        except ImportError as e:
+            msg = "Google Gemini requires: pip install langchain-google-genai"
+            raise ImportError(msg) from e
+        model_name = model.split(":", 1)[1]
+        return ChatGoogleGenerativeAI(model=model_name, google_api_key=os.environ.get("GOOGLE_API_KEY"))
+    if model.startswith("zhipuai:") or model.startswith("glm:"):
+        # ZhipuAI exposes an OpenAI-compatible API — no extra package needed
+        from langchain_openai import ChatOpenAI  # noqa: PLC0415
+        model_name = model.split(":", 1)[1]
+        return ChatOpenAI(
+            model=model_name,
+            api_key=os.environ.get("ZHIPUAI_API_KEY", ""),
+            base_url="https://open.bigmodel.cn/api/paas/v4",
+        )
     return init_chat_model(model)
 
 
