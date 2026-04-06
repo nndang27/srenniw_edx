@@ -7,7 +7,6 @@ import {
 import { TrendingUp, Clock, Brain, Zap, BarChart2 } from 'lucide-react'
 import { getAllSubjectEntries, type SubjectEntry } from '@/lib/journal'
 import { SUBJECT_COLORS, type SubjectName } from '@/lib/mockTimetable'
-import { Card, CardContent } from '@/components/ui/card'
 
 const SUBJECTS: SubjectName[] = ['Maths', 'Science', 'English', 'HSIE', 'Creative Arts', 'PE']
 const EMOTIONS = ['Curious', 'Excited', 'Happy', 'Anxious', 'Disengaged']
@@ -63,10 +62,9 @@ function EmptyState() {
 
 function CognitiveLevelChart({ data }: { data: { date: string; level: number }[] }) {
   return (
-    <Card className="border-none shadow-sm">
-      <CardContent className="p-4">
+    <div className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-3xl shadow-lg p-4">
         <div className="flex items-center gap-2 mb-4">
-          <Brain size={16} className="text-brand-500" />
+          <Brain size={16} className="text-[#446dd5]" />
           <p className="text-sm font-semibold text-slate-700">Cognitive Level</p>
         </div>
         <ResponsiveContainer width="100%" height={200}>
@@ -101,8 +99,7 @@ function CognitiveLevelChart({ data }: { data: { date: string; level: number }[]
             />
           </LineChart>
         </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    </div>
   )
 }
 
@@ -110,8 +107,7 @@ function CognitiveLevelChart({ data }: { data: { date: string; level: number }[]
 
 function EmotionChart({ data }: { data: { emotion: string; count: number }[] }) {
   return (
-    <Card className="border-none shadow-sm">
-      <CardContent className="p-4">
+    <div className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-3xl shadow-lg p-4">
         <div className="flex items-center gap-2 mb-4">
           <Zap size={16} className="text-amber-500" />
           <p className="text-sm font-semibold text-slate-700">Emotion Frequency</p>
@@ -142,8 +138,7 @@ function EmotionChart({ data }: { data: { emotion: string; count: number }[] }) 
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    </div>
   )
 }
 
@@ -159,8 +154,7 @@ function CompareRadarChart({ entries }: { entries: SubjectEntry[] }) {
   })
 
   return (
-    <Card className="border-none shadow-sm">
-      <CardContent className="p-4">
+    <div className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-3xl shadow-lg p-4">
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp size={16} className="text-emerald-500" />
           <p className="text-sm font-semibold text-slate-700">All Subjects — Avg Cognitive Level</p>
@@ -185,8 +179,7 @@ function CompareRadarChart({ entries }: { entries: SubjectEntry[] }) {
             />
           </RadarChart>
         </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    </div>
   )
 }
 
@@ -224,34 +217,32 @@ function SubjectStatsCard({
   const uniqueDays = new Set(subEntries.map(e => e.date)).size
 
   return (
-    <Card className="border-none shadow-sm">
-      <CardContent className="p-4">
+    <div className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-3xl shadow-lg p-4">
         <div className="flex items-center gap-2 mb-3">
           <span className="w-3 h-3 rounded-full" style={{ background: color }} />
           <p className="text-sm font-semibold text-slate-700">{subject} — Summary</p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="bg-slate-50 rounded-xl p-3 text-center">
+          <div className="bg-white/50 rounded-xl p-3 text-center">
             <p className="text-lg font-bold" style={{ color }}>{avgLevel.toFixed(1)}</p>
             <p className="text-[10px] text-slate-500 mt-0.5">Avg Level</p>
           </div>
-          <div className="bg-slate-50 rounded-xl p-3 text-center">
+          <div className="bg-white/50 rounded-xl p-3 text-center">
             <p className="text-lg font-bold text-slate-800">{bestLevel}</p>
             <p className="text-[10px] text-slate-500 mt-0.5">Best Level</p>
           </div>
-          <div className="bg-slate-50 rounded-xl p-3 text-center">
+          <div className="bg-white/50 rounded-xl p-3 text-center">
             <p className="text-lg font-bold text-slate-800">{Math.round(avgTime)}m</p>
             <p className="text-[10px] text-slate-500 mt-0.5">Avg / session</p>
           </div>
-          <div className="bg-slate-50 rounded-xl p-3 text-center">
+          <div className="bg-white/50 rounded-xl p-3 text-center">
             <p className={`text-lg font-bold ${trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-red-500' : 'text-slate-400'}`}>
               {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'}
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">{uniqueDays} days logged</p>
           </div>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 }
 
@@ -264,26 +255,24 @@ function TimeSpentCard({ entries }: { entries: SubjectEntry[] }) {
   const mins = totalMins % 60
 
   return (
-    <Card className="border-none shadow-sm">
-      <CardContent className="p-4">
+    <div className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-3xl shadow-lg p-4">
         <div className="flex items-center gap-2 mb-3">
           <Clock size={16} className="text-orange-500" />
           <p className="text-sm font-semibold text-slate-700">Time Spent</p>
         </div>
         <div className="flex gap-4">
-          <div className="flex-1 bg-orange-50 rounded-xl p-3 text-center">
+          <div className="flex-1 bg-orange-50/60 rounded-xl p-3 text-center">
             <p className="text-xl font-bold text-orange-600">
               {hrs > 0 ? `${hrs}h ${mins}m` : `${totalMins}m`}
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">Total time</p>
           </div>
-          <div className="flex-1 bg-slate-50 rounded-xl p-3 text-center">
+          <div className="flex-1 bg-white/50 rounded-xl p-3 text-center">
             <p className="text-xl font-bold text-slate-700">{avgMins}m</p>
             <p className="text-[10px] text-slate-500 mt-0.5">Avg / session</p>
           </div>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 }
 
@@ -342,7 +331,7 @@ export default function ProgressPage() {
       {/* Selectors */}
       <div className="flex flex-wrap gap-2 mb-6">
         {/* Subject selector */}
-        <div className="flex items-center gap-1 bg-white border border-[#eeeeee] rounded-xl px-1 py-1 flex-wrap">
+        <div className="flex items-center gap-1 backdrop-blur-xl bg-white/60 border border-white/50 rounded-xl px-1 py-1 flex-wrap">
           {(['All', ...SUBJECTS] as const).map(sub => (
             <button
               key={sub}
@@ -364,7 +353,7 @@ export default function ProgressPage() {
         </div>
 
         {/* Time range selector */}
-        <div className="flex items-center gap-1 bg-white border border-[#eeeeee] rounded-xl px-1 py-1">
+        <div className="flex items-center gap-1 backdrop-blur-xl bg-white/60 border border-white/50 rounded-xl px-1 py-1">
           {(['week', 'month', 'term'] as TimeRange[]).map(r => (
             <button
               key={r}

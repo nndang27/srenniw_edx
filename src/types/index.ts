@@ -1,5 +1,5 @@
 export type Role = 'teacher' | 'parent'
-export type Language = 'en' | 'vi' | 'zh' | 'ar'
+export type Language = 'en' | 'vi' | 'zh' | 'zh-TW' | 'ar' | 'hi' | 'es' | 'fr' | 'de' | 'ko' | 'ja' | 'id' | 'ms' | 'th' | 'tl'
 export type ContentType = 'assignment' | 'comment' | 'weekly_update'
 export type BriefStatus = 'pending' | 'processing' | 'done' | 'failed'
 

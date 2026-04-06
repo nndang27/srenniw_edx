@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { MessageCircle, X, Send, Sparkles, User, GraduationCap } from 'lucide-react'
+import { X, Send, Sparkles, User, GraduationCap } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { useApi } from '@/lib/api'
 import { useChatbot, useChat } from '@/lib/websocket'
@@ -72,9 +72,14 @@ export default function CommunicationHub() {
       <button
         onClick={() => setIsOpen(true)}
         data-testid="fab-communication"
-        className={`fixed ${isMobile ? 'bottom-20 right-4' : 'bottom-8 right-8'} w-14 h-14 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-xl z-40 flex items-center justify-center transition-transform hover:scale-105 active:scale-95`}
+        className={`fixed ${isMobile ? 'bottom-20 right-4' : 'bottom-8 right-8'} w-14 h-14 rounded-full overflow-hidden bg-white ring-2 ring-blue-400 ring-offset-2 shadow-lg z-40 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 p-0`}
       >
-        <MessageCircle className="w-6 h-6" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/teacher-avatar.png"
+          alt="Teacher assistant"
+          className="w-full h-full object-cover"
+        />
       </button>
 
       {/* Backdrop */}
@@ -197,8 +202,13 @@ export default function CommunicationHub() {
         {activeTab === 'teacher' && (
           <>
             <div className="px-4 py-3 flex items-center gap-3 bg-white border-b border-slate-100 mt-4">
-              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center font-bold shrink-0">
-                T
+              <div className="w-10 h-10 rounded-full ring-2 ring-blue-400 ring-offset-2 shadow-lg bg-white overflow-hidden shrink-0 flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/teacher-avatar.png"
+                  alt="Teacher"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <h3 className="font-semibold text-sm text-slate-900">Your Teacher</h3>
