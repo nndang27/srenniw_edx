@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, User, BookOpen, Bell, Globe, Save, Plus } from 'lucide-react'
 
 const SUBJECTS = ['All Subjects', 'Maths', 'Science', 'English', 'HSIE', 'Creative Arts', 'PE']
@@ -55,6 +55,7 @@ export default function TeacherSettingsModal({ open, onClose }: Props) {
     notifyWeeklySummary: false,
     language: 'en',
   })
+  const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -63,6 +64,17 @@ export default function TeacherSettingsModal({ open, onClose }: Props) {
       try { setSettings(JSON.parse(stored)) } catch { /* ignore */ }
     }
   }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open, onClose])
 
   const handleSave = () => {
     localStorage.setItem('teacherSettings', JSON.stringify(settings))
@@ -77,7 +89,7 @@ export default function TeacherSettingsModal({ open, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
-      <div className="w-full max-w-xl bg-white/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+      <div ref={modalRef} className="w-full max-w-xl bg-white/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <h2 className="font-bold text-slate-800 text-lg">Settings</h2>
