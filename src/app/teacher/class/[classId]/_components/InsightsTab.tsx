@@ -209,15 +209,13 @@ function ClassView({ cls, subject }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="text-[10px] text-slate-400 bg-slate-50/80 border border-slate-100 rounded-2xl px-4 py-2">
-        📊 Insights are derived from journal entries using growth mindset indicators. Use as a starting point for conversations, not as definitive assessments.
-      </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Card 1: Multiple Intelligences */}
         <div className="backdrop-blur-xl bg-white/60 border border-white/40 rounded-3xl p-5 shadow-sm">
           <h3 className="font-bold text-slate-800 text-sm mb-0.5">🧠 Multiple Intelligences</h3>
-          <p className="text-[10px] text-slate-400 mb-3">Class average across Gardner&apos;s 8 intelligences</p>
+
           <ResponsiveContainer width="100%" height={190}>
             <RadarChart data={miScores}>
               <PolarGrid stroke="#e2e8f0" />
@@ -242,7 +240,7 @@ function ClassView({ cls, subject }: Props) {
         {/* Card 2: Emotional Wellbeing */}
         <div className="backdrop-blur-xl bg-white/60 border border-white/40 rounded-3xl p-5 shadow-sm">
           <h3 className="font-bold text-slate-800 text-sm mb-0.5">💚 Emotional Wellbeing</h3>
-          <p className="text-[10px] text-slate-400 mb-3">Class-wide positivity ratio across all journal entries</p>
+
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
               <CircularProgress ratio={positivityRatio} color={wellbeingColor} />
@@ -284,7 +282,7 @@ function ClassView({ cls, subject }: Props) {
       {/* Card 3: Cognitive Growth */}
       <div className="backdrop-blur-xl bg-white/60 border border-white/40 rounded-3xl p-5 shadow-sm">
         <h3 className="font-bold text-slate-800 text-sm mb-0.5">📈 Cognitive Growth</h3>
-        <p className="text-[10px] text-slate-400 mb-4">Class average cognitive level per subject over the past 14 days</p>
+
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={growthLineData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -313,7 +311,7 @@ function ClassView({ cls, subject }: Props) {
       {/* Card 4: VARK Distribution */}
       <div className="backdrop-blur-xl bg-white/60 border border-white/40 rounded-3xl p-5 shadow-sm">
         <h3 className="font-bold text-slate-800 text-sm mb-0.5">🎯 VARK Learning Styles</h3>
-        <p className="text-[10px] text-slate-400 mb-4">Estimated distribution based on subject engagement patterns</p>
+
         <div className="flex items-center gap-6">
           <ResponsiveContainer width={160} height={160}>
             <PieChart>
@@ -457,7 +455,7 @@ function IndividualView({ cls, subject }: Props) {
         {/* Section 1: MI Radar */}
         <div className="backdrop-blur-xl bg-white/60 border border-white/40 rounded-3xl p-5 shadow-sm">
           <h4 className="font-bold text-slate-800 text-sm mb-0.5">🧠 Multiple Intelligences</h4>
-          <p className="text-[10px] text-slate-400 mb-3">Personal intelligence profile</p>
+
           <ResponsiveContainer width="100%" height={180}>
             <RadarChart data={miScores}>
               <PolarGrid stroke="#e2e8f0" />
