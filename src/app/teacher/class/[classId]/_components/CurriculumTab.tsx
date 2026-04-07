@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, Pencil, Calendar, List, CheckCircle, X, Save, Sparkles, Wifi, Radio, RefreshCw, BookOpen, ClipboardList, Users } from 'lucide-react'
 import { getCurriculum, SUBJECTS } from '@/lib/mockTeacherData'
-import type { ClassroomCourseData, ClassroomItem } from '@/lib/api'
+import { useApi, type ClassroomCourseData, ClassroomItem } from '@/lib/api'
+import { SUBJECT_COLORS as TIMETABLE_COLORS, SUBJECT_BG_COLORS, type SubjectName } from '@/lib/mockTimetable'
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -556,6 +557,16 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const [expandedCalDay, setExpandedCalDay] = useState<string | null>(null)
   const [savedOverrides, setSavedOverrides] = useState<Record<string, Record<string, SavedEntry>>>({})
 
+  // Classroom Sync State
+  const { getClassroomItems } = useApi()
+  const [gcExpanded, setGcExpanded] = useState(false)
+  const [gcData, setGcData] = useState<ClassroomCourseData | null>(null)
+  const [gcLoading, setGcLoading] = useState(false)
+  const [gcError, setGcError] = useState<string | null>(null)
+  const [gcCourseId, setGcCourseId] = useState<string | null>(null)
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
+  const [timetable, setTimetable] = useState<any>(null)
+
   // Original fallback for curricula list (topics)
   const curricula = getCurriculum(classId, subject)
 
@@ -565,6 +576,31 @@ export default function CurriculumTab({ classId, subject }: Props) {
       .then(data => setTimetable(data))
       .catch(console.error)
   }, [])
+
+  const fetchClassroomData = async (courseId: string) => {
+    setGcLoading(true)
+    setGcError(null)
+    try {
+      const data = await getClassroomItems(courseId)
+      setGcData(data)
+    } catch (err: any) {
+      setGcError(err.message || 'Failed to sync with Google Classroom')
+    } finally {
+      setGcLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (classId === '4a') {
+      setGcCourseId('maths-101')
+    }
+  }, [classId])
+
+  useEffect(() => {
+    if (gcCourseId) {
+      fetchClassroomData(gcCourseId)
+    }
+  }, [gcCourseId])
 
   useEffect(() => {
     // Load all saved overrides from localStorage
@@ -835,30 +871,44 @@ export default function CurriculumTab({ classId, subject }: Props) {
 
           {/* Day grid */}
           <div className="backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-4 shadow-sm">
-            <div className="grid grid-cols-5 gap-2 mb-2">
-              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, dayIdx) => {
+            <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/30">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day, dayIdx) => {
                 const hdrDate = new Date('2026-02-16')
                 hdrDate.setDate(hdrDate.getDate() + ((calendarWeek - 1) * 7) + dayIdx)
                 const dayNum = hdrDate.getDate()
+                const dateStr = hdrDate.toISOString().split('T')[0]
+                const isToday = dateStr === new Date().toISOString().split('T')[0]
+                const isWeekend = dayIdx >= 5
                 return (
-                  <div key={day} className="text-center text-[10px] font-bold text-slate-400 pb-1.5 border-b border-slate-100">
-                    <div>{day.slice(0, 3).toUpperCase()}</div>
-                    <div className="text-[9px] font-normal text-slate-300">{dayNum}</div>
-                  </div>
+                  <button 
+                    key={day} 
+                    onClick={() => setExpandedCalDay(expandedCalDay === `${calendarWeek}-${day}-all` ? null : `${calendarWeek}-${day}-all`)}
+                    className={`flex flex-col items-center py-2 px-1 transition-all hover:bg-slate-100/50 cursor-pointer ${isWeekend ? 'bg-slate-50/60' : ''}`}
+                  >
+                    <span className={`text-[10px] font-bold uppercase tracking-wide ${isWeekend ? 'text-slate-400' : 'text-slate-500'}`}>
+                      {day.slice(0, 3)}
+                    </span>
+                    <div className={`w-7 h-7 flex items-center justify-center rounded-full mt-0.5 text-sm font-bold
+                      ${isToday ? 'bg-red-500 text-white' : isWeekend ? 'text-slate-400' : 'text-slate-800'}`}>
+                      {dayNum}
+                    </div>
+                  </button>
                 )
               })}
             </div>
-            <div className="grid grid-cols-5 gap-2">
-              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, dayIdx) => {
+            <div className="grid grid-cols-7 flex-1 divide-x divide-slate-100">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day, dayIdx) => {
                 const calKey = `${calendarWeek}-${day}`
                 const isExpanded = expandedCalDay === calKey
                 
-                // Week 8 = current week (Apr 6–10, 2026). Base Monday = 2026-02-16.
                 const baseDate = new Date('2026-02-16')
                 baseDate.setDate(baseDate.getDate() + ((calendarWeek - 1) * 7) + dayIdx)
                 const dateStr = baseDate.toISOString().split('T')[0]
+                const isToday = dateStr === new Date().toISOString().split('T')[0]
+                const isWeekend = dayIdx >= 5
                 
-                // Fetch daily classes from actual shared timetable API
+                const dayKeyPrefix = `${calendarWeek}-${day}`
+                
                 let rawClasses = timetable[dateStr] || []
                 if (subject !== 'All') {
                   rawClasses = rawClasses.filter((c: any) => c.subject === subject)
@@ -866,27 +916,44 @@ export default function CurriculumTab({ classId, subject }: Props) {
                 const daySubjects = rawClasses
 
                 return (
-                  <div key={day} className="flex flex-col gap-1">
+                  <div 
+                    key={day} 
+                    className={`flex flex-col gap-1 p-1.5 min-h-[120px] transition-colors
+                      ${isWeekend ? 'bg-slate-50/60' : 'bg-white/30 hover:bg-slate-50/50'}
+                      ${isToday ? 'bg-blue-50/50' : ''}`}
+                  >
                     {daySubjects.length > 0 ? (
                       daySubjects.map((item: any, slotIdx: number) => {
-                        const colClass = SUBJECT_COLORS[item.subject] ?? 'bg-slate-50 border-slate-100 text-slate-600'
+                        const color = TIMETABLE_COLORS[item.subject as SubjectName] ?? '#94a3b8'
+                        const bgColor = SUBJECT_BG_COLORS[item.subject as SubjectName] ?? '#f8fafc'
                         const timeSlot = item.time || TIME_SLOTS[slotIdx] || ''
+                        const itemKey = `${dayKeyPrefix}-${item.subject}`
+                        const isThisExpanded = expandedCalDay === itemKey
+
                         return (
                           <button
                             key={item.subject + slotIdx}
-                            onClick={() => setExpandedCalDay(isExpanded ? null : calKey)}
-                            className={`rounded-xl p-2 border text-left w-full transition-all hover:scale-[1.02] ${colClass}`}
+                            onClick={() => setExpandedCalDay(isThisExpanded ? null : itemKey)}
+                            className={`rounded-lg px-2 py-1.5 text-left w-full transition-all hover:scale-[1.02] backdrop-blur-sm border-none shadow-sm flex flex-col
+                              ${isThisExpanded ? 'ring-2 ring-blue-500/50 ring-offset-1' : ''}`}
+                            style={{ background: bgColor, borderLeft: `3px solid ${color}` }}
                           >
-                            <p className="text-[10px] font-bold leading-tight">{item.subject}</p>
-                            {timeSlot && <p className="text-[8px] leading-tight mt-0.5 opacity-60 font-medium">{timeSlot}</p>}
-                            {!isExpanded && <p className="text-[9px] leading-tight mt-0.5 opacity-75 line-clamp-2">{item.topic}</p>}
+                            <p className="text-[10px] font-bold leading-tight truncate" style={{ color }}>{item.subject}</p>
+                            {timeSlot && <p className="text-[8px] leading-tight mt-0.5 text-slate-500 font-medium">{timeSlot}</p>}
+                            {!isThisExpanded && <p className="text-[9px] leading-tight mt-0.5 text-slate-600 line-clamp-2">{item.topic}</p>}
                           </button>
                         )
                       })
                     ) : (
-                      <div className="rounded-xl p-2 border border-dashed border-slate-200 min-h-[60px] flex items-center justify-center">
-                        <span className="text-[9px] text-slate-300">—</span>
-                      </div>
+                      isWeekend ? (
+                        <div className="flex-1 flex items-center justify-center">
+                          <span className="text-[9px] text-slate-300 font-medium">Weekend</span>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl p-2 border border-dashed border-slate-100 min-h-[60px] flex items-center justify-center">
+                          <span className="text-[9px] text-slate-300">—</span>
+                        </div>
+                      )
                     )}
                   </div>
                 )
@@ -895,8 +962,12 @@ export default function CurriculumTab({ classId, subject }: Props) {
 
             {/* Expanded day detail */}
             {expandedCalDay && expandedCalDay.startsWith(`${calendarWeek}-`) && (() => {
-              const expandedDay = expandedCalDay.split('-').slice(1).join('-')
-              const dayIdx = ['Monday','Tuesday','Wednesday','Thursday','Friday'].indexOf(expandedDay)
+              const parts = expandedCalDay.split('-')
+              const weekNum = parts[0]
+              const expandedDay = parts[1]
+              const targetSubject = parts[2] || 'all'
+              
+              const dayIdx = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].indexOf(expandedDay)
               const baseDate = new Date('2026-02-16')
               baseDate.setDate(baseDate.getDate() + ((calendarWeek - 1) * 7) + dayIdx)
               const dateStr = baseDate.toISOString().split('T')[0]
@@ -905,21 +976,43 @@ export default function CurriculumTab({ classId, subject }: Props) {
               if (subject !== 'All') {
                 rawClasses = rawClasses.filter((c: any) => c.subject === subject)
               }
-              const daySubjects = rawClasses
+              const daySubjects = targetSubject === 'all' 
+                ? rawClasses 
+                : rawClasses.filter((c: any) => c.subject === targetSubject)
+
               if (!daySubjects.length) return null
               
               return (
-                <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
-                  <p className="text-xs font-bold text-slate-600">{expandedDay} — Week {calendarWeek} Details</p>
-                  {daySubjects.map((item: any, idx: number) => (
-                    <div key={item.subject + idx} className={`rounded-xl p-3 border ${SUBJECT_COLORS[item.subject] ?? 'bg-slate-50 border-slate-100'}`}>
-                      <p className="text-xs font-bold">{item.subject}: {item.topic}</p>
-                      <p className="text-[10px] mt-1 opacity-75 flex items-start gap-1">
-                        <CheckCircle size={10} className="mt-0.5 shrink-0" />
-                        {AI_GOALS[item.subject] || 'Students will understand and apply core concepts in this lesson.'}
-                      </p>
-                    </div>
-                  ))}
+                <div className="mt-3 pt-3 border-t border-slate-100 space-y-2 anim-slide-up">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-600">
+                      {expandedDay} — {targetSubject === 'all' ? `Week ${weekNum} Details` : `${targetSubject} Details`}
+                    </p>
+                    <button 
+                      onClick={() => setExpandedCalDay(null)}
+                      className="p-1 rounded-full hover:bg-slate-100 text-slate-400 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  {daySubjects.map((item: any, idx: number) => {
+                    const color = TIMETABLE_COLORS[item.subject as SubjectName] ?? '#94a3b8'
+                    const bgColor = SUBJECT_BG_COLORS[item.subject as SubjectName] ?? '#f5f3ff'
+                    
+                    return (
+                      <div 
+                        key={item.subject + idx} 
+                        className={`rounded-xl p-3 border-none flex flex-col gap-1 shadow-sm transition-all`}
+                        style={{ background: bgColor, borderLeft: `4px solid ${color}` }}
+                      >
+                        <p className="text-sm font-bold" style={{ color }}>{item.subject}: {item.topic}</p>
+                        <p className="text-[10px] mt-0.5 text-slate-600 flex items-start gap-1">
+                          <CheckCircle size={10} className="mt-0.5 shrink-0 opacity-70" />
+                          {AI_GOALS[item.subject] || 'Students will understand and apply core concepts in this lesson.'}
+                        </p>
+                      </div>
+                    )
+                  })}
                 </div>
               )
             })()}
