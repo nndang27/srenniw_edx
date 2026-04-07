@@ -2,7 +2,8 @@ import { promises as fs } from 'fs'
 import path from 'path'
 
 // Mock Data Path
-const DATA_DIR = '/Users/brucenguyen/srenniw_edx/backend/tests/data'
+// const DATA_DIR = '../../backend/tests/data'
+const DATA_DIR = path.join(process.cwd(), 'backend/tests/data');
 
 export async function readMockFile<T>(filename: string): Promise<T | null> {
   try {
