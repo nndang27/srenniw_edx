@@ -3,6 +3,7 @@ import { Poppins } from 'next/font/google'
 import { UserButton } from '@clerk/nextjs'
 import { Settings, Bell, X } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import TeacherSettingsModal from './_components/TeacherSettingsModal'
 import TeacherChatBubble from './_components/TeacherChatBubble'
 
@@ -18,7 +19,7 @@ interface MockNotification {
 }
 
 const INITIAL_NOTIFICATIONS: MockNotification[] = [
-  { id: 1, title: 'New journal entry', body: "Sarah Watson submitted Emily's journal for today.", time: '10 min ago', read: false, icon: '📓' },
+  { id: 1, title: 'New journal entry', body: "Olivia Chen's parent submitted her journal for today.", time: '10 min ago', read: false, icon: '📓' },
   { id: 2, title: 'Parent message', body: "Michael O'Brien sent you a message about James.", time: '1 hr ago', read: false, icon: '💬' },
   { id: 3, title: 'Weekly summary ready', body: 'Your class cognitive report for Week 8 is ready to view.', time: '2 hrs ago', read: false, icon: '📊' },
   { id: 4, title: 'Curriculum reminder', body: 'Week 9 topics have not been uploaded yet.', time: 'Yesterday', read: true, icon: '📅' },
@@ -29,6 +30,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
   const [bellOpen, setBellOpen] = useState(false)
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS)
   const bellRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
   const unreadCount = notifications.filter(n => !n.read).length
   const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })))
@@ -87,7 +89,27 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
                   {notifications.map(n => (
                     <button
                       key={n.id}
-                      onClick={() => setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item))}
+                      onClick={() => {
+                        setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item))
+                        setBellOpen(false)
+                        const title = n.title.toLowerCase()
+                        
+                        // Based on mocked titles in INITIAL_NOTIFICATIONS
+                        if (title.includes('journal')) {
+                          // Special case for the Olivia Chen mock notification
+                          if (n.body.toLowerCase().includes('olivia chen')) {
+                            router.push('/teacher/class/4a?tab=insights&view=individual&studentId=4a-s1')
+                          } else {
+                            router.push('/teacher/class/maths-101?tab=insights&view=individual')
+                          }
+                        } else if (title.includes('summary')) {
+                          router.push('/teacher/dashboard')
+                        } else if (title.includes('curriculum')) {
+                          router.push('/teacher/class/maths-101?tab=curriculum')
+                        } else if (title.includes('message')) {
+                          window.dispatchEvent(new CustomEvent('open-teacher-chat'))
+                        }
+                      }}
                       className={`w-full flex items-start gap-3 px-4 py-3 border-b border-slate-50 text-left hover:bg-slate-50 transition-colors
                         ${!n.read ? 'bg-blue-50/40' : ''}`}
                     >
