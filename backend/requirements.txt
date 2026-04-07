@@ -19,3 +19,6 @@ langgraph>=0.2.0
 # langchain-google-genai>=2.0.0   # Google Gemini: pip install langchain-google-genai
 # langchain-zhipuai>=0.2.0        # ZhipuAI GLM:   pip install langchain-zhipuai
 # langchain-openrouter>=0.2.0     # OpenRouter:    pip install langchain-openrouter
+google-api-python-client 
+google-auth-httplib2 
+google-auth-oauthlib

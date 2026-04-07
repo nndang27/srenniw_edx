@@ -89,5 +89,58 @@ export function useApi() {
     return res.json()
   }
 
-  return { getClasses, createClass, submitCompose, getTeacherBriefs, getBriefFeedback, getInbox, markRead, submitFeedback, updateLanguage, getProfile, getChatRooms }
+  // ---- Google Classroom ----
+  const getClassroomCourses = async (): Promise<{ id: string; name: string; section: string; state: string }[]> => {
+    const res = await fetch(`${BASE_URL}/api/teacher/classroom/courses`)
+    if (!res.ok) throw await res.json()
+    return res.json()
+  }
+
+  const getClassroomItems = async (courseId: string): Promise<ClassroomCourseData> => {
+    const res = await fetch(`${BASE_URL}/api/teacher/classroom/courses/${courseId}/items`)
+    if (!res.ok) throw await res.json()
+    return res.json()
+  }
+
+  return { getClasses, createClass, submitCompose, getTeacherBriefs, getBriefFeedback, getInbox, markRead, submitFeedback, updateLanguage, getProfile, getChatRooms, getClassroomCourses, getClassroomItems }
+}
+
+// ── Google Classroom types ────────────────────────────────────────────────────
+export interface ClassroomStudent {
+  student_id: string
+  student_name: string
+  student_email: string
+  state: string
+  late: boolean
+  assigned_grade: number | null
+  draft_grade: number | null
+  submitted_at: string | null
+}
+
+export interface ClassroomItem {
+  id: string
+  type: 'material' | 'assignment'
+  title: string
+  description: string
+  state: string
+  created_time: string | null
+  update_time: string | null
+  due_date: string | null
+  max_points: number | null
+  attachments: { type: string; title: string; url: string }[]
+  students: ClassroomStudent[]
+  submission_summary: {
+    total: number
+    turned_in: number
+    graded: number
+    avg_grade: number | null
+  } | null
+}
+
+export interface ClassroomCourseData {
+  course_id: string
+  student_count: number
+  materials: ClassroomItem[]
+  assignments: ClassroomItem[]
+  items: ClassroomItem[]
 }
