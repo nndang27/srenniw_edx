@@ -4,6 +4,7 @@ import { UserButton } from '@clerk/nextjs'
 import { Settings, Bell, X } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import TeacherSettingsModal from './_components/TeacherSettingsModal'
 import TeacherChatBubble from './_components/TeacherChatBubble'
 
@@ -50,9 +51,11 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-100 via-blue-50/40 to-violet-50/30">
       {/* Header — Liquid Glass */}
       <div className="px-5 py-3 backdrop-blur-xl bg-white/60 border-b border-white/50 flex items-center justify-between sticky top-0 z-50 shadow-sm">
-        <span className={`${poppins.className} font-extrabold text-xl bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent tracking-tight`}>
-          LearnBridge
-        </span>
+        <Link href="/teacher" className="hover:opacity-80 transition-opacity">
+          <span className={`${poppins.className} font-extrabold text-xl bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent tracking-tight`}>
+            LearnBridge
+          </span>
+        </Link>
         <div className="flex items-center gap-3">
           {/* Notification Bell */}
           <div className="relative" ref={bellRef}>

@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { CalendarDays, TrendingUp, Lightbulb, Settings, Bell, X } from 'lucide-react'
 import { UserButton } from '@clerk/nextjs'
 import { Poppins } from 'next/font/google'
+import Link from 'next/link'
 import CommunicationHub from '@/components/shared/CommunicationHub'
 import SettingsModal from '@/components/shared/SettingsModal'
 
@@ -11,8 +12,8 @@ const poppins = Poppins({ subsets: ['latin'], weight: ['800'] })
 
 const navItems = [
   { id: 'calendar',  label: 'Calendar',  icon: CalendarDays },
-  { id: 'transcript', label: 'Transcript', icon: TrendingUp },
   { id: 'progress',  label: 'Progress',  icon: TrendingUp },
+  { id: 'transcript', label: 'Transcript', icon: TrendingUp },
   { id: 'insights',  label: 'Insights',  icon: Lightbulb },
 ] as const
 
@@ -152,9 +153,11 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-100 via-blue-50/40 to-violet-50/30">
       {/* Top bar — Liquid Glass */}
       <div className="px-5 py-3 backdrop-blur-xl bg-white/60 border-b border-white/50 flex items-center justify-between sticky top-0 z-50 shadow-sm">
-        <span className={`${poppins.className} font-extrabold text-xl bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent tracking-tight`}>
-          LearnBridge
-        </span>
+        <Link href="/parent" className="hover:opacity-80 transition-opacity">
+          <span className={`${poppins.className} font-extrabold text-xl bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent tracking-tight`}>
+            LearnBridge
+          </span>
+        </Link>
         <div className="flex items-center gap-3">
           {/* Notification Bell */}
           <div className="relative" ref={bellRef}>

@@ -135,7 +135,7 @@ export default function TranscriptPage() {
               setActiveYear(e.target.value)
               setActiveSemester('Semester 1')
             }}
-            className="appearance-none bg-white border border-slate-200 text-slate-800 font-bold py-2 pl-4 pr-10 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-32"
+            className="appearance-none bg-white border border-slate-200 text-slate-800 font-bold py-2 pl-4 pr-10 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-40"
           >
             <option value="2026">2026 Year</option>
             <option value="2025">2025 Year</option>
