@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ExternalLink,
   BookOpen, Zap, Dumbbell, NotebookPen, MessageSquare, RefreshCw,
@@ -995,6 +995,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   const { date, subject: subjectEncoded } = use(params)
   const subject = decodeURIComponent(subjectEncoded)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const schedule = getScheduleForDate(date)
   const rawEntry = schedule.find(s => s.subject === subject)
@@ -1011,7 +1012,8 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   const prevSubject = subjectIndex > 0 ? schedule[subjectIndex - 1] : null
   const nextSubject = subjectIndex < schedule.length - 1 ? schedule[subjectIndex + 1] : null
 
-  const [activeTab, setActiveTab] = useState<TabId>('journey')
+  const defaultTab = (searchParams.get('tab') as TabId) || 'journey'
+  const [activeTab, setActiveTab] = useState<TabId>(TABS.some(t => t.id === defaultTab) ? defaultTab : 'journey')
   const [promptIndex, setPromptIndex] = useState(0)
   const [crossSubjectIndex, setCrossSubjectIndex] = useState(() => Math.floor(Math.random() * 8))
   const [crossSubjectVisible, setCrossSubjectVisible] = useState(true)
