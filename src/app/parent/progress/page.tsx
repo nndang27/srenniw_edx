@@ -5,7 +5,7 @@ import {
   PolarAngleAxis, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 import { TrendingUp, Clock, Brain, Zap, BarChart2 } from 'lucide-react'
-import { getAllSubjectEntries, type SubjectEntry } from '@/lib/journal'
+import type { SubjectEntry } from '@/lib/journal'
 import { SUBJECT_COLORS, type SubjectName } from '@/lib/mockTimetable'
 
 const SUBJECTS: SubjectName[] = ['Maths', 'Science', 'English', 'HSIE', 'Creative Arts', 'PE']
@@ -22,8 +22,7 @@ const EMOTION_COLORS: Record<string, string> = {
 type TimeRange = 'week' | 'month' | 'term'
 
 function getDateRange(range: TimeRange): string {
-  // Anchor "now" to the latest date in the 400days mock data
-  const now = new Date('2026-02-05')
+  const now = new Date()
   if (range === 'week') {
     const d = new Date(now)
     d.setDate(d.getDate() - 7)

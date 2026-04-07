@@ -89,6 +89,44 @@ export function useApi() {
     return res.json()
   }
 
+  // ---- Class detail (students + diary entries) ----
+  const getClassStudents = async (class_id: string) => {
+    const res = await fetch(`${BASE_URL}/api/teacher/classes/${class_id}/students`, { headers: await headers() })
+    if (!res.ok) throw await res.json()
+    return res.json()
+  }
+
+  const getClassCurriculum = async (class_id: string): Promise<ClassroomCourseData> => {
+    const res = await fetch(`${BASE_URL}/api/teacher/classes/${class_id}/curriculum`, { headers: await headers() })
+    if (!res.ok) throw await res.json()
+    return res.json()
+  }
+
+  const getClassInsights = async (class_id: string) => {
+    const res = await fetch(`${BASE_URL}/api/teacher/classes/${class_id}/insights`, { headers: await headers() })
+    if (!res.ok) throw await res.json()
+    return res.json()
+  }
+
+  // ---- Parent diary + insights ----
+  const getParentDiary = async () => {
+    const res = await fetch(`${BASE_URL}/api/parent/diary`, { headers: await headers() })
+    if (!res.ok) throw await res.json()
+    return res.json()
+  }
+
+  const getParentInsights = async () => {
+    const res = await fetch(`${BASE_URL}/api/parent/insights`, { headers: await headers() })
+    if (!res.ok) throw await res.json()
+    return res.json()
+  }
+
+  const getParentWeeklyDigest = async () => {
+    const res = await fetch(`${BASE_URL}/api/parent/weekly-digest`, { headers: await headers() })
+    if (!res.ok) throw await res.json()
+    return res.json()
+  }
+
   // ---- Google Classroom ----
   const getClassroomCourses = async (): Promise<{ id: string; name: string; section: string; state: string }[]> => {
     const res = await fetch(`${BASE_URL}/api/teacher/classroom/courses`)
@@ -102,7 +140,7 @@ export function useApi() {
     return res.json()
   }
 
-  return { getClasses, createClass, submitCompose, getTeacherBriefs, getBriefFeedback, getInbox, markRead, submitFeedback, updateLanguage, getProfile, getChatRooms, getClassroomCourses, getClassroomItems }
+  return { getClasses, createClass, submitCompose, getTeacherBriefs, getBriefFeedback, getInbox, markRead, submitFeedback, updateLanguage, getProfile, getChatRooms, getClassStudents, getClassCurriculum, getClassInsights, getParentDiary, getParentInsights, getParentWeeklyDigest, getClassroomCourses, getClassroomItems }
 }
 
 // ── Google Classroom types ────────────────────────────────────────────────────
@@ -137,10 +175,18 @@ export interface ClassroomItem {
   } | null
 }
 
+export interface ClassroomWeeklyTopic {
+  week: number
+  subject: string
+  topic: string
+  learningGoal: string
+}
+
 export interface ClassroomCourseData {
   course_id: string
   student_count: number
   materials: ClassroomItem[]
   assignments: ClassroomItem[]
   items: ClassroomItem[]
+  weekly_topics?: ClassroomWeeklyTopic[]
 }

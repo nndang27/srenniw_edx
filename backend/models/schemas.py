@@ -29,3 +29,11 @@ class ChatbotMessage(BaseModel):
     type: Literal["message"]
     content: str
     brief_id: Optional[str] = None
+
+class DiaryNoteUpdate(BaseModel):
+    date: str
+    subject: str
+    parent_note: Optional[str] = None
+    cognitive_level: Optional[int] = None
+    emotion: Optional[str] = None
+    time_spent: Optional[int] = None
