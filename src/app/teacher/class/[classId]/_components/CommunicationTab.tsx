@@ -1,6 +1,6 @@
 'use client'
-import { useState, useRef } from 'react'
-import { Send, Zap, Users, User, MessageSquare, Bell, BookOpen, X, Calendar, FileText, Camera, Check, Upload } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Send, Zap, Users, User, MessageSquare, Bell, BookOpen, X, Calendar, FileText, Camera, Check, Upload, Search, ChevronDown } from 'lucide-react'
 import type { TeacherClass } from '@/lib/mockTeacherData'
 
 const MESSAGE_TYPES = [
@@ -45,6 +45,21 @@ export default function CommunicationTab({ cls }: Props) {
   const [photoCaption, setPhotoCaption] = useState('')
   const [photoRecipient, setPhotoRecipient] = useState('all')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Searchable dropdown state
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [dropdownSearch, setDropdownSearch] = useState('')
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const mockReportUrl = `https://learnbridge.app/reports/${cls.id}/term2-week8`
 
@@ -146,16 +161,55 @@ export default function CommunicationTab({ cls }: Props) {
               >
                 <Users size={11} /> All Parents
               </button>
-              <select
-                value={recipient === 'all' ? '' : recipient}
-                onChange={e => setRecipient(e.target.value || 'all')}
-                className="px-3 py-1.5 rounded-full text-xs font-semibold border border-slate-200 bg-white/70 text-slate-600 outline-none cursor-pointer"
-              >
-                <option value="">Select individual…</option>
-                {cls.students.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}&apos;s parent</option>
-                ))}
-              </select>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => { setIsDropdownOpen(!isDropdownOpen); setDropdownSearch('') }}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
+                    ${recipient !== 'all' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white/70 text-slate-400 border-slate-200 hover:bg-white'}`}
+                >
+                  <User size={11} className={recipient !== 'all' ? 'text-blue-500' : 'text-slate-300'} />
+                  {recipient === 'all' ? 'Select individual…' : cls.students.find(s => s.id === recipient)?.name + "'s parent"}
+                  <ChevronDown size={12} className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in duration-150 origin-top-left">
+                    <div className="p-2 border-b border-slate-50 bg-slate-50/50">
+                      <div className="relative">
+                        <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          autoFocus
+                          value={dropdownSearch}
+                          onChange={e => setDropdownSearch(e.target.value)}
+                          placeholder="Search parents..."
+                          className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-300 shadow-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto p-1.5">
+                      {cls.students
+                        .filter(s => s.name.toLowerCase().includes(dropdownSearch.toLowerCase()))
+                        .map(s => (
+                          <button
+                            key={s.id}
+                            onClick={() => { setRecipient(s.id); setIsDropdownOpen(false) }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-colors text-left
+                              ${recipient === s.id ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={s.avatar} alt={s.name} className="w-5 h-5 rounded-full shrink-0" />
+                            <span className="truncate">{s.name}&apos;s parent</span>
+                            {recipient === s.id && <Check size={10} className="ml-auto text-blue-500" />}
+                          </button>
+                        ))}
+                      {cls.students.filter(s => s.name.toLowerCase().includes(dropdownSearch.toLowerCase())).length === 0 && (
+                        <p className="text-[10px] text-slate-400 py-4 text-center">No parents found for &quot;{dropdownSearch}&quot;</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
