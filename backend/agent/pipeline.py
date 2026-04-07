@@ -23,6 +23,8 @@ from langchain_core.messages import HumanMessage
 from agent.core import create_deep_agent
 from agent.core._models import resolve_model
 from agent.subagents.summarize_agent import get_subagent_spec as summarize_spec
+from agent.subagents.deepdive_agent import get_subagent_spec as deepdive_spec
+from agent.subagents.tiktokpull_agent import get_subagent_spec as tiktokpull_spec
 from agent.subagents.diary_agent import get_subagent_spec as diary_spec
 from agent.subagents.suggestion_agent import get_subagent_spec as suggestion_spec
 from agent.subagents.game_agent import get_subagent_spec as game_spec
@@ -38,7 +40,7 @@ _shared_tools = get_shared_curricullm_tools() + get_shared_supabase_tools()
 
 
 model = ChatOpenAI(
-    model="gemma4:e4b", #"minimax-m2.5:cloud",
+    model="minimax-m2.5:cloud",
     base_url="http://localhost:11434/v1",
     api_key="ollama",
     temperature=0.7,
@@ -52,13 +54,14 @@ _orchestrator = create_deep_agent(
 
 Coordinate specialist subagents to process teacher briefs and assist parents.
 
-For teacher briefs: use the 'summarize' subagent, then verify db_save_brief was called.
+For teacher briefs: first delegate to the 'deepdive' subagent to break down the material. Then, feed both the raw teacher brief and the deepdive output directly to the 'summarize' subagent so it can synthesize everything. Ensure db_save_brief was called.
 For diary analysis: delegate to the 'diary' subagent.
 For activity suggestions: delegate to the 'suggestion' subagent.
 For game generation: delegate to the 'game' subagent.
 
 Always delegate — do not process content yourself.""",
     subagents=[
+        deepdive_spec(),
         summarize_spec(),
         diary_spec(),
         suggestion_spec(),
@@ -76,6 +79,8 @@ def _build_feature_agent(spec_fn):
     )
 
 _feature_agents = {
+    "deepdive":   _build_feature_agent(deepdive_spec),
+    "tiktokpull": _build_feature_agent(tiktokpull_spec),
     "summarize":  _build_feature_agent(summarize_spec),
     "diary":      _build_feature_agent(diary_spec),
     "suggestion": _build_feature_agent(suggestion_spec),
@@ -92,33 +97,69 @@ async def run_agent_pipeline(brief_id: str, body):
     """Background task: teacher submits → orchestrator processes → DB saved."""
     from db.supabase import get_supabase
     from datetime import datetime, timezone
+    import json
+    import os
 
     db = get_supabase()
     db.table("briefs").update({"status": "processing"}).eq("id", brief_id).execute()
     try:
-        prompt = (
-            f"Process this teacher brief.\n"
-            f"brief_id: {brief_id}\n"
-            f"subject: {body.subject}\n"
-            f"year_level: {body.year_level}\n"
-            f"class_id: {body.class_id}\n\n"
-            f"Teacher content:\n{body.raw_input}\n\n"
-            "Delegate to the 'summarize' subagent. "
-            "Ensure db_save_brief and db_send_notifications are called."
-        )
-        result = await _orchestrator.ainvoke({
-            "messages": [HumanMessage(content=prompt)]
+        # 1. DEEPDIVE
+        result_dd = await _feature_agents["deepdive"].ainvoke({
+            "messages": [HumanMessage(content=f"Process this teacher brief into academic concepts and keywords.\n\nTeacher content:\n{body.raw_input}")]
         })
-        # Safety fallback: if subagent didn't call db_save_brief, save directly
-        check = db.table("briefs").select("status").eq("id", brief_id).execute()
-        if check.data and check.data[0]["status"] not in ("done",):
-            final_msg = result.get("messages", [])
-            content = final_msg[-1].content if final_msg else ""
-            db.table("briefs").update({
-                "processed_en": content,
-                "status": "done",
-                "published_at": datetime.now(timezone.utc).isoformat(),
-            }).eq("id", brief_id).execute()
+        deepdive_out = result_dd.get("messages", [])[-1].content
+        
+        # 2. TIKTOKPULL
+        # Extract keywords if possible roughly to pass to tiktok agent
+        import re
+        keywords = []
+        try:
+            match = re.search(r'```json\n(.*?)\n```', deepdive_out, re.DOTALL)
+            if match:
+                dd_json = json.loads(match.group(1))
+                keywords = dd_json.get("keywords", [])
+        except Exception:
+            pass
+            
+        kw_str = ", ".join(keywords) if keywords else "educational"
+        result_tk = await _feature_agents["tiktokpull"].ainvoke({
+            "messages": [HumanMessage(content=f"Search and download a TikTok for these exact keywords: {kw_str}")]
+        })
+        tiktok_out = result_tk.get("messages", [])[-1].content
+        
+        # 3. SUMMARIZE
+        prompt_sum = (
+            f"Here is the raw teacher content:\n{body.raw_input}\n\n"
+            f"Here is the Deepdive break down:\n{deepdive_out}\n\n"
+            "Now write the plain-language Essence and Example."
+        )
+        result_sum = await _feature_agents["summarize"].ainvoke({
+            "messages": [HumanMessage(content=prompt_sum)]
+        })
+        sum_out = result_sum.get("messages", [])[-1].content
+        
+        # FINAL: Python JSON merging
+        final_payload = {
+            "deepdive_data": deepdive_out,
+            "tiktok_data": tiktok_out,
+            "summarize_data": sum_out
+        }
+        
+        out_folder = os.path.normpath(os.path.join(
+            os.path.dirname(__file__), "..", "tests", "data"
+        ))
+        os.makedirs(out_folder, exist_ok=True)
+        out_path = os.path.join(out_folder, "dashboard_digest_output.json")
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(final_payload, f, indent=2, ensure_ascii=False)
+
+        # Notify DB
+        db.table("briefs").update({
+            "processed_en": sum_out,
+            "status": "done",
+            "published_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", brief_id).execute()
+        
     except Exception as e:
         db.table("briefs").update({"status": "failed"}).eq("id", brief_id).execute()
         raise e
