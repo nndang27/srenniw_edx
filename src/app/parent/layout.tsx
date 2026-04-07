@@ -194,7 +194,8 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
                         setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item))
                         setBellOpen(false)
                         const title = n.title.toLowerCase()
-                        if (title.includes('summary') || title.includes('digest')) {
+                        if (title.includes('summary') || title.includes('digest') || title.includes('activity')) {
+                          const isActivity = title.includes('activity')
                           const today = new Date()
                           const yyyy = today.getFullYear()
                           const mm = String(today.getMonth() + 1).padStart(2, '0')
@@ -215,7 +216,8 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
                             }
                             
                             if (schedule && schedule.length > 0) {
-                              router.push(`/parent/day/${targetDate}/${encodeURIComponent(schedule[0].subject)}`)
+                              const baseRoute = `/parent/day/${targetDate}/${encodeURIComponent(schedule[0].subject)}`
+                              router.push(isActivity ? `${baseRoute}?tab=activity` : baseRoute)
                             } else {
                               if (pathname !== '/parent') router.push('/parent')
                               setTimeout(() => document.getElementById(`section-calendar`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
@@ -223,8 +225,6 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
                           }).catch(() => {
                             if (pathname !== '/parent') router.push('/parent')
                           })
-                        } else if (title.includes('activity')) {
-                          router.push('/parent/action')
                         } else if (title.includes('message')) {
                           window.dispatchEvent(new CustomEvent('open-communication-hub', { detail: { tab: 'teacher' } }))
                         }

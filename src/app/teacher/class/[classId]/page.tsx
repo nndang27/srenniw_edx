@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, LayoutDashboard, BookOpen, BarChart2, MessageSquare } from 'lucide-react'
 import { SUBJECTS, getClass } from '@/lib/mockTeacherData'
@@ -33,8 +33,24 @@ export default function ClassDashboardPage() {
   const classId = params.classId as string
 
   const initialSubject = searchParams.get('subject') ?? 'All'
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
+  const initialTab = (searchParams.get('tab') as TabId) ?? 'overview'
+  const [activeTab, setActiveTab] = useState<TabId>(TABS.some(t => t.id === initialTab) ? initialTab : 'overview')
   const [subject, setSubject] = useState(initialSubject)
+
+  // Sync state with URL if it changes (e.g. from notification redirect)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as TabId
+    if (tabParam && TABS.some(t => t.id === tabParam)) {
+      setActiveTab(tabParam)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    const subjectParam = searchParams.get('subject')
+    if (subjectParam) {
+      setSubject(subjectParam)
+    }
+  }, [searchParams])
 
   const cls = getClass(classId)
 

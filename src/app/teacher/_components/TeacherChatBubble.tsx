@@ -83,6 +83,12 @@ export default function TeacherChatBubble() {
   const bubbleRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
+    const handleOpenChat = () => setOpen(true)
+    window.addEventListener('open-teacher-chat', handleOpenChat)
+    return () => window.removeEventListener('open-teacher-chat', handleOpenChat)
+  }, [])
+
+  useEffect(() => {
     if (!open) return
     const handler = (e: MouseEvent) => {
       const target = e.target as Node
