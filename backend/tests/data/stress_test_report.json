@@ -1,0 +1,219 @@
+[
+  {
+    "id": 1,
+    "label": "Year 4 — Literacy, Numeracy & NAPLAN (Ms. Tremblay)",
+    "stages": {
+      "deepdive": {
+        "status": "FAIL",
+        "elapsed_s": 12.04,
+        "issues": [
+          "Keyword 'folding 3D nets' lacks a visual/motion word [WARN]",
+          "Keyword 'spatial reasoning geometry' lacks a visual/motion word [WARN]"
+        ],
+        "output_json": {
+          "core_concept": "Grapheme-phoneme correspondence instruction is the systematic teaching of relationships between written symbols and spoken sounds, essential for decoding. Morphological awareness extends decoding by teaching word roots, prefixes, and suffixes. In geometry, spatial reasoning involves mental visualization, rotation, transformation, and decomposition of shapes, with nets (2D templates) serving as critical tools for understanding 3D geometric properties.",
+          "key_vocabulary": [
+            {
+              "term": "Grapheme-phoneme correspondence",
+              "definition": "The systematic relationship between written symbols (graphemes like 'igh' or 'ough') and the sounds (phonemes) they represent in spoken English."
+            },
+            {
+              "term": "Morphological awareness",
+              "definition": "The ability to analyze word structures by recognizing roots, prefixes, and suffixes as decoding strategies for polysyllabic words."
+            },
+            {
+              "term": "Spatial reasoning",
+              "definition": "Flexible mental strategies for visualising, rotating, transforming, and decomposing shapes, which correlates with overall mathematical achievement."
+            },
+            {
+              "term": "Net (of a polyhedron)",
+              "definition": "A flat 2D template that folds up into a 3D geometric solid, used to understand the relationship between 2D shapes and 3D objects."
+            }
+          ],
+          "why_this_matters": "These literacy and spatial reasoning skills are tested under timed conditions without assistive tools. Morphological decoding enables independent reading of complex words. Spatial reasoning predicts performance not only in geometry but across all mathematical domains, as mental visualization underlies number lines, fractions, and algebraic thinking.",
+          "keywords": [
+            "folding 3D nets",
+            "spatial reasoning geometry"
+          ]
+        },
+        "raw_preview": "```json\n{\n  \"core_concept\": \"Grapheme-phoneme correspondence instruction is the systematic teaching of relationships between written symbols and spoken sounds, essential for decoding. Morphological awareness extends decoding by teaching word roots, prefixes, and suffixes. In geometry, spatial reason"
+      },
+      "tiktokpull": {
+        "status": "PASS",
+        "elapsed_s": 6.83,
+        "issues": [],
+        "output_json": {
+          "video_local_path": "mock_download_path_58c0f8.mp4",
+          "video_metadata": {
+            "author": "mock_educator",
+            "desc": "Mock video for folding 3D nets spatial reasoning geometry",
+            "likes": 1000,
+            "views": 5000
+          }
+        },
+        "raw_preview": "```json\n{\n    \"video_local_path\": \"mock_download_path_58c0f8.mp4\",\n    \"video_metadata\": { \"author\": \"mock_educator\", \"desc\": \"Mock video for folding 3D nets spatial reasoning geometry\", \"likes\": 1000, \"views\": 5000 }\n}\n```"
+      },
+      "summarize": {
+        "status": "FAIL",
+        "elapsed_s": 21.52,
+        "issues": [
+          "curricullm_generate tool NOT detected in agent trace",
+          "essence word count 48 (expected 35–45)",
+          "example word count 44 (expected 25–35)"
+        ],
+        "output_json": {
+          "essence": "Today class is about two key learning areas. In literacy, students are learning to break down bigger words by recognizing word parts like roots, prefixes, and suffixes. In numeracy, they're practicing spatial thinking by imagining how flat 2D paper shapes fold into 3D objects like cubes and pyramids.",
+          "example": "You could try this at home: when reading together and your child hits an unfamiliar word like 'ocean,' encourage them to say 'let me chunk it' and try breaking it into smaller parts they recognize, rather than skipping it or asking for help immediately."
+        },
+        "raw_preview": "```json\n{\n  \"essence\": \"Today class is about two key learning areas. In literacy, students are learning to break down bigger words by recognizing word parts like roots, prefixes, and suffixes. In numeracy, they're practicing spatial thinking by imagining how flat 2D paper shapes fold into 3D objects like cubes and pyramids.\",\n  \"example\": \"You could try this at home: when reading together and your"
+      }
+    },
+    "overall": "FAIL"
+  },
+  {
+    "id": 2,
+    "label": "Year 8 — Science & Geography Integration (Mr. Okonkwo)",
+    "stages": {
+      "deepdive": {
+        "status": "FAIL",
+        "elapsed_s": 14.8,
+        "issues": [
+          "core_concept word count 61 (expected 40–60)"
+        ],
+        "output_json": {
+          "core_concept": "The theory of plate tectonics explains the distribution of geological phenomena including earthquakes, volcanoes, and mountain building, and how these processes change Earth's surface over geological time. Coastal landforms are shaped by the dynamic interplay of marine erosional processes (hydraulic action, abrasion, attrition, solution), depositional processes (longshore drift, spit formation), and in tectonically active zones, isostatic and eustatic sea level change.",
+          "key_vocabulary": [
+            {
+              "term": "Plate Boundaries",
+              "definition": "Zones where lithospheric plates interact, classified as divergent (plates move apart), convergent (plates collide), or transform (plates slide laterally past one another)."
+            },
+            {
+              "term": "Hydraulic Action",
+              "definition": "The mechanical force of waves compressing air into rock fissures and exploding them apart, causing erosional breakdown of coastal cliff faces."
+            },
+            {
+              "term": "Longshore Drift",
+              "definition": "The net transport of sediment along a coastline driven by the angle of wave approach, resulting in depositional features like spits and beaches."
+            },
+            {
+              "term": "Soil Liquefaction",
+              "definition": "When saturated, loosely-packed granular sediment loses structural integrity and behaves as a viscous fluid during seismic events due to pore water pressure increase."
+            }
+          ],
+          "why_this_matters": "Understanding plate tectonics and coastal geomorphological processes enables communities to predict and prepare for geological hazards. This knowledge informs land use planning, infrastructure design, and evacuation strategies in earthquake-prone and coastal regions. The distribution of earthquakes, volcanoes, and tsunamis is almost entirely predictable by plate boundary location, making this scientifically fundamental and practically essential for community safety.",
+          "keywords": [
+            "coastal erosion formation",
+            "soil liquefaction earthquake"
+          ]
+        },
+        "raw_preview": "{\"core_concept\":\"The theory of plate tectonics explains the distribution of geological phenomena including earthquakes, volcanoes, and mountain building, and how these processes change Earth's surface over geological time. Coastal landforms are shaped by the dynamic interplay of marine erosional pro"
+      },
+      "tiktokpull": {
+        "status": "PASS",
+        "elapsed_s": 7.88,
+        "issues": [],
+        "output_json": {
+          "video_local_path": "mock_download_path_0fbe3f.mp4",
+          "video_metadata": {
+            "author": "mock_educator",
+            "desc": "Mock video for coastal erosion formation soil liquefaction earthquake educational",
+            "likes": 1000,
+            "views": 5000
+          }
+        },
+        "raw_preview": "```json\n{\n    \"video_local_path\": \"mock_download_path_0fbe3f.mp4\",\n    \"video_metadata\": {\n        \"author\": \"mock_educator\",\n        \"desc\": \"Mock video for coastal erosion formation soil liquefaction earthquake educational\",\n        \"likes\": 1000,\n        \"views\": 5000\n    }\n}\n```"
+      },
+      "summarize": {
+        "status": "FAIL",
+        "elapsed_s": 11.32,
+        "issues": [
+          "curricullm_generate tool NOT detected in agent trace",
+          "essence word count 46 (expected 35–45)"
+        ],
+        "output_json": {
+          "essence": "Today class is about how Earth's surface changes through plate tectonics and coastal processes. Students learn about the three types of plate boundaries, coastal erosion from wave action wearing away cliffs, and how earthquakes can turn loose saturated sand into a liquid-like substance called soil liquefaction.",
+          "example": "The Twelve Apostles rock stacks along Victoria's coast show how waves gradually erode cliffs into caves, then arches, then isolated pillars that eventually collapse into sea stacks and stumps."
+        },
+        "raw_preview": "```json\n{\n  \"essence\": \"Today class is about how Earth's surface changes through plate tectonics and coastal processes. Students learn about the three types of plate boundaries, coastal erosion from wave action wearing away cliffs, and how earthquakes can turn loose saturated sand into a liquid-like substance called soil liquefaction.\",\n  \"example\": \"The Twelve Apostles rock stacks along Victoria'"
+      }
+    },
+    "overall": "FAIL"
+  },
+  {
+    "id": 3,
+    "label": "Year 11 — Biology & Economics ATAR (Mrs. Castellanos-Wright)",
+    "stages": {
+      "deepdive": {
+        "status": "FAIL",
+        "elapsed_s": 18.26,
+        "issues": [
+          "core_concept word count 77 (expected 40–60)",
+          "Vocab 'Phenotypic Plasticity' definition word count 43 (expected 15–25)",
+          "Vocab 'Epigenetic Regulation' definition word count 38 (expected 15–25)",
+          "Vocab 'DNA Methylation' definition word count 34 (expected 15–25)",
+          "Vocab 'Histone Modification' definition word count 26 (expected 15–25)",
+          "keywords has 4 items (expected 1–2)",
+          "why_this_matters word count 75 (expected 40–60)"
+        ],
+        "output_json": {
+          "core_concept": "Phenotypic plasticity and epigenetic regulation represent distinct but interconnected mechanisms of gene expression control. Phenotypic plasticity describes how a single genotype can produce varying phenotypes in response to environmental changes without DNA sequence alteration, exemplified by Daphnia developing defensive helmets when predator cues are present. Epigenetic regulation encompasses molecular mechanisms including DNA methylation, histone modification, and non-coding RNA regulation that modulate gene expression without changing the nucleotide sequence, with some marks being mitotically or potentially transgenerationally heritable.",
+          "key_vocabulary": [
+            {
+              "term": "Phenotypic Plasticity",
+              "definition": "The capacity of a single genotype to produce a range of different phenotypic outcomes (observable characteristics—morphological, physiological, behavioural) in response to variation in environmental conditions; genotype does not deterministically specify phenotype as the expressed phenotype emerges from the interaction of genotype and environment."
+            },
+            {
+              "term": "Epigenetic Regulation",
+              "definition": "Molecular mechanisms by which gene expression is regulated WITHOUT altering the underlying nucleotide sequence of DNA, including DNA methylation (addition of methyl groups to cytosine residues), histone modification (post-translational chemical modifications to histone proteins), and non-coding RNA regulation."
+            },
+            {
+              "term": "DNA Methylation",
+              "definition": "The addition of methyl groups (CH₃) to cytosine residues, particularly at CpG dinucleotide sites via the enzyme DNA methyltransferase (DNMT), typically resulting in transcriptional silencing by restricting transcription factor access or recruiting repressor complexes."
+            },
+            {
+              "term": "Histone Modification",
+              "definition": "Post-translational chemical modifications—including acetylation, methylation, phosphorylation, ubiquitination—to the histone proteins around which DNA is wound, altering chromatin compaction and therefore accessibility of DNA to transcriptional machinery."
+            }
+          ],
+          "why_this_matters": "Understanding epigenetic mechanisms enables deliberate manipulation of molecular switches controlling gene expression under specific environmental conditions to produce crop plants with enhanced yield, drought tolerance, or pest resistance WITHOUT permanently altering the genome—triggering different regulatory pathways than conventional GM crops. This represents a significant commercial R&D opportunity with shorter regulatory pathways in some jurisdictions, potentially reversible effects, and a novel intellectual property landscape, directly informing macroeconomic resource allocation decisions in agricultural R&D under climate-driven constraints.",
+          "keywords": [
+            "Daphnia helmet development",
+            "DNA methylation animation",
+            "Gene expression switches",
+            "Epigenetic modification visual"
+          ]
+        },
+        "raw_preview": "```json\n{\n  \"core_concept\": \"Phenotypic plasticity and epigenetic regulation represent distinct but interconnected mechanisms of gene expression control. Phenotypic plasticity describes how a single genotype can produce varying phenotypes in response to environmental changes without DNA sequence alt"
+      },
+      "tiktokpull": {
+        "status": "PASS",
+        "elapsed_s": 15.81,
+        "issues": [],
+        "output_json": {
+          "video_local_path": "mock_download_path_2e65b0.mp4",
+          "video_metadata": {
+            "author": "mock_educator",
+            "desc": "Mock video for Daphnia helmet development epigenetics biology",
+            "likes": 1000,
+            "views": 5000
+          }
+        },
+        "raw_preview": "```json\n{\n    \"video_local_path\": \"mock_download_path_2e65b0.mp4\",\n    \"video_metadata\": { \"author\": \"mock_educator\", \"desc\": \"Mock video for Daphnia helmet development epigenetics biology\", \"likes\": 1000, \"views\": 5000 }\n}\n```"
+      },
+      "summarize": {
+        "status": "FAIL",
+        "elapsed_s": 27.32,
+        "issues": [
+          "[DUMB-DOWN FAIL] Jargon 'epigenetic' survived into 'essence'",
+          "[DUMB-DOWN FAIL] Jargon 'phenotypic plasticity' survived into 'essence'"
+        ],
+        "output_json": {
+          "essence": "Today class is about how living things can change their traits without changing their DNA. Phenotypic plasticity lets organisms respond to their environment, while epigenetics controls which genes switch on or off through chemical marks.",
+          "example": "A water flea with identical DNA can grow a protective helmet when it detects chemicals from nearby predators, or stay helmet-free when predators are absent - the same genes, different appearance."
+        },
+        "raw_preview": "```json\n{\n  \"essence\": \"Today class is about how living things can change their traits without changing their DNA. Phenotypic plasticity lets organisms respond to their environment, while epigenetics controls which genes switch on or off through chemical marks.\",\n  \"example\": \"A water flea with identical DNA can grow a protective helmet when it detects chemicals from nearby predators, or stay helm"
+      }
+    },
+    "overall": "FAIL"
+  }
+]
