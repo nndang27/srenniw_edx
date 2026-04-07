@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   LineChart, Line, BarChart, Bar, RadarChart, Radar, PolarGrid, Cell,
   PolarAngleAxis, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -22,7 +22,8 @@ const EMOTION_COLORS: Record<string, string> = {
 type TimeRange = 'week' | 'month' | 'term'
 
 function getDateRange(range: TimeRange): string {
-  const now = new Date()
+  // Anchor "now" to the latest date in the 400days mock data
+  const now = new Date('2026-02-05')
   if (range === 'week') {
     const d = new Date(now)
     d.setDate(d.getDate() - 7)
@@ -142,46 +143,6 @@ function EmotionChart({ data }: { data: { emotion: string; count: number }[] }) 
   )
 }
 
-// ── Radar "Compare All" Chart ───────────────────────────────────────────────
-
-function CompareRadarChart({ entries }: { entries: SubjectEntry[] }) {
-  const radarData = SUBJECTS.map(sub => {
-    const subEntries = entries.filter(e => e.subject === sub)
-    const avg = subEntries.length
-      ? subEntries.reduce((s, e) => s + e.cognitiveLevel, 0) / subEntries.length
-      : 0
-    return { subject: sub, avgLevel: parseFloat(avg.toFixed(1)) }
-  })
-
-  return (
-    <div className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-3xl shadow-lg p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp size={16} className="text-emerald-500" />
-          <p className="text-sm font-semibold text-slate-700">All Subjects — Avg Cognitive Level</p>
-        </div>
-        <ResponsiveContainer width="100%" height={240}>
-          <RadarChart data={radarData}>
-            <PolarGrid stroke="#e2e8f0" />
-            <PolarAngleAxis
-              dataKey="subject"
-              tick={{ fontSize: 10, fill: '#64748b' }}
-            />
-            <Radar
-              dataKey="avgLevel"
-              stroke="#446dd5"
-              fill="#446dd5"
-              fillOpacity={0.2}
-              strokeWidth={2}
-            />
-            <Tooltip
-              formatter={(v) => [`${v} / 5`, 'Avg Level']}
-              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
-    </div>
-  )
-}
 
 // ── Subject Stats Card ──────────────────────────────────────────────────────
 
@@ -281,9 +242,35 @@ function TimeSpentCard({ entries }: { entries: SubjectEntry[] }) {
 export default function ProgressPage() {
   const [selectedSubject, setSelectedSubject] = useState<'All' | SubjectName>('All')
   const [timeRange, setTimeRange] = useState<TimeRange>('month')
-  const [showRadar, setShowRadar] = useState(false)
 
-  const allEntries = useMemo(() => getAllSubjectEntries(), [])
+  const [allEntries, setAllEntries] = useState<SubjectEntry[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const res = await fetch('/api/insights')
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          const mapped = data.map((e: any) => ({
+            date: e.date || new Date().toISOString().split('T')[0],
+            subject: e.subject || 'Maths',
+            timestamp: new Date(e.date || Date.now()).getTime(),
+            cognitiveLevel: e.cognitiveLevel || 3,
+            emotion: e.emotion || 'Curious',
+            timeSpent: e.timeSpent || Math.floor(Math.random() * 40) + 20,
+            notes: e.parent_note || e.teacher_note || ''
+          }))
+          setAllEntries(mapped)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [])
 
   const cutoff = useMemo(() => getDateRange(timeRange), [timeRange])
 
@@ -325,6 +312,14 @@ export default function ProgressPage() {
   }, [filteredEntries])
 
   const hasData = filteredEntries.length > 0
+
+  if (loading) {
+    return (
+      <div className="min-h-[calc(100vh-100px)] flex items-center justify-center">
+        <p className="text-slate-500 animate-pulse font-bold">Loading Insights...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 max-w-3xl mx-auto">
@@ -391,24 +386,6 @@ export default function ProgressPage() {
             />
           )}
 
-          {/* Compare Toggle */}
-          <div className="flex items-center justify-between py-2">
-            <p className="text-sm font-semibold text-slate-600">Compare all subjects</p>
-            <button
-              onClick={() => setShowRadar(r => !r)}
-              className={`relative w-11 h-6 rounded-full transition-colors ${
-                showRadar ? 'bg-brand-500' : 'bg-slate-200'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                  showRadar ? 'translate-x-[22px]' : 'translate-x-0.5'
-                }`}
-              />
-            </button>
-          </div>
-
-          {showRadar && <CompareRadarChart entries={filteredByRange} />}
         </div>
       )}
     </div>

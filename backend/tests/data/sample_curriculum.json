@@ -1,0 +1,45 @@
+[
+  {
+    "classId": "4a",
+    "subject": "Maths",
+    "weeklyTopics": [
+      {
+        "week": 1,
+        "topic": "Place Value to 10,000",
+        "learningGoal": "Read, write and order numbers to 10,000"
+      },
+      {
+        "week": 2,
+        "topic": "Addition and Subtraction Strategies",
+        "learningGoal": "Apply mental and written strategies for computation"
+      }
+    ]
+  },
+  {
+    "classId": "4a",
+    "subject": "Science",
+    "weeklyTopics": [
+      {
+        "week": 1,
+        "topic": "Living Things and Their Needs",
+        "learningGoal": "Identify needs of plants and animals in different habitats"
+      },
+      {
+        "week": 2,
+        "topic": "Life Cycles",
+        "learningGoal": "Compare life cycles of different organisms"
+      }
+    ]
+  },
+  {
+    "classId": "4a",
+    "subject": "English",
+    "weeklyTopics": [
+      {
+        "week": 1,
+        "topic": "Narrative Writing — Character",
+        "learningGoal": "Develop characters with distinct traits in short narratives"
+      }
+    ]
+  }
+]

@@ -2,6 +2,7 @@
 import { useEffect } from 'react'
 import CalendarPage from './calendar/page'
 import ProgressPage from './progress/page'
+import TranscriptPage from './transcript/page'
 import InsightsPage from './insights/page'
 
 export default function ParentDashboard() {
@@ -18,6 +19,14 @@ export default function ParentDashboard() {
     <div>
       <section id="section-calendar" className="min-h-screen bg-gradient-to-b from-blue-50/30 to-white/60">
         <CalendarPage />
+      </section>
+
+      <section id="section-transcript" className="min-h-screen bg-gradient-to-b from-indigo-50/40 to-white/60">
+        <div className="px-6 pt-10 pb-2">
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Transcript</h2>
+          <p className="text-slate-500 mt-1">Academic performance and cognitive levels</p>
+        </div>
+        <TranscriptPage />
       </section>
 
       <section id="section-progress" className="min-h-screen bg-gradient-to-b from-violet-50/40 to-white/60">

@@ -11,6 +11,7 @@ const poppins = Poppins({ subsets: ['latin'], weight: ['800'] })
 
 const navItems = [
   { id: 'calendar',  label: 'Calendar',  icon: CalendarDays },
+  { id: 'transcript', label: 'Transcript', icon: TrendingUp },
   { id: 'progress',  label: 'Progress',  icon: TrendingUp },
   { id: 'insights',  label: 'Insights',  icon: Lightbulb },
 ] as const
@@ -19,6 +20,7 @@ type SectionId = typeof navItems[number]['id']
 
 const sectionColors: Record<SectionId, { active: string; ring: string }> = {
   calendar: { active: 'bg-blue-500 text-white shadow-blue-200', ring: 'ring-2 ring-blue-300/40' },
+  transcript: { active: 'bg-indigo-500 text-white shadow-indigo-200', ring: 'ring-2 ring-indigo-300/40' },
   progress:  { active: 'bg-violet-500 text-white shadow-violet-200', ring: 'ring-2 ring-violet-300/40' },
   insights:  { active: 'bg-emerald-500 text-white shadow-emerald-200', ring: 'ring-2 ring-emerald-300/40' },
 }
@@ -40,11 +42,43 @@ const PARENT_NOTIFICATIONS: ParentNotification[] = [
   { id: 5, title: 'Curriculum update', body: "Week 9 curriculum has been uploaded. Tap to preview topics.", time: '2 days ago', read: true, icon: '📅' },
 ]
 
+// ─── Seed localStorage with historical journal data on first load ─────────────
+
+const SEED_FLAG = 'historicalDataSeeded_v2'
+
+function seedHistoricalData() {
+  if (typeof window === 'undefined') return
+  if (localStorage.getItem(SEED_FLAG)) return
+
+  import('@/lib/historicalJournalData').then(({ HISTORICAL_JOURNAL_ENTRIES, getHistoricalLegacyEntries }) => {
+    // Only seed if the stores are empty (don't overwrite real user data)
+    const existingDay = localStorage.getItem('learnbridge_day_journal')
+    const existingLegacy = localStorage.getItem('learnbridge_journal')
+
+    const dayEntries = existingDay ? JSON.parse(existingDay) : []
+    const legacyEntries = existingLegacy ? JSON.parse(existingLegacy) : []
+
+    if (dayEntries.length === 0) {
+      localStorage.setItem('learnbridge_day_journal', JSON.stringify(HISTORICAL_JOURNAL_ENTRIES))
+    }
+    if (legacyEntries.length === 0) {
+      localStorage.setItem('learnbridge_journal', JSON.stringify(getHistoricalLegacyEntries()))
+    }
+
+    localStorage.setItem(SEED_FLAG, '1')
+  }).catch(() => {
+    // Silently ignore seeding errors — app works without historical data
+  })
+}
+
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bellOpen, setBellOpen] = useState(false)
+
+  // Seed historical journal data on first visit
+  useEffect(() => { seedHistoricalData() }, [])
   const [notifications, setNotifications] = useState(PARENT_NOTIFICATIONS)
   const [activeSection, setActiveSection] = useState<SectionId | null>(null)
   const [navVisible, setNavVisible] = useState(true)
@@ -156,7 +190,45 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
                   {notifications.map(n => (
                     <button
                       key={n.id}
-                      onClick={() => setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item))}
+                      onClick={() => {
+                        setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item))
+                        setBellOpen(false)
+                        const title = n.title.toLowerCase()
+                        if (title.includes('summary') || title.includes('digest')) {
+                          const today = new Date()
+                          const yyyy = today.getFullYear()
+                          const mm = String(today.getMonth() + 1).padStart(2, '0')
+                          const dd = String(today.getDate()).padStart(2, '0')
+                          const dateStr = `${yyyy}-${mm}-${dd}`
+                          
+                          import('@/lib/mockTimetable').then(({ getScheduleForDate, getSchoolDays }) => {
+                            let targetDate = dateStr
+                            let schedule = getScheduleForDate(targetDate)
+                            
+                            // If today has no schedule (weekend or outside mock data), use first available date
+                            if (schedule.length === 0) {
+                              const schoolDays = getSchoolDays()
+                              if (schoolDays.length > 0) {
+                                targetDate = schoolDays[0]
+                                schedule = getScheduleForDate(targetDate)
+                              }
+                            }
+                            
+                            if (schedule && schedule.length > 0) {
+                              router.push(`/parent/day/${targetDate}/${encodeURIComponent(schedule[0].subject)}`)
+                            } else {
+                              if (pathname !== '/parent') router.push('/parent')
+                              setTimeout(() => document.getElementById(`section-calendar`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+                            }
+                          }).catch(() => {
+                            if (pathname !== '/parent') router.push('/parent')
+                          })
+                        } else if (title.includes('activity')) {
+                          router.push('/parent/action')
+                        } else if (title.includes('message')) {
+                          window.dispatchEvent(new CustomEvent('open-communication-hub', { detail: { tab: 'teacher' } }))
+                        }
+                      }}
                       className={`w-full flex items-start gap-3 px-4 py-3 border-b border-slate-50 text-left hover:bg-slate-50 transition-colors ${!n.read ? 'bg-blue-50/40' : ''}`}
                     >
                       <span className="text-lg shrink-0">{n.icon}</span>

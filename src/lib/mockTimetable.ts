@@ -45,6 +45,122 @@ export const SUBJECT_EMOJIS: Record<SubjectName, string> = {
 }
 
 export const mockTimetable: Record<string, DaySchedule[]> = {
+  // ── Past Week -4: Mar 9–13 ──
+  '2026-03-09': [
+    { subject: 'Maths',   time: '9:00–10:00',  teacher: 'Ms. Smith',  topic: 'Place Value',            type: 'before-school' },
+    { subject: 'English', time: '10:30–11:30', teacher: 'Ms. Brown',  topic: 'Journal Writing',        type: 'before-school' },
+    { subject: 'PE',      time: '13:00–14:00', teacher: 'Coach Davis',topic: 'Running & Fitness',      type: 'before-school' },
+  ],
+  '2026-03-10': [
+    { subject: 'Science',       time: '9:00–10:00',  teacher: 'Mr. Jones', topic: 'Animals & Habitats',      type: 'before-school' },
+    { subject: 'HSIE',          time: '10:30–11:30', teacher: 'Mr. Wilson',topic: 'Australia\'s First Peoples',type: 'before-school' },
+    { subject: 'Maths',         time: '13:00–14:00', teacher: 'Ms. Smith', topic: 'Addition & Subtraction',  type: 'before-school' },
+    { subject: 'Creative Arts', time: '14:15–15:00', teacher: 'Ms. Chen',  topic: 'Drawing Techniques',      type: 'before-school' },
+  ],
+  '2026-03-11': [
+    { subject: 'English', time: '9:00–10:00',  teacher: 'Ms. Brown', topic: 'Spelling Patterns',      type: 'before-school' },
+    { subject: 'Maths',   time: '10:30–11:30', teacher: 'Ms. Smith', topic: 'Number Lines',            type: 'before-school' },
+    { subject: 'Science', time: '13:00–14:00', teacher: 'Mr. Jones', topic: 'Senses & Observations',   type: 'before-school' },
+  ],
+  '2026-03-12': [
+    { subject: 'HSIE',          time: '9:00–10:00',  teacher: 'Mr. Wilson', topic: 'Maps & Directions',      type: 'before-school' },
+    { subject: 'English',       time: '10:30–11:30', teacher: 'Ms. Brown',  topic: 'Punctuation Rules',       type: 'before-school' },
+    { subject: 'PE',            time: '13:00–14:00', teacher: 'Coach Davis',topic: 'Ball Skills',             type: 'before-school' },
+    { subject: 'Creative Arts', time: '14:15–15:00', teacher: 'Ms. Chen',   topic: 'Colour Mixing',          type: 'before-school' },
+  ],
+  '2026-03-13': [
+    { subject: 'Maths',   time: '9:00–10:00',  teacher: 'Ms. Smith', topic: 'Skip Counting',          type: 'before-school' },
+    { subject: 'Science', time: '10:30–11:30', teacher: 'Mr. Jones', topic: 'Water & Weather',         type: 'before-school' },
+    { subject: 'English', time: '13:00–14:00', teacher: 'Ms. Brown', topic: 'Sentence Structure',      type: 'before-school' },
+  ],
+
+  // ── Past Week -3: Mar 16–20 ──
+  '2026-03-16': [
+    { subject: 'Science',       time: '9:00–10:00',  teacher: 'Mr. Jones', topic: 'Pushes & Pulls',          type: 'before-school' },
+    { subject: 'Maths',         time: '10:30–11:30', teacher: 'Ms. Smith', topic: 'Telling the Time',        type: 'before-school' },
+    { subject: 'English',       time: '13:00–14:00', teacher: 'Ms. Brown', topic: 'Recount Writing',         type: 'before-school' },
+    { subject: 'Creative Arts', time: '14:15–15:00', teacher: 'Ms. Chen',  topic: 'Collage Making',          type: 'before-school' },
+  ],
+  '2026-03-17': [
+    { subject: 'HSIE',  time: '9:00–10:00',  teacher: 'Mr. Wilson', topic: 'Natural & Built Environments', type: 'before-school' },
+    { subject: 'PE',    time: '10:30–11:30', teacher: 'Coach Davis',topic: 'Catching & Throwing',          type: 'before-school' },
+    { subject: 'Maths', time: '13:00–14:00', teacher: 'Ms. Smith',  topic: 'Measuring Length',             type: 'before-school' },
+  ],
+  '2026-03-18': [
+    { subject: 'English', time: '9:00–10:00',  teacher: 'Ms. Brown',  topic: 'Vocabulary Building',    type: 'before-school' },
+    { subject: 'Science', time: '10:30–11:30', teacher: 'Mr. Jones',  topic: 'Light & Shadows',         type: 'before-school' },
+    { subject: 'HSIE',    time: '13:00–14:00', teacher: 'Mr. Wilson', topic: 'Seasons & Climate',       type: 'before-school' },
+  ],
+  '2026-03-19': [
+    { subject: 'Maths',         time: '9:00–10:00',  teacher: 'Ms. Smith',  topic: 'Multiplication Intro',  type: 'before-school' },
+    { subject: 'English',       time: '10:30–11:30', teacher: 'Ms. Brown',  topic: 'Reading Aloud',          type: 'before-school' },
+    { subject: 'PE',            time: '13:00–14:00', teacher: 'Coach Davis',topic: 'Obstacle Courses',       type: 'before-school' },
+    { subject: 'Creative Arts', time: '14:15–15:00', teacher: 'Ms. Chen',   topic: 'Pastel Drawing',         type: 'before-school' },
+  ],
+  '2026-03-20': [
+    { subject: 'Science', time: '9:00–10:00',  teacher: 'Mr. Jones', topic: 'Magnets & Metals',        type: 'before-school' },
+    { subject: 'HSIE',    time: '10:30–11:30', teacher: 'Mr. Wilson',topic: 'People & Places',          type: 'before-school' },
+    { subject: 'English', time: '13:00–14:00', teacher: 'Ms. Brown', topic: 'Expository Writing',       type: 'before-school' },
+  ],
+
+  // ── Past Week -2: Mar 23–27 ──
+  '2026-03-23': [
+    { subject: 'Maths',         time: '9:00–10:00',  teacher: 'Ms. Smith',  topic: 'Division Basics',       type: 'before-school' },
+    { subject: 'English',       time: '10:30–11:30', teacher: 'Ms. Brown',  topic: 'Procedural Texts',       type: 'before-school' },
+    { subject: 'PE',            time: '13:00–14:00', teacher: 'Coach Davis',topic: 'Tag Sports',             type: 'before-school' },
+    { subject: 'Creative Arts', time: '14:15–15:00', teacher: 'Ms. Chen',   topic: 'Weaving & Textiles',     type: 'before-school' },
+  ],
+  '2026-03-24': [
+    { subject: 'Science', time: '9:00–10:00',  teacher: 'Mr. Jones', topic: 'Soil & Rocks',            type: 'before-school' },
+    { subject: 'HSIE',    time: '10:30–11:30', teacher: 'Mr. Wilson',topic: 'Family & Community',       type: 'before-school' },
+    { subject: 'Maths',   time: '13:00–14:00', teacher: 'Ms. Smith', topic: 'Fractions Intro',          type: 'before-school' },
+  ],
+  '2026-03-25': [
+    { subject: 'English',       time: '9:00–10:00',  teacher: 'Ms. Brown',  topic: 'Story Elements',        type: 'before-school' },
+    { subject: 'Maths',         time: '10:30–11:30', teacher: 'Ms. Smith',  topic: 'Money & Change',        type: 'before-school' },
+    { subject: 'Science',       time: '13:00–14:00', teacher: 'Mr. Jones',  topic: 'Air & Breathing',       type: 'before-school' },
+    { subject: 'Creative Arts', time: '14:15–15:00', teacher: 'Ms. Chen',   topic: 'Puppet Making',         type: 'before-school' },
+  ],
+  '2026-03-26': [
+    { subject: 'HSIE',  time: '9:00–10:00',  teacher: 'Mr. Wilson', topic: 'Transport & Technology', type: 'before-school' },
+    { subject: 'PE',    time: '10:30–11:30', teacher: 'Coach Davis',topic: 'Hula Hoops & Balance',   type: 'before-school' },
+    { subject: 'Maths', time: '13:00–14:00', teacher: 'Ms. Smith',  topic: 'Calendar & Dates',       type: 'before-school' },
+  ],
+  '2026-03-27': [
+    { subject: 'Maths',   time: '9:00–10:00',  teacher: 'Ms. Smith', topic: 'Patterns & Sequences',   type: 'before-school' },
+    { subject: 'Science', time: '10:30–11:30', teacher: 'Mr. Jones', topic: 'Day & Night',             type: 'before-school' },
+    { subject: 'English', time: '13:00–14:00', teacher: 'Ms. Brown', topic: 'Letter Writing',          type: 'before-school' },
+  ],
+
+  // ── Past Week -1: Mar 30 – Apr 3 ──
+  '2026-03-30': [
+    { subject: 'Science',       time: '9:00–10:00',  teacher: 'Mr. Jones', topic: 'The Solar System',       type: 'before-school' },
+    { subject: 'Maths',         time: '10:30–11:30', teacher: 'Ms. Smith', topic: 'Rounding Numbers',       type: 'before-school' },
+    { subject: 'English',       time: '13:00–14:00', teacher: 'Ms. Brown', topic: 'Descriptive Language',   type: 'before-school' },
+    { subject: 'Creative Arts', time: '14:15–15:00', teacher: 'Ms. Chen',  topic: 'Mosaic Art',             type: 'before-school' },
+  ],
+  '2026-03-31': [
+    { subject: 'HSIE',  time: '9:00–10:00',  teacher: 'Mr. Wilson', topic: 'Australian History Intro',  type: 'before-school' },
+    { subject: 'PE',    time: '10:30–11:30', teacher: 'Coach Davis',topic: 'Jump Rope Skills',           type: 'before-school' },
+    { subject: 'Maths', time: '13:00–14:00', teacher: 'Ms. Smith',  topic: 'Odd & Even Numbers',        type: 'before-school' },
+  ],
+  '2026-04-01': [
+    { subject: 'English', time: '9:00–10:00',  teacher: 'Ms. Brown',  topic: 'Character Analysis',     type: 'before-school' },
+    { subject: 'Science', time: '10:30–11:30', teacher: 'Mr. Jones',  topic: 'Ecosystems Overview',    type: 'before-school' },
+    { subject: 'HSIE',    time: '13:00–14:00', teacher: 'Mr. Wilson', topic: 'Land & Waterways',       type: 'before-school' },
+  ],
+  '2026-04-02': [
+    { subject: 'Maths',         time: '9:00–10:00',  teacher: 'Ms. Smith',  topic: 'Times Tables Review',   type: 'before-school' },
+    { subject: 'English',       time: '10:30–11:30', teacher: 'Ms. Brown',  topic: 'Newspaper Reports',      type: 'before-school' },
+    { subject: 'PE',            time: '13:00–14:00', teacher: 'Coach Davis',topic: 'Tennis Basics',          type: 'before-school' },
+    { subject: 'Creative Arts', time: '14:15–15:00', teacher: 'Ms. Chen',   topic: 'Stencil Art',            type: 'before-school' },
+  ],
+  '2026-04-03': [
+    { subject: 'Science', time: '9:00–10:00',  teacher: 'Mr. Jones', topic: 'Biodiversity',            type: 'before-school' },
+    { subject: 'HSIE',    time: '10:30–11:30', teacher: 'Mr. Wilson',topic: 'Celebrations & Festivals', type: 'before-school' },
+    { subject: 'English', time: '13:00–14:00', teacher: 'Ms. Brown', topic: 'Term 1 Review',            type: 'before-school' },
+  ],
+
   // ── Week 1: Apr 6–10 ──
   '2026-04-06': [
     { subject: 'Maths',   time: '9:00–10:00',  teacher: 'Ms. Smith',  topic: 'Fractions & Decimals',   type: 'before-school' },

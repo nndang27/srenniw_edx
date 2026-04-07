@@ -1,0 +1,171 @@
+[
+  {
+    "year": "2025",
+    "semester": "Semester 1",
+    "status": "completed",
+    "period": "January – June 2025",
+    "grades": [
+      {
+        "subject": "Maths",
+        "achievement": "Exceeding Standard",
+        "grade": "A",
+        "effort": "Outstanding",
+        "score": 91,
+        "comment": "Demonstrates exceptional understanding of number operations and problem solving. Consistently applies strategies independently and supports peers during group work."
+      },
+      {
+        "subject": "English",
+        "achievement": "Meeting Standard",
+        "grade": "B",
+        "effort": "Consistent",
+        "score": 78,
+        "comment": "Shows solid comprehension and expressive writing skills. Continues to develop punctuation accuracy and paragraph structure with growing confidence."
+      },
+      {
+        "subject": "Science",
+        "achievement": "Exceeding Standard",
+        "grade": "A",
+        "effort": "Outstanding",
+        "score": 88,
+        "comment": "Engages enthusiastically with investigations and demonstrates strong scientific thinking. Asks perceptive questions and connects concepts across topics."
+      },
+      {
+        "subject": "HSIE",
+        "achievement": "Meeting Standard",
+        "grade": "B",
+        "effort": "Consistent",
+        "score": 74,
+        "comment": "Participates actively in discussions about communities and geography. Developing the ability to present reasoned arguments using supporting evidence."
+      },
+      {
+        "subject": "Creative Arts",
+        "achievement": "Meeting Standard",
+        "grade": "B+",
+        "effort": "Strong",
+        "score": 82,
+        "comment": "Brings creativity and enthusiasm to visual arts and drama. Works are expressive and demonstrate growing technical skill and confidence in performance."
+      },
+      {
+        "subject": "PE",
+        "achievement": "Exceeding Standard",
+        "grade": "A",
+        "effort": "Outstanding",
+        "score": 94,
+        "comment": "Excels across all physical activity units. Displays excellent sportsmanship, leadership in team activities and consistently achieves personal bests."
+      }
+    ]
+  },
+  {
+    "year": "2025",
+    "semester": "Semester 2",
+    "status": "completed",
+    "period": "July – December 2025",
+    "grades": [
+      {
+        "subject": "Maths",
+        "achievement": "Exceeding Standard",
+        "grade": "A",
+        "effort": "Outstanding",
+        "score": 93,
+        "comment": "Outstanding achievement in algebra, fractions and data analysis. Independently tackles multi-step problems and explains reasoning with clarity."
+      },
+      {
+        "subject": "English",
+        "achievement": "Exceeding Standard",
+        "grade": "A-",
+        "effort": "Strong",
+        "score": 85,
+        "comment": "Strong growth in narrative writing and oral communication. Reading comprehension is now at an advanced level with excellent inference and critical analysis skills."
+      },
+      {
+        "subject": "Science",
+        "achievement": "Exceeding Standard",
+        "grade": "A",
+        "effort": "Outstanding",
+        "score": 90,
+        "comment": "Demonstrates deep curiosity and rigorous experimental technique. Science fair project on ecosystems was outstanding — well above year-level expectations."
+      },
+      {
+        "subject": "HSIE",
+        "achievement": "Meeting Standard",
+        "grade": "B",
+        "effort": "Consistent",
+        "score": 76,
+        "comment": "Solid understanding of Australian history and civic participation. Contributes thoughtful perspectives to class discussions and produces well-structured responses."
+      },
+      {
+        "subject": "Creative Arts",
+        "achievement": "Exceeding Standard",
+        "grade": "A-",
+        "effort": "Strong",
+        "score": 86,
+        "comment": "Exceptional creativity across music, visual art and drama. Led a class performance with confidence and demonstrated strong collaborative skills."
+      },
+      {
+        "subject": "PE",
+        "achievement": "Exceeding Standard",
+        "grade": "A",
+        "effort": "Outstanding",
+        "score": 95,
+        "comment": "Continues to excel in all physical disciplines. Selected as house captain for athletics carnival. A role model for sportsmanship and team motivation."
+      }
+    ]
+  },
+  {
+    "year": "2026",
+    "semester": "Semester 1",
+    "status": "in-progress",
+    "period": "January – June 2026",
+    "reportNote": "Current semester — report available July 2026",
+    "grades": [
+      {
+        "subject": "Maths",
+        "achievement": "Exceeding Standard",
+        "grade": "A",
+        "effort": "Outstanding",
+        "score": 92,
+        "comment": "Performing at an advanced level in all current units. Demonstrates strong mastery of geometry and algebraic thinking so far this semester."
+      },
+      {
+        "subject": "English",
+        "achievement": "Exceeding Standard",
+        "grade": "A-",
+        "effort": "Strong",
+        "score": 86,
+        "comment": "Writing has become notably more sophisticated. Current persuasive writing unit shows excellent argument structure and vocabulary range."
+      },
+      {
+        "subject": "Science",
+        "achievement": "Exceeding Standard",
+        "grade": "A",
+        "effort": "Outstanding",
+        "score": 91,
+        "comment": "Thriving in the chemistry and forces units. Experimental write-ups are detailed and scientifically accurate. A natural scientist."
+      },
+      {
+        "subject": "HSIE",
+        "achievement": "Meeting Standard",
+        "grade": "B+",
+        "effort": "Strong",
+        "score": 80,
+        "comment": "Showing improved engagement with the economics and citizenship units. Arguments are more evidence-based and discussions are increasingly thoughtful."
+      },
+      {
+        "subject": "Creative Arts",
+        "achievement": "Meeting Standard",
+        "grade": "B+",
+        "effort": "Strong",
+        "score": 83,
+        "comment": "Strong progress in digital media and visual arts. Current animation project demonstrates creativity and attention to detail."
+      },
+      {
+        "subject": "PE",
+        "achievement": "Exceeding Standard",
+        "grade": "A",
+        "effort": "Outstanding",
+        "score": 96,
+        "comment": "Exceptional commitment to physical development and team sports. Currently leading the school cross-country training group."
+      }
+    ]
+  }
+]

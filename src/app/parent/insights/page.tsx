@@ -63,6 +63,17 @@ export default function InsightsPage() {
         </p>
       </div>
 
+      {/* Data Source Warning */}
+      {entries.length < 3 && (
+        <div className="flex items-start gap-3 bg-red-50/80 backdrop-blur-sm border border-red-200/60 rounded-2xl p-3.5 mb-4">
+          <AlertTriangle size={14} className="text-red-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-red-800 leading-relaxed">
+            <span className="font-semibold">Insufficient data.</span>{' '}
+            There isn&apos;t enough journal data to generate highly accurate insights yet. Please continue logging.
+          </p>
+        </div>
+      )}
+
       {/* ── Dashboard grid ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -123,35 +134,6 @@ export default function InsightsPage() {
             )}
           </div>
         </GlassCard>
-
-        {/* 7 ── Bloom trend line (visible if ≥2 weekly points) */}
-        {data.cognition.weekly_trend.length >= 2 && (
-          <GlassCard className="md:col-span-2">
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="font-bold text-slate-900">Bloom&apos;s Level Trend</h3>
-              </div>
-              <p className="text-xs text-slate-500 mb-4">
-                Average cognitive level per month (1=Remember → 5=Evaluate)
-                {data.cognition.adjusted_bloom_level !== undefined && (
-                  <> · decay-adjusted avg: <strong>{data.cognition.adjusted_bloom_level}</strong></>
-                )}
-              </p>
-              <ResponsiveContainer width="100%" height={140}>
-                <LineChart data={data.cognition.weekly_trend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="week" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} />
-                  <YAxis domain={[1, 5]} ticks={[1,2,3,4,5]} tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: 'none' }}
-                    formatter={(v) => [typeof v === 'number' ? v.toFixed(1) : v, 'Bloom level']}
-                  />
-                  <Line type="monotone" dataKey="level" stroke="#6366f1" strokeWidth={2.5}
-                    dot={{ r: 4, fill: '#6366f1', strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </GlassCard>
-        )}
 
 
       </div>
