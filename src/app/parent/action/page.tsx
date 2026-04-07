@@ -4,7 +4,7 @@ import {
   MessageSquare, RefreshCw, Calendar, ExternalLink,
   ChefHat, MapPin, Palette, BookOpen, Target, Eye,
   GraduationCap, Clock, Car, UtensilsCrossed, Bath,
-  ShoppingCart, Blocks, CookingPot,
+  ShoppingCart, Blocks, CookingPot, Package,
 } from 'lucide-react'
 import { useApi } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
@@ -120,6 +120,7 @@ const FALLBACK_ACTIVITIES = [
     learningGoals: ['Identify 1/2, 1/4, 1/8 of a whole', 'Compare fractions with different denominators'],
     parentTip: 'If your child can explain why 2/8 = 1/4 using the pizza, they\'ve nailed it!',
     icon: 'chef' as const,
+    materials: ['pizza or flatbread', 'knife', 'toppings'],
   },
   {
     emoji: '🛒',
@@ -133,6 +134,7 @@ const FALLBACK_ACTIVITIES = [
     learningGoals: ['Add prices mentally', 'Estimate totals before checkout'],
     parentTip: 'Ask "Is this closer to $3 or $4?" — estimating builds number sense.',
     icon: 'map' as const,
+    materials: ['grocery list', 'pen'],
   },
   {
     emoji: '🎨',
@@ -146,6 +148,7 @@ const FALLBACK_ACTIVITIES = [
     learningGoals: ['Shade fractions of shapes accurately', 'Recognise fractions visually'],
     parentTip: 'If they can shade 3/4 without help, they understand the concept well.',
     icon: 'palette' as const,
+    materials: ['paper', 'coloured markers'],
   },
 ]
 
@@ -204,6 +207,7 @@ export default function ActionPage() {
             learningGoals: ['Practice through play', 'Review classroom concepts at home'],
             parentTip: 'Ask your child to explain each step — teaching is the best way to learn!',
             icon: (['chef', 'map', 'palette'] as const)[i % 3],
+            materials: ['paper', 'pencils', 'everyday objects'],
           })))
         }
       })
@@ -335,6 +339,19 @@ export default function ActionPage() {
                     ))}
                   </div>
 
+                  {/* Materials */}
+                  {activity.materials && activity.materials.length > 0 && (
+                    <div className="mb-4 space-y-1.5">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1">
+                        <Package className="w-3 h-3" />
+                        Materials needed
+                      </p>
+                      <p className="text-sm text-slate-600 capitalize">
+                        {activity.materials.join(', ')}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Parent Tip */}
                   <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 mb-4">
                     <p className="text-xs text-amber-800 flex items-start gap-1.5">
@@ -355,12 +372,11 @@ export default function ActionPage() {
                     </span>
                   </div>
                   <Button
-                    variant="outline"
-                    className="w-full justify-between group-hover:bg-slate-50 border-slate-200"
+                    className="w-full justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-md hover:shadow-lg transition-all border-none font-semibold mt-2"
                     onClick={() => openCalendar(activity.calendarKey)}
                   >
                     Add to Calendar
-                    <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    <ExternalLink className="w-4 h-4 text-white/80 transition-colors" />
                   </Button>
                 </CardContent>
               </Card>

@@ -81,6 +81,7 @@ export interface SubjectEntry {
   emotion: string
   timeSpent: number // 0-120 mins
   notes: string
+  isHistorical?: boolean
 }
 
 function loadDayJournal(): SubjectEntry[] {

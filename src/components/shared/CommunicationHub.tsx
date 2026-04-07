@@ -46,6 +46,19 @@ export default function CommunicationHub() {
     bottomTeacherRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
+  useEffect(() => {
+    const handleOpenHub = (e: Event) => {
+      const customEvent = e as CustomEvent
+      setIsOpen(true)
+      if (customEvent.detail?.tab) {
+        setActiveTab(customEvent.detail.tab)
+      }
+    }
+    window.addEventListener('open-communication-hub', handleOpenHub)
+    return () => window.removeEventListener('open-communication-hub', handleOpenHub)
+  }, [])
+
+
   const handleAiSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!aiInput.trim() || isStreaming) return
@@ -132,11 +145,7 @@ export default function CommunicationHub() {
         {/* AI Chat Tab */}
         {activeTab === 'ai' && (
           <>
-            <div className="px-4 py-2.5 bg-blue-50/50 border-b border-blue-100 mt-4">
-              <p className="text-xs text-blue-800 text-center font-medium">
-                Homework · Wellbeing · Study routines · Parenting tips
-              </p>
-            </div>
+
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-6">
                 {history.length === 0 && !streamingText && (

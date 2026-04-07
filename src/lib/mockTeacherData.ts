@@ -190,8 +190,8 @@ function generateJournalEntries(studentIndex: number): JournalEntry[] {
   const seed = Math.floor(studentIndex / 5)
   const entries: JournalEntry[] = []
 
-  for (let dayOffset = 13; dayOffset >= 0; dayOffset--) {
-    const dayIndex = 13 - dayOffset
+  for (let dayOffset = 89; dayOffset >= 0; dayOffset--) {
+    const dayIndex = 89 - dayOffset
     const subject = SUBJECTS[dayIndex % SUBJECTS.length]
     const cognitiveLevel = getCognitiveLevel(profile, dayIndex, seed)
     const emotion = getEmotion(profile, dayIndex, seed)

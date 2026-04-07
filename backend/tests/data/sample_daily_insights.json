@@ -1,0 +1,77 @@
+[
+  {
+    "date": "2025-01-01",
+    "studentId": "s1",
+    "is_school_day": true,
+    "subject": "Maths",
+    "cognitiveLevel": 3,
+    "emotion": "Neutral",
+    "timeSpent": 45,
+    "parent_note": "Olivia finished her maths homework very quickly and seemed happy about it.",
+    "parent_note_scores": {
+      "emotion_sentiment": 4.5,
+      "parent_child_connection": 0.8,
+      "activity_level": 0.2,
+      "social_engagement": 0.0,
+      "curiosity_index": 0.5,
+      "focus_depth": 0.9
+    },
+    "teacher_note": "Excellent participation in the fraction group activity today.",
+    "teacher_note_scores": {
+      "emotion_sentiment": 4.2,
+      "encouragement_level": 1.0,
+      "difficulty_signal": 0.0,
+      "engagement_observed": 0.8
+    }
+  },
+  {
+    "date": "2025-01-02",
+    "studentId": "s1",
+    "is_school_day": true,
+    "subject": "Science",
+    "cognitiveLevel": 4,
+    "emotion": "Curious",
+    "timeSpent": 60,
+    "parent_note": "Olivia kept asking about how plants grow in the dark.",
+    "parent_note_scores": {
+      "emotion_sentiment": 3.5,
+      "parent_child_connection": 0.9,
+      "activity_level": 0.4,
+      "social_engagement": 0.0,
+      "curiosity_index": 0.95,
+      "focus_depth": 0.0
+    },
+    "teacher_note": "Asked very insightful questions during the photosynthesis lab.",
+    "teacher_note_scores": {
+      "emotion_sentiment": 3.8,
+      "encouragement_level": 0.8,
+      "difficulty_signal": 0.0,
+      "engagement_observed": 0.9
+    }
+  },
+  {
+    "date": "2025-01-03",
+    "studentId": "s1",
+    "is_school_day": true,
+    "subject": "English",
+    "cognitiveLevel": 2,
+    "emotion": "Anxious",
+    "timeSpent": 30,
+    "parent_note": "Olivia was worried about presenting her writing piece.",
+    "parent_note_scores": {
+      "emotion_sentiment": 1.2,
+      "parent_child_connection": 0.8,
+      "activity_level": 0.0,
+      "social_engagement": 0.5,
+      "curiosity_index": 0.1,
+      "focus_depth": 0.4
+    },
+    "teacher_note": "Was very nervous during her presentation but did a great job once she started.",
+    "teacher_note_scores": {
+      "emotion_sentiment": 3.2,
+      "encouragement_level": 0.9,
+      "difficulty_signal": 0.8,
+      "engagement_observed": 0.7
+    }
+  }
+]
