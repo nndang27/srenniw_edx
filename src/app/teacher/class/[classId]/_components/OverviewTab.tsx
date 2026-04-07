@@ -4,10 +4,10 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from 'recharts'
-import { AlertTriangle, TrendingUp, Users, Brain, Smile, BookOpen } from 'lucide-react'
+import { AlertTriangle, TrendingUp, Users, Brain, BookOpen } from 'lucide-react'
 import type { TeacherClass } from '@/lib/mockTeacherData'
 import {
-  avgCognitiveLevel, dominantEmotion, studentsNeedingAttention, topPerformers, SUBJECTS,
+  avgCognitiveLevel, studentsNeedingAttention, topPerformers, SUBJECTS,
 } from '@/lib/mockTeacherData'
 
 const SUBJECT_COLORS: Record<string, string> = {
@@ -19,13 +19,6 @@ const SUBJECT_COLORS: Record<string, string> = {
   PE: '#f97316',
 }
 
-const EMOTION_CELL_BG: Record<string, string> = {
-  Happy: 'bg-emerald-400',
-  Curious: 'bg-blue-400',
-  Excited: 'bg-yellow-400',
-  Anxious: 'bg-rose-400',
-  Disengaged: 'bg-gray-300',
-}
 
 interface Props {
   cls: TeacherClass
@@ -39,7 +32,6 @@ export default function OverviewTab({ cls, subject }: Props) {
   )
 
   const avgLevel = avgCognitiveLevel(filteredStudents, subject !== 'All' ? subject : undefined)
-  const { emotion: mood, emoji: moodEmoji } = dominantEmotion(filteredStudents)
   const attention = studentsNeedingAttention(filteredStudents)
   const performers = topPerformers(filteredStudents)
 
@@ -72,16 +64,28 @@ export default function OverviewTab({ cls, subject }: Props) {
 
   const displaySubjectsForChart = subject !== 'All' ? [subject] : SUBJECTS
 
-  // Emotion heatmap summary
-  const allEntries = filteredStudents.flatMap(s =>
-    s.journalEntries.filter(e => weekDates.includes(e.date))
-  )
-  const emotionCounts = Object.keys(EMOTION_CELL_BG).map(em => ({
-    emotion: em,
-    count: allEntries.filter(e => e.emotion === em).length,
-  })).sort((a, b) => b.count - a.count)
-  const topEmotion = emotionCounts[0]
-  const topPct = allEntries.length ? Math.round((topEmotion?.count ?? 0) / allEntries.length * 100) : 0
+  // Subject Performance Table — this week vs last week avg cognitive level
+  const thisWeek = weekDates.slice(-7)
+  const lastWeekDates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date('2026-04-06')
+    d.setDate(d.getDate() - (13 - i))
+    return d.toISOString().split('T')[0]
+  })
+
+  const displaySubjects = subject !== 'All' ? [subject] : SUBJECTS
+  const subjectPerformance = displaySubjects.map(subj => {
+    const thisEntries = filteredStudents.flatMap(s =>
+      s.journalEntries.filter(e => thisWeek.includes(e.date) && e.subject === subj)
+    )
+    const lastEntries = filteredStudents.flatMap(s =>
+      s.journalEntries.filter(e => lastWeekDates.includes(e.date) && e.subject === subj)
+    )
+    const thisAvg = thisEntries.length ? +(thisEntries.reduce((a, e) => a + e.cognitiveLevel, 0) / thisEntries.length).toFixed(1) : null
+    const lastAvg = lastEntries.length ? +(lastEntries.reduce((a, e) => a + e.cognitiveLevel, 0) / lastEntries.length).toFixed(1) : null
+    const change = thisAvg !== null && lastAvg !== null ? +(thisAvg - lastAvg).toFixed(1) : null
+    const status = change === null ? '—' : change > 0.3 ? '↑ Improving' : change < -0.3 ? '↓ Declining' : '→ Stable'
+    return { subj, thisAvg, lastAvg, change, status }
+  })
 
   return (
     <div className="space-y-6">
@@ -91,7 +95,7 @@ export default function OverviewTab({ cls, subject }: Props) {
           { icon: Users, label: 'Total Students', value: filteredStudents.length, color: 'text-blue-500' },
           { icon: Brain, label: 'Avg Cognitive', value: `${avgLevel} / 5`, color: 'text-violet-500' },
           { icon: BookOpen, label: 'Logged Today', value: `${loggedToday} / ${filteredStudents.length}`, color: 'text-emerald-500' },
-          { icon: Smile, label: 'Class Mood', value: `${moodEmoji} ${mood}`, color: 'text-amber-500' },
+          { icon: AlertTriangle, label: 'Needs Attention', value: attention.length, color: 'text-amber-500' },
         ].map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="backdrop-blur-xl bg-white/70 border border-white/60 rounded-2xl p-4 shadow-sm">
             <Icon size={16} className={`${color} mb-2`} />
@@ -131,52 +135,54 @@ export default function OverviewTab({ cls, subject }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {/* Emotion Heatmap */}
+      {/* Subject Performance Table */}
       <div className="backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-5 shadow-sm">
-        <h3 className="font-bold text-slate-800 mb-1">Emotion Heatmap — Last 7 Days</h3>
-        <p className="text-xs text-slate-400 mb-4">Hover a cell to see details</p>
-
-        {/* Header row */}
-        <div className="flex items-center gap-1 mb-1">
-          <div className="w-32 shrink-0" />
-          {weekDates.map(d => (
-            <div key={d} className="flex-1 text-center text-[10px] text-slate-400 font-bold">
-              {new Date(d).toLocaleDateString('en-AU', { weekday: 'narrow' })}
-            </div>
-          ))}
-        </div>
-
-        {/* Student rows */}
-        <div className="space-y-0.5">
-          {filteredStudents.slice(0, 20).map(student => (
-            <div key={student.id} className="flex items-center gap-1">
-              <span className="text-xs text-slate-500 w-32 shrink-0 truncate pr-2">{student.name}</span>
-              {weekDates.map(date => {
-                const entry = student.journalEntries.find(e => e.date === date)
-                return (
-                  <div
-                    key={date}
-                    title={entry ? `${student.name} — ${entry.emotion} · ${date}` : `${student.name} — No entry`}
-                    className={`flex-1 h-6 rounded-lg cursor-default transition-opacity hover:opacity-75
-                      ${entry ? EMOTION_CELL_BG[entry.emotion] : 'bg-gray-100'}`}
-                  />
-                )
-              })}
-            </div>
-          ))}
-        </div>
-
-        {/* Legend + summary */}
-        <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-slate-100">
-          {Object.entries(EMOTION_CELL_BG).map(([emotion, bg]) => (
-            <span key={emotion} className="flex items-center gap-1 text-[10px] text-slate-500">
-              <span className={`w-3.5 h-3.5 rounded ${bg} inline-block`} />
-              {emotion}
-            </span>
-          ))}
-          <span className="ml-auto text-[10px] text-slate-400 font-semibold">
-            Most common: {topEmotion?.emotion ?? '—'} ({topPct}%)
-          </span>
+        <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <BookOpen size={16} className="text-indigo-500" />
+          Subject Performance — This Week vs Last Week
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
+                <th className="text-left pb-2 pr-4 font-semibold">Subject</th>
+                <th className="text-center pb-2 px-3 font-semibold">This Week</th>
+                <th className="text-center pb-2 px-3 font-semibold">Last Week</th>
+                <th className="text-center pb-2 px-3 font-semibold">Change</th>
+                <th className="text-left pb-2 pl-3 font-semibold">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {subjectPerformance.map(({ subj, thisAvg, lastAvg, change, status }) => (
+                <tr key={subj} className="hover:bg-white/50 transition-colors">
+                  <td className="py-2.5 pr-4">
+                    <span className="font-semibold text-slate-700">{subj}</span>
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className="font-bold text-slate-800">{thisAvg !== null ? `${thisAvg} / 5` : '—'}</span>
+                  </td>
+                  <td className="py-2.5 px-3 text-center text-slate-500">
+                    {lastAvg !== null ? `${lastAvg} / 5` : '—'}
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    {change !== null ? (
+                      <span className={`font-semibold ${change > 0.3 ? 'text-emerald-600' : change < -0.3 ? 'text-rose-500' : 'text-slate-400'}`}>
+                        {change > 0 ? `+${change}` : change}
+                      </span>
+                    ) : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="py-2.5 pl-3">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      status.startsWith('↑') ? 'bg-emerald-50 text-emerald-700' :
+                      status.startsWith('↓') ? 'bg-rose-50 text-rose-600' :
+                      status === '—' ? 'bg-slate-50 text-slate-400' :
+                      'bg-slate-50 text-slate-500'
+                    }`}>{status}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
