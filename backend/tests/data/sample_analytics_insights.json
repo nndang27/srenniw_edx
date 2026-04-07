@@ -1,0 +1,256 @@
+{
+  "intelligences": {
+    "radar_data": {
+      "Logical": 80,
+      "Linguistic": 75,
+      "Spatial": 65,
+      "Kinesthetic": 85,
+      "Musical": 50,
+      "Interpersonal": 90,
+      "Intrapersonal": 70,
+      "Naturalist": 60
+    },
+    "top_strengths": [
+      "Interpersonal",
+      "Kinesthetic"
+    ],
+    "insight_message": "Strong potential in interpersonal communication & kinesthetic learning! Active and social learning styles work best."
+  },
+  "vark": {
+    "vark_distribution": {
+      "Visual": 25,
+      "Auditory": 20,
+      "Reading": 15,
+      "Kinesthetic": 40
+    },
+    "primary_hint": "Kinesthetic",
+    "multimodal_suggestion": "Try a variety of hands-on, movement-based approaches mixed with visual aids.",
+    "disclaimer": "Multimodal learning yields the best results!"
+  },
+  "cognition": {
+    "status_badge": "Exploring Ahead",
+    "position_value": 1.6,
+    "milestones": [
+      {
+        "id": 0,
+        "label": "Year 3"
+      },
+      {
+        "id": 1,
+        "label": "Year 4 (Current)"
+      },
+      {
+        "id": 2,
+        "label": "Year 5"
+      }
+    ],
+    "development_insight": "Surpassing Year 4 cognitive targets consistently.",
+    "recommended_support": "Introduce more complex problem-solving scenarios to keep them challenged.",
+    "average_bloom_level": 4.2,
+    "weekly_trend": [
+      {
+        "week": "W1",
+        "level": 3.8
+      },
+      {
+        "week": "W2",
+        "level": 4
+      },
+      {
+        "week": "W3",
+        "level": 4.2
+      },
+      {
+        "week": "W4",
+        "level": 4.2
+      }
+    ]
+  },
+  "emotion": {
+    "today": {
+      "emotion": "🤩 Excited",
+      "score": 5,
+      "message": "Extremely positive and engaged across all subjects today!",
+      "parent_note": null
+    },
+    "ratio_status": "Flourishing",
+    "positivity_ratio": 0.85,
+    "chart_data_week": [
+      {
+        "day": "02-02",
+        "date": "2026-02-02",
+        "score": 5,
+        "emoji": "🤩",
+        "emotion": "Excited",
+        "parent_note": "Bé tự ngồi làm bài tập thêm không cần nhắc, nói muốn giỏi hơn"
+      },
+      {
+        "day": "02-03",
+        "date": "2026-02-03",
+        "score": 5,
+        "emoji": "🤩",
+        "emotion": "Happy",
+        "parent_note": null
+      },
+      {
+        "day": "02-03",
+        "date": "2026-02-03",
+        "score": 5,
+        "emoji": "🤩",
+        "emotion": "Happy",
+        "parent_note": "Bé cùng bố đọc sách tối, hỏi nghĩa nhiều từ mới"
+      },
+      {
+        "day": "02-03",
+        "date": "2026-02-03",
+        "score": 5,
+        "emoji": "🤩",
+        "emotion": "Happy",
+        "parent_note": "Bé cùng bố đọc sách tối, hỏi nghĩa nhiều từ mới"
+      },
+      {
+        "day": "02-04",
+        "date": "2026-02-04",
+        "score": 5,
+        "emoji": "🤩",
+        "emotion": "Excited",
+        "parent_note": null
+      },
+      {
+        "day": "02-04",
+        "date": "2026-02-04",
+        "score": 5,
+        "emoji": "🤩",
+        "emotion": "Excited",
+        "parent_note": "Extremely excited about the PE relay race, told the whole story at dinner"
+      },
+      {
+        "day": "02-04",
+        "date": "2026-02-04",
+        "score": 5,
+        "emoji": "🤩",
+        "emotion": "Excited",
+        "parent_note": "Extremely excited about the PE relay race, told the whole story at dinner"
+      }
+    ],
+    "chart_data_month": [
+      {
+        "day": "01-26",
+        "date": "2026-01-23",
+        "score": 4.285714285714286,
+        "emoji": "🤔",
+        "emotion": "Averaged"
+      },
+      {
+        "day": "01-28",
+        "date": "2026-01-27",
+        "score": 4.857142857142857,
+        "emoji": "🤩",
+        "emotion": "Averaged"
+      },
+      {
+        "day": "01-30",
+        "date": "2026-01-30",
+        "score": 4.428571428571429,
+        "emoji": "🤔",
+        "emotion": "Averaged"
+      },
+      {
+        "day": "02-03",
+        "date": "2026-02-02",
+        "score": 4.857142857142857,
+        "emoji": "🤩",
+        "emotion": "Averaged"
+      },
+      {
+        "day": "02-04",
+        "date": "2026-02-04",
+        "score": 5,
+        "emoji": "🤩",
+        "emotion": "Averaged"
+      }
+    ],
+    "chart_data_year": [
+      {
+        "day": "2025-09",
+        "date": "2025-09-01",
+        "score": 3.5245901639344264,
+        "emoji": "🤔",
+        "emotion": "Averaged"
+      },
+      {
+        "day": "2025-10",
+        "date": "2025-10-01",
+        "score": 2.9078947368421053,
+        "emoji": "😐",
+        "emotion": "Averaged"
+      },
+      {
+        "day": "2025-11",
+        "date": "2025-11-01",
+        "score": 3.4029850746268657,
+        "emoji": "😐",
+        "emotion": "Averaged"
+      },
+      {
+        "day": "2025-12",
+        "date": "2025-12-01",
+        "score": 4.48051948051948,
+        "emoji": "🤔",
+        "emotion": "Averaged"
+      },
+      {
+        "day": "2026-01",
+        "date": "2026-01-01",
+        "score": 4.287671232876712,
+        "emoji": "🤔",
+        "emotion": "Averaged"
+      },
+      {
+        "day": "2026-02",
+        "date": "2026-02-01",
+        "score": 4.909090909090909,
+        "emoji": "🤩",
+        "emotion": "Averaged"
+      }
+    ],
+    "alert": null,
+    "perma_scores": {
+      "Positive": 85,
+      "Engagement": 90,
+      "Relationships": 75,
+      "Meaning": 80,
+      "Achievement": 95
+    }
+  },
+  "personality": {
+    "traits": {
+      "Openness": 80,
+      "Conscientiousness": 70,
+      "Extraversion": 90,
+      "Agreeableness": 85,
+      "Neuroticism": 20
+    },
+    "superpower": "Social Catalyst",
+    "insight": "Energetic, outgoing, and highly emotionally intelligent.",
+    "gentle_reminder": null
+  },
+  "career": {
+    "riasec_scores": {
+      "Realistic": 75,
+      "Investigative": 65,
+      "Artistic": 70,
+      "Social": 95,
+      "Enterprising": 85,
+      "Conventional": 50
+    },
+    "holland_code": "SE",
+    "top_clusters": [
+      "Social",
+      "Enterprising"
+    ],
+    "cluster_groups": {},
+    "pathway_inspiration": "High aptitude for leadership, education, or dynamic team environments.",
+    "disclaimer": "These interests keep growing — use as a fun lens to discover new hobbies!"
+  }
+}

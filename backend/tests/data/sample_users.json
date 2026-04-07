@@ -1,0 +1,26 @@
+{
+  "teacher": {
+    "id": "t1",
+    "name": "Sarah Miller",
+    "avatar": "https://api.dicebear.com/7.x/personas/svg?seed=Sarah"
+  },
+  "parent": {
+    "id": "p1",
+    "name": "Mr. Chen",
+    "studentId": "s1",
+    "email": "chen.family@email.com"
+  },
+  "class": {
+    "id": "4a",
+    "name": "Year 4A",
+    "teacherId": "t1",
+    "studentCount": 1,
+    "students": [
+      {
+        "id": "s1",
+        "name": "Olivia Chen",
+        "avatar": "https://api.dicebear.com/7.x/personas/svg?seed=Olivia"
+      }
+    ]
+  }
+}

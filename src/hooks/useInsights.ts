@@ -102,7 +102,10 @@ function computeLocalInsights(entries: JournalEntry[]): InsightsData {
   const todayE = last?.emotion ?? 'Neutral'
   const todayS = ESCORE[todayE] ?? 3
   const posR = entries.length ? entries.filter(e => ['Excited','Happy','Curious'].includes(e.emotion)).length / entries.length : 0
-  const chartW = sorted.slice(-7).map(e => { const sc = ESCORE[e.emotion] ?? 3; return { day: e.date.slice(5), date: e.date, score: sc, emoji: EMOJIS[sc] ?? '😐', emotion: e.emotion, parent_note: e.notes || null } })
+  const mappedChart = sorted.map(e => { const sc = ESCORE[e.emotion] ?? 3; return { day: e.date.slice(5), date: e.date, score: sc, emoji: EMOJIS[sc] ?? '😐', emotion: e.emotion, parent_note: e.notes || null } })
+  const chartW = mappedChart.slice(-7)
+  const chartM = mappedChart.slice(-30)
+  const chartY = mappedChart.slice(-365)
 
   const n = entries.length || 1
   const bloom45 = entries.filter(e => e.cognitiveLevel >= 4).length / n
@@ -135,7 +138,7 @@ function computeLocalInsights(entries: JournalEntry[]): InsightsData {
     intelligences: { radar_data: radar, top_strengths: topStr, insight_message: `Strong potential in ${topStr.join(' & ')}!` },
     vark: { vark_distribution: varkDist, primary_hint: primaryV, multimodal_suggestion: 'Try a variety of approaches.', disclaimer: 'Multimodal learning is best!' },
     cognition: { status_badge: status, position_value: pos, milestones: [{ id: 0, label: 'Year 3' }, { id: 1, label: 'Year 4 (Current)' }, { id: 2, label: 'Year 5' }], development_insight: 'Making steady progress!', recommended_support: 'Keep exploring daily.', average_bloom_level: Math.round(avg * 10) / 10, weekly_trend: [] },
-    emotion: { today: { emotion: `${EMOJIS[todayS] ?? '😐'} ${todayE}`, score: todayS, message: 'Today is going okay.', parent_note: null }, ratio_status: posR > 0.7 ? 'Flourishing' : posR > 0.5 ? 'Growing' : posR > 0.3 ? 'Seeking Balance' : 'Needs Support', positivity_ratio: Math.round(posR * 100) / 100, chart_data_week: chartW, chart_data_month: [], chart_data_year: [], alert: null, perma_scores: { Positive: Math.round(posR * 100), Engagement: Math.round(avg / 5 * 100), Relationships: 50, Meaning: Math.min(100, Math.round(n / 20 * 100)), Achievement: Math.round(bloom45 * 100) } },
+    emotion: { today: { emotion: `${EMOJIS[todayS] ?? '😐'} ${todayE}`, score: todayS, message: 'Today is going okay.', parent_note: null }, ratio_status: posR > 0.7 ? 'Flourishing' : posR > 0.5 ? 'Growing' : posR > 0.3 ? 'Seeking Balance' : 'Needs Support', positivity_ratio: Math.round(posR * 100) / 100, chart_data_week: chartW, chart_data_month: chartM, chart_data_year: chartY, alert: null, perma_scores: { Positive: Math.round(posR * 100), Engagement: Math.round(avg / 5 * 100), Relationships: 50, Meaning: Math.min(100, Math.round(n / 20 * 100)), Achievement: Math.round(bloom45 * 100) } },
     personality: { traits, superpower: 'Unique Learner', insight: 'A wonderful combination of traits!', gentle_reminder: null },
     career: { riasec_scores: riasecN, holland_code: topC.map(k => k[0]).join('') + 'X', top_clusters: topC, cluster_groups: {}, pathway_inspiration: `Potential in ${topC.join(' & ')} areas!`, disclaimer: "Interests keep growing — use as a fun lens!" },
   }
@@ -147,75 +150,29 @@ export type InsightsSource = 'local' | 'api' | 'demo'
 
 export function useInsights(entries: JournalEntry[], childAge = 9, streak = 0) {
   const [data, setData]       = useState<InsightsData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [source, setSource]   = useState<InsightsSource>('local')
+  const [loading, setLoading] = useState(true)
+  const [source, setSource]   = useState<InsightsSource>('api')
   const [demoMode, setDemoMode] = useState(false)
 
-  const localData = useMemo(() => {
-    if (entries.length === 0) return null
-    return computeLocalInsights(entries)
-  }, [entries])
-
-  // Load demo insights from backend (backend reads mock_data_400days.json)
-  const loadDemo = () => {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000'
+  const loadData = async () => {
     setLoading(true)
-    setDemoMode(true)
-    fetch(`${backendUrl}/api/parent/insights/demo`)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
-      .then((d: InsightsData) => { setData(d); setSource('demo') })
-      .catch(() => { setData(null); setDemoMode(false) })
-      .finally(() => setLoading(false))
-  }
-
-  const clearDemo = () => {
-    setDemoMode(false)
-    setData(localData)
-    setSource('local')
-  }
-
-  // Auto-load demo when no real entries exist (on first mount)
-  useEffect(() => {
-    if (entries.length === 0) {
-      loadDemo()
+    try {
+      const res = await fetch('/api/analytics')
+      if (!res.ok) throw new Error()
+      const d = await res.json()
+      setData(d)
+    } catch {
+      console.error('Failed to load insights from analytics API.')
+      // Fallback empty UI to prevent breaks
+      setData(null)
+    } finally {
+      setLoading(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }
+
+  useEffect(() => {
+    loadData()
   }, [])
 
-  // Fetch live data from backend when entries are available
-  useEffect(() => {
-    if (demoMode) return
-    if (entries.length < 2) {
-      setData(localData)
-      setSource('local')
-      return
-    }
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000'
-    const controller = new AbortController()
-    setLoading(true)
-    fetch(`${backendUrl}/api/parent/insights`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        entries: entries.map(e => ({
-          date: e.date, subject: e.subject,
-          cognitiveLevel: e.cognitiveLevel,
-          emotion: e.emotion, notes: e.notes,
-        })),
-        child_age: childAge,
-        curriculum_benchmark: 3.0,
-        app_usage_streak: streak,
-      }),
-      signal: controller.signal,
-    })
-      .then(r => { if (!r.ok) throw new Error(); return r.json() })
-      .then((d: InsightsData) => { setData(d); setSource('api') })
-      .catch(() => { setData(localData); setSource('local') })
-      .finally(() => setLoading(false))
-
-    return () => controller.abort()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries.length, childAge, streak, demoMode])
-
-  return { data: data ?? localData, loading, source, demoMode, loadDemo, clearDemo }
+  return { data, loading, source, demoMode, loadDemo: loadData, clearDemo: loadData }
 }

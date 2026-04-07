@@ -1,14 +1,13 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import {
-  mockTimetable,
   SUBJECT_COLORS,
   SUBJECT_BG_COLORS,
   type SubjectName,
 } from '@/lib/mockTimetable'
-import { getJournalEntries } from '@/lib/journal'
+import { useJournalEntries } from '@/hooks/useJournalEntries'
 
 const SUBJECTS: SubjectName[] = ['Maths', 'Science', 'English', 'HSIE', 'Creative Arts', 'PE']
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -33,6 +32,17 @@ export default function CalendarPage() {
 
   const [weekStart, setWeekStart] = useState(() => getWeekStart(today))
   const [activeFilter, setActiveFilter] = useState<SubjectName | null>(null)
+  
+  const [timetable, setTimetable] = useState<Record<string, any[]>>({})
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/timetable')
+      .then(r => r.json())
+      .then(d => setTimetable(d))
+      .catch(e => console.error(e))
+      .finally(() => setLoading(false))
+  }, [])
 
   const weekDays = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => {
@@ -45,7 +55,7 @@ export default function CalendarPage() {
   const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d) }
   const goToday  = () => setWeekStart(getWeekStart(today))
 
-  const entries = useMemo(() => getJournalEntries(), [])
+  const { entries } = useJournalEntries()
   const loggedDates = useMemo(() => new Set(entries.map(e => e.date)), [entries])
 
   const weekdayStrs = weekDays.slice(0, 5).map(toDateStr)
@@ -153,8 +163,8 @@ export default function CalendarPage() {
         <div className="grid grid-cols-7 flex-1 overflow-y-auto divide-x divide-white/30">
           {weekDays.map((day, i) => {
             const dateStr = toDateStr(day)
-            const allSchedule = mockTimetable[dateStr] ?? []
-            const schedule = activeFilter ? allSchedule.filter(c => c.subject === activeFilter) : allSchedule
+            const allSchedule = timetable[dateStr] ?? []
+            const schedule = activeFilter ? allSchedule.filter((c: any) => c.subject === activeFilter) : allSchedule
             const isWeekend = i >= 5
             const isToday = dateStr === todayStr
             const isPast = day < today
@@ -162,18 +172,22 @@ export default function CalendarPage() {
             return (
               <div
                 key={dateStr}
-                className={`min-h-32 p-1.5 flex flex-col gap-1
-                  ${isWeekend ? 'bg-slate-50/60' : 'bg-white/30'}
+                onClick={() => router.push(`/parent/day/${dateStr}`)}
+                className={`min-h-32 p-1.5 flex flex-col gap-1 cursor-pointer transition-colors
+                  ${isWeekend ? 'bg-slate-50/60' : 'bg-white/30 hover:bg-slate-50/50'}
                   ${isToday ? 'bg-blue-50/50' : ''}
-                  ${isPast && !isToday ? 'opacity-60' : ''}`}
+                  ${isPast && !isToday ? 'opacity-80' : ''}`}
               >
-                {schedule.map((cls, j) => {
+                {schedule.map((cls: any, j: number) => {
                   const color  = SUBJECT_COLORS[cls.subject as SubjectName] ?? '#94a3b8'
                   const bgColor = SUBJECT_BG_COLORS[cls.subject as SubjectName] ?? '#f8fafc'
                   return (
                     <div
                       key={j}
-                      onClick={() => router.push(`/parent/day/${dateStr}/${encodeURIComponent(cls.subject)}`)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/parent/day/${dateStr}/${encodeURIComponent(cls.subject)}`)
+                      }}
                       className="rounded-lg px-1.5 py-1 text-left overflow-hidden cursor-pointer hover:opacity-80 transition-all duration-150 hover:scale-[1.02] backdrop-blur-sm"
                       style={{ background: bgColor, borderLeft: `3px solid ${color}` }}
                     >

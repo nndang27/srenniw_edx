@@ -1,6 +1,7 @@
 'use client'
 import { motion } from 'framer-motion'
 import { Compass } from 'lucide-react'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
 interface Milestone { id: number; label: string }
 interface CognitionData {
@@ -54,8 +55,7 @@ export default function MilestonePathway({ data }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h3 className="text-sm font-bold text-slate-800">Cognitive Growth</h3>
-        <p className="text-xs text-slate-400">Developmental pathway · avg Bloom level {data.average_bloom_level}/5</p>
+        <h3 className="text-lg font-bold text-slate-900">Cognitive Growth</h3>
       </div>
 
       {/* Track area — white bg */}
@@ -136,20 +136,27 @@ export default function MilestonePathway({ data }: Props) {
         </div>
       </div>
 
-      {/* Info card */}
-      <div className={`rounded-2xl border p-4 ${meta.bg} ${meta.border}`}>
-        <div className="flex items-start justify-between mb-2">
-          <h4 className="text-sm font-bold uppercase tracking-wide" style={{ color: meta.color }}>
-            {meta.title}
-          </h4>
-          <Compass size={16} style={{ color: meta.color }} className="shrink-0 mt-0.5" />
-        </div>
-        <p className="text-xs text-slate-700 leading-relaxed mb-2">{data.development_insight}</p>
-        <p className="text-[11px] text-slate-500">
-          <span className="font-semibold" style={{ color: meta.color }}>Suggested: </span>
-          {data.recommended_support}
-        </p>
-      </div>
+      {/* Info card -> Moved to extend accordion */}
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem value="analysis" className="border-none">
+          <AccordionTrigger className="bg-slate-50/80 hover:bg-slate-100 rounded-xl px-4 py-2 text-xs font-semibold text-slate-700">
+            Extend Analysis
+          </AccordionTrigger>
+          <AccordionContent className={`mt-2 rounded-2xl border p-4 shadow-sm ${meta.bg} ${meta.border}`}>
+            <div className="flex items-start justify-between mb-2">
+              <h4 className="text-sm font-bold uppercase tracking-wide" style={{ color: meta.color }}>
+                {meta.title}
+              </h4>
+              <Compass size={16} style={{ color: meta.color }} className="shrink-0 mt-0.5" />
+            </div>
+            <p className="text-xs text-slate-700 leading-relaxed mb-2">{data.development_insight}</p>
+            <p className="text-[11px] text-slate-500">
+              <span className="font-semibold" style={{ color: meta.color }}>Suggested: </span>
+              {data.recommended_support}
+            </p>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   )
 }

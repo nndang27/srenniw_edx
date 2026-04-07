@@ -88,8 +88,7 @@ export default function EmotionCard({ data }: Props) {
             style={{ backfaceVisibility: 'hidden' }}
           >
             <div className="text-center w-full">
-              <h3 className="text-base font-bold text-slate-700">Emotional Wellbeing</h3>
-              <p className="text-xs text-slate-400 mt-0.5">PERMA model · today</p>
+              <h3 className="text-lg font-bold text-slate-900">Emotional Wellbeing</h3>
             </div>
 
             <motion.div
@@ -120,7 +119,7 @@ export default function EmotionCard({ data }: Props) {
           >
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-800">Emotion Trend</h3>
+                <h3 className="text-lg font-bold text-slate-900">Emotion Trend</h3>
                 <p className="text-xs text-slate-400">Tap to go back</p>
               </div>
               <div className="flex gap-1">

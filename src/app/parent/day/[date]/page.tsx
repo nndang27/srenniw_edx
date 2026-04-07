@@ -2,7 +2,7 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Sunrise, BookOpen, Lightbulb, Gamepad2, BookMarked, ChevronDown, ChevronUp, Check } from 'lucide-react'
-import { getScheduleForDate, SUBJECT_COLORS, SUBJECT_EMOJIS, type SubjectName, type DaySchedule } from '@/lib/mockTimetable'
+import { SUBJECT_COLORS, SUBJECT_EMOJIS, type SubjectName, type DaySchedule } from '@/lib/mockTimetable'
 import { getDayEntries, saveSubjectEntry, getDayNote, saveDayNote, type SubjectEntry } from '@/lib/journal'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -23,78 +23,14 @@ const EMOTIONS = [
   { id: 5, emoji: '😄', label: 'Happy' },
 ]
 
-const ACTIVITY_SUGGESTIONS: Record<string, { title: string; desc: string; emoji: string }[]> = {
-  'Maths': [
-    { emoji: '🎲', title: 'Fraction War Card Game', desc: 'Use a deck of cards to create fractions. Highest fraction wins the round.' },
-    { emoji: '🛒', title: 'Supermarket Maths', desc: 'Let them calculate totals and change during the next grocery run.' },
-    { emoji: '📏', title: 'Measure the House', desc: 'Estimate then measure furniture — compare metric and informal units.' },
-  ],
-  'Science': [
-    { emoji: '🌱', title: 'Kitchen Garden Experiment', desc: 'Grow beans in a jar — observe roots and shoots forming over days.' },
-    { emoji: '🧊', title: 'States of Matter Kitchen Lab', desc: 'Observe ice melting and water boiling — record observations together.' },
-    { emoji: '🔦', title: 'Shadow Tracing', desc: 'Trace shadows hourly to understand how the sun moves.' },
-  ],
-  'English': [
-    { emoji: '✍️', title: 'Story Starter Jar', desc: 'Write prompts on paper, pull one out, write for 10 minutes.' },
-    { emoji: '📰', title: 'Family Newspaper', desc: 'Write a short article about something that happened this week.' },
-    { emoji: '🎙️', title: 'Persuasion Challenge', desc: 'Give them 2 mins to convince you of something — then discuss.' },
-  ],
-  'HSIE': [
-    { emoji: '🗺️', title: 'Map Your Neighbourhood', desc: 'Draw a map of your local area with landmarks.' },
-    { emoji: '📸', title: 'Community Photo Walk', desc: 'Photograph things that show community roles (post box, park, school).' },
-    { emoji: '🌍', title: 'Country Research Box', desc: 'Pick a country and find 5 interesting facts together.' },
-  ],
-  'Creative Arts': [
-    { emoji: '🖌️', title: 'Watercolour Wash Sunset', desc: 'Practice blending colours to create a gradient sky.' },
-    { emoji: '🎵', title: 'Rhythm Clapping Game', desc: 'Clap patterns and challenge each other to repeat them.' },
-    { emoji: '🎭', title: 'Mini Play', desc: 'Act out a favourite story scene — swap roles.' },
-  ],
-  'PE': [
-    { emoji: '⏱️', title: 'Backyard Obstacle Course', desc: 'Set up a timed course with hula hoops, cones, and jumps.' },
-    { emoji: '🎯', title: 'Target Throwing', desc: 'Throw beanbags at chalk circles — record accuracy.' },
-    { emoji: '🚴', title: 'Bike Ride Challenge', desc: 'Set a distance goal and track it on a map app.' },
-  ],
-}
-
-const PLAY_QUESTIONS: Record<string, { q: string; options: string[]; answer: number }[]> = {
-  'Maths': [
-    { q: 'What is 3/4 of 20?', options: ['12', '15', '10', '8'], answer: 1 },
-    { q: 'Which is bigger: 0.75 or 3/4?', options: ['0.75', '3/4', 'They are equal', 'Cannot tell'], answer: 2 },
-  ],
-  'Science': [
-    { q: 'Water changing from liquid to gas is called?', options: ['Freezing', 'Condensation', 'Evaporation', 'Melting'], answer: 2 },
-    { q: 'Which organism makes its own food from sunlight?', options: ['Lion', 'Mushroom', 'Plant', 'Fish'], answer: 2 },
-  ],
-  'English': [
-    { q: 'Which word is an adjective?', options: ['Run', 'Quickly', 'Beautiful', 'Jump'], answer: 2 },
-    { q: 'A piece of writing that tries to convince is called…?', options: ['Narrative', 'Persuasive', 'Descriptive', 'Report'], answer: 1 },
-  ],
-  'HSIE': [
-    { q: 'What is the capital of Australia?', options: ['Sydney', 'Melbourne', 'Canberra', 'Brisbane'], answer: 2 },
-    { q: 'Who makes laws in Australia?', options: ['The Police', 'Parliament', 'The Queen', 'Schools'], answer: 1 },
-  ],
-  'Creative Arts': [
-    { q: 'Red + Blue = ?', options: ['Orange', 'Green', 'Purple', 'Brown'], answer: 2 },
-    { q: 'What is a melody?', options: ['A beat pattern', 'A tune of notes', 'A type of dance', 'A painting style'], answer: 1 },
-  ],
-  'PE': [
-    { q: 'How many players in a basketball team on court?', options: ['4', '5', '6', '7'], answer: 1 },
-    { q: 'Which muscle group do squats primarily work?', options: ['Arms', 'Chest', 'Legs', 'Back'], answer: 2 },
-  ],
-}
+// UI Components
 
 // ─── Before-School Card ───────────────────────────────────────────────────────
-function BeforeSchoolSection({ schedule }: { schedule: DaySchedule[] }) {
+function BeforeSchoolSection({ schedule, activities }: { schedule: DaySchedule[], activities: any }) {
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  const previewPrompts: Record<string, string> = {
-    'Maths':         'Do you know what we use fractions for in real life?',
-    'Science':       'Can you name one thing that changes from solid to liquid?',
-    'English':       'What makes a piece of writing convincing to you?',
-    'HSIE':          'What do you know about how our local community works?',
-    'Creative Arts': 'What colours do you think make a painting look peaceful?',
-    'PE':            "How do you think you can improve your team's speed?",
-  }
+  const previewPrompts = activities?.previewPrompts || {}
+
 
   return (
     <div className="space-y-3">
@@ -165,22 +101,50 @@ function JournalSection({ date, schedule }: { date: string; schedule: DaySchedul
       if (raw) setChildName(JSON.parse(raw).name ?? '')
     } catch { /* ignore */ }
     setDayNote(getDayNote(date))
-    const existing = getDayEntries(date)
-    if (existing.length > 0) {
+    const existingSync = getDayEntries(date)
+    
+    // Attempt load from localStorage first
+    if (existingSync.length > 0) {
+      applyEntries(existingSync)
+    } else {
+      // Fallback to fetch from 400-day dataset so past days aren't empty
+      fetch('/api/insights')
+        .then(r => r.json())
+        .then(allData => {
+          const mockEntries = allData.filter((e: any) => e.date === date && e.is_school_day)
+          if (mockEntries.length > 0) {
+             const transformed = mockEntries.map((m: any) => ({
+               subject: m.subject,
+               cognitiveLevel: m.cognitiveLevel,
+               emotion: m.emotion,
+               timeSpent: 30,
+               notes: m.parent_note || ''
+             }))
+             applyEntries(transformed)
+             // Set the overall day note based on the first entry's parent_note (since our mock uses parent_note loosely)
+             if (mockEntries[0].parent_note && !getDayNote(date)) {
+               setDayNote(mockEntries[0].parent_note)
+             }
+          }
+        })
+        .catch(console.error)
+    }
+  }, [date])
+
+  const applyEntries = (entries: any[]) => {
       const states: Record<string, SubjectState> = {}
-      for (const e of existing) {
+      for (const e of entries) {
         states[e.subject] = {
           level: e.cognitiveLevel,
           emotion: EMOTIONS.findIndex(em => em.label === e.emotion) + 1,
           timeSpent: e.timeSpent,
-          notes: e.notes,
+          notes: e.notes || '',
           saved: true,
         }
       }
       setSubjectStates(states)
-      setSelected(existing.map(e => e.subject))
-    }
-  }, [date])
+      setSelected(entries.map(e => e.subject))
+  }
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -437,18 +401,18 @@ function JournalSection({ date, schedule }: { date: string; schedule: DaySchedul
 }
 
 // ─── Activities Section ───────────────────────────────────────────────────────
-function ActivitiesSection({ schedule }: { schedule: DaySchedule[] }) {
+function ActivitiesSection({ schedule, activitiesMock }: { schedule: DaySchedule[], activitiesMock: any }) {
   const subjects = [...new Set(schedule.map(s => s.subject))]
   return (
     <div className="space-y-4">
       {subjects.map(sub => {
-        const activities = ACTIVITY_SUGGESTIONS[sub] ?? []
+        const activities = activitiesMock?.suggestions?.[sub] ?? []
         const color = SUBJECT_COLORS[sub as SubjectName] ?? '#94a3b8'
         return (
           <div key={sub}>
             <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color }}>{sub}</p>
             <div className="space-y-2">
-              {activities.map(act => (
+              {activities.map((act: any) => (
                 <div key={act.title} className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-2xl shadow-sm p-3 flex gap-3">
                     <span className="text-2xl shrink-0">{act.emoji}</span>
                     <div>
@@ -466,9 +430,9 @@ function ActivitiesSection({ schedule }: { schedule: DaySchedule[] }) {
 }
 
 // ─── Play Section (mini quiz) ─────────────────────────────────────────────────
-function PlaySection({ schedule }: { schedule: DaySchedule[] }) {
+function PlaySection({ schedule, activitiesMock }: { schedule: DaySchedule[], activitiesMock: any }) {
   const subjects = [...new Set(schedule.map(s => s.subject))]
-  const allQ = subjects.flatMap(s => (PLAY_QUESTIONS[s] ?? []).map(q => ({ ...q, subject: s })))
+  const allQ = subjects.flatMap(s => (activitiesMock?.playQuestions?.[s] ?? []).map((q: any) => ({ ...q, subject: s })))
   const [qi, setQi]       = useState(0)
   const [answered, setAnswered] = useState<number | null>(null)
   const [score, setScore] = useState(0)
@@ -502,7 +466,7 @@ function PlaySection({ schedule }: { schedule: DaySchedule[] }) {
       </div>
       <p className="text-base font-semibold text-slate-800">{q.q}</p>
       <div className="grid grid-cols-2 gap-2">
-        {q.options.map((opt, i) => {
+        {q.options.map((opt: any, i: number) => {
           const isCorrect = i === q.answer
           const isSelected = answered === i
           return (
@@ -581,8 +545,22 @@ export default function DayDetailPage({ params }: { params: Promise<{ date: stri
   const { date } = use(params)
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<AfterTab>('digest')
+  const [schedule, setSchedule] = useState<DaySchedule[]>([])
+  const [activities, setActivities] = useState<any>({})
+  const [loading, setLoading] = useState(true)
 
-  const schedule = getScheduleForDate(date)
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/timetable').then(r => r.json()),
+      fetch('/api/activities').then(r => r.json())
+    ])
+    .then(([t, a]) => {
+      setSchedule(t[date] || [])
+      setActivities(a)
+    })
+    .catch(console.error)
+    .finally(() => setLoading(false))
+  }, [date])
 
   const formattedDate = (() => {
     const d = new Date(date + 'T00:00:00')
@@ -621,7 +599,7 @@ export default function DayDetailPage({ params }: { params: Promise<{ date: stri
               <Sunrise size={16} className="text-amber-500" />
               <h3 className="font-bold text-slate-800">Before School</h3>
             </div>
-            <BeforeSchoolSection schedule={schedule} />
+              <BeforeSchoolSection schedule={schedule} activities={activities} />
           </section>
 
           {/* Section B: After School tabs */}
@@ -649,8 +627,8 @@ export default function DayDetailPage({ params }: { params: Promise<{ date: stri
             <div className="pt-1">
               {activeTab === 'digest'      && <DigestSection schedule={schedule} />}
               {activeTab === 'journal'     && <JournalSection date={date} schedule={schedule} />}
-              {activeTab === 'activities'  && <ActivitiesSection schedule={schedule} />}
-              {activeTab === 'play'        && <PlaySection schedule={schedule} />}
+              {activeTab === 'activities'  && <ActivitiesSection schedule={schedule} activitiesMock={activities} />}
+              {activeTab === 'play'        && <PlaySection schedule={schedule} activitiesMock={activities} />}
             </div>
           </section>
         </>

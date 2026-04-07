@@ -162,11 +162,23 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <label className="text-xs text-slate-500 mb-1 block">School</label>
                 <input
                   type="text"
+                  list="school-names"
                   value={profile.school}
                   onChange={e => setProfile(p => ({ ...p, school: e.target.value }))}
                   placeholder="e.g. Greenwood Primary"
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-500"
                 />
+                <datalist id="school-names">
+                  <option value="Greenwood Primary" />
+                  <option value="Sydney Boys High School" />
+                  <option value="Sydney Girls High School" />
+                  <option value="North Sydney Boys High School" />
+                  <option value="James Ruse Agricultural High School" />
+                  <option value="Baulkham Hills High School" />
+                  <option value="St George Girls High School" />
+                  <option value="Hornsby Girls High School" />
+                  <option value="Fort Street High School" />
+                </datalist>
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">Primary language spoken at home</label>

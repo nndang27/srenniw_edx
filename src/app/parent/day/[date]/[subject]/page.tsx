@@ -1,8 +1,8 @@
 'use client'
-import { useState, use } from 'react'
+import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, ChevronLeft, ChevronRight,
+  ArrowLeft, ChevronLeft, ChevronRight, ExternalLink,
   BookOpen, Zap, Dumbbell, NotebookPen, MessageSquare, RefreshCw,
   Calendar, Target, GraduationCap, Clock,
   Car, UtensilsCrossed, Bath, ShoppingCart, Blocks, CookingPot,
@@ -17,7 +17,7 @@ import {
   SUBJECT_EMOJIS,
   type SubjectName,
 } from '@/lib/mockTimetable'
-import { saveJournalEntry, getTodayDate } from '@/lib/journal'
+import { getDayEntries, saveSubjectEntry, getTodayDate, type SubjectEntry } from '@/lib/journal'
 import TikTokHookPanel from '@/components/quick-peek/TikTokHookPanel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -997,8 +997,15 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   const router = useRouter()
 
   const schedule = getScheduleForDate(date)
-  const subjectEntry = schedule.find(s => s.subject === subject)
-  const quickPeek = subjectEntry ? getQuickPeekForSchedule(subject, subjectEntry.topic) : null
+  const rawEntry = schedule.find(s => s.subject === subject)
+  const subjectEntry = rawEntry ?? {
+    subject,
+    time: '',
+    teacher: '',
+    topic: subject,
+    type: 'before-school' as const,
+  }
+  const quickPeek = getQuickPeekForSchedule(subject, subjectEntry.topic)
 
   const subjectIndex = schedule.findIndex(s => s.subject === subject)
   const prevSubject = subjectIndex > 0 ? schedule[subjectIndex - 1] : null
@@ -1012,6 +1019,12 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   const [pageFade, setPageFade] = useState(true)
   const [isPracticeModalOpen, setIsPracticeModalOpen] = useState(false)
 
+  // Date classification
+  const todayDate = getTodayDate()
+  const isPastDate = date < todayDate
+  const isTodayDate = date === todayDate
+  const isFutureDate = date > todayDate
+
   // Journal state
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
   const [selectedEmotion, setSelectedEmotion] = useState<number | null>(null)
@@ -1019,6 +1032,22 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   const [notes, setNotes] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [existingEntry, setExistingEntry] = useState<SubjectEntry | null>(null)
+  const [isEditMode, setIsEditMode] = useState(false)
+
+  // Load existing journal entry on mount
+  useEffect(() => {
+    const entries = getDayEntries(date)
+    const found = entries.find(e => e.subject === subject) ?? null
+    setExistingEntry(found)
+    if (found) {
+      const emotionId = EMOTIONS.find(e => e.label === found.emotion)?.id ?? null
+      setSelectedLevel(found.cognitiveLevel)
+      setSelectedEmotion(emotionId)
+      setTimeSpent(found.timeSpent)
+      setNotes(found.notes)
+    }
+  }, [date, subject])
 
   const color = SUBJECT_COLORS[subject as SubjectName] ?? '#94a3b8'
   const bgColor = SUBJECT_BG_COLORS[subject as SubjectName] ?? '#f8fafc'
@@ -1042,35 +1071,24 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
     setIsSaving(true)
     try {
       const emotionLabel = EMOTIONS.find(e => e.id === selectedEmotion)?.label ?? ''
-      saveJournalEntry({
-        date: getTodayDate(),
+      const saved: SubjectEntry = {
+        date,
         timestamp: Date.now(),
         cognitiveLevel: selectedLevel,
         emotion: emotionLabel,
         subject,
         timeSpent,
         notes,
-      })
-      showToast('Journal saved! ✨')
-      setSelectedLevel(null)
-      setSelectedEmotion(null)
-      setNotes('')
+      }
+      saveSubjectEntry(saved)
+      setExistingEntry(saved)
+      setIsEditMode(false)
+      showToast(isPastDate ? 'Past entry saved! 📝' : 'Journal saved! ✨')
     } catch {
       showToast('Failed to save. Please try again.')
     } finally {
       setIsSaving(false)
     }
-  }
-
-  if (!subjectEntry || !quickPeek) {
-    return (
-      <div className="p-8 text-center text-slate-500">
-        <p>No schedule found for {subject} on {date}.</p>
-        <button onClick={() => router.push('/parent')} className="mt-4 text-sm text-blue-500 underline">
-          ← Back to Calendar
-        </button>
-      </div>
-    )
   }
 
   /* ─── Tab content renderers ── */
@@ -1422,6 +1440,15 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
                           ))}
                         </div>
 
+                        {activity.materials && activity.materials.length > 0 && (
+                          <>
+                            <p className="text-xs uppercase tracking-widest text-gray-400 mt-3 mb-1.5">Materials needed</p>
+                            <p className="text-sm text-slate-600 capitalize">
+                              {activity.materials.join(', ')}
+                            </p>
+                          </>
+                        )}
+
                         <div className="bg-amber-50 rounded-xl p-3 mt-3">
                           <p className="text-xs text-amber-800 flex items-start gap-1.5">
                             <span className="shrink-0 mt-0.5">👁️</span>
@@ -1429,21 +1456,23 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
                           </p>
                         </div>
 
-                        <div className="mt-auto flex items-center justify-between pt-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${difficultyClass(activity.difficulty)}`}>
-                              {activity.difficulty}
-                            </span>
-                            <span className="flex items-center gap-1 text-xs text-slate-400">
-                              <Clock className="w-3 h-3" />
-                              {activity.duration}
-                            </span>
+                        <div className="mt-auto flex flex-col gap-3 pt-4 border-t border-slate-50 mt-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${difficultyClass(activity.difficulty)}`}>
+                                {activity.difficulty}
+                              </span>
+                              <span className="flex items-center gap-1 text-xs text-slate-400">
+                                <Clock className="w-3 h-3" />
+                                {activity.duration}
+                              </span>
+                            </div>
                           </div>
                           <button
                             onClick={() => openCalendar(activity.calendarKey)}
-                            className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                            className="w-full text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-full py-2 font-semibold transition-all shadow hover:shadow-md flex items-center justify-center gap-2"
                           >
-                            Add to Calendar 📅
+                            Add to Calendar <ExternalLink size={14} className="opacity-80" />
                           </button>
                         </div>
                       </div>
@@ -1490,7 +1519,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
 
       {/* 🔀 Mix It Up! */}
       <section>
-        <h2 className="text-base font-bold text-slate-800 mb-3">🔀 Mix It Up!</h2>
+        <h2 className="text-2xl font-bold text-slate-900 mb-3">🔀 Mix It Up!</h2>
         {(() => {
           const cx = CROSS_SUBJECT_ACTIVITIES[crossSubjectIndex]
           return (
@@ -1537,83 +1566,85 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
     </div>
   )
 
-  const renderJournal = () => (
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm text-slate-500">How did this lesson go?</p>
+  const renderJournalForm = (readOnly: boolean) => (
+    <div className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-3xl shadow-lg p-5 space-y-7">
+      {/* Understanding level */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-slate-700">Understanding Level</h3>
+        <div className="grid grid-cols-5 gap-2 relative">
+          <div className="absolute top-5 left-[10%] right-[10%] h-1 bg-slate-100 z-0 rounded-full hidden sm:block" />
+          {selectedLevel !== null && (
+            <div
+              className="absolute top-5 left-[10%] h-1 bg-blue-500 z-0 rounded-full transition-all duration-300 hidden sm:block"
+              style={{ width: `${((selectedLevel - 1) / 4) * 80}%` }}
+            />
+          )}
+          {COGNITIVE_LEVELS.map(level => {
+            const isActive = selectedLevel === level.id
+            const isPastLevel = selectedLevel !== null && level.id < selectedLevel
+            return (
+              <div key={level.id} className="relative z-10 flex flex-col items-center">
+                <button
+                  onClick={() => !readOnly && setSelectedLevel(level.id)}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-200 border-2
+                      ${readOnly ? 'cursor-default' : ''}
+                      ${isActive ? 'bg-blue-500 border-blue-500 text-white scale-110 shadow-md'
+                      : isPastLevel ? 'bg-blue-50 border-blue-400 text-blue-500'
+                        : 'bg-white border-slate-200 text-slate-400' + (readOnly ? '' : ' hover:border-slate-300 hover:bg-slate-50')}`}
+                >
+                  {level.id}
+                </button>
+                <span className={`text-[10px] mt-2 font-medium text-center transition-colors ${isActive ? 'text-blue-500' : 'text-slate-500'}`}>
+                  {level.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        {selectedLevel !== null && (
+          <p className="text-xs font-medium text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+            <span className="text-blue-500 font-bold mr-1">{COGNITIVE_LEVELS[selectedLevel - 1].label}:</span>
+            {COGNITIVE_LEVELS[selectedLevel - 1].desc}
+          </p>
+        )}
       </div>
 
-      <div className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-3xl shadow-lg p-5 space-y-7">
-        {/* Understanding level */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-slate-700">Understanding Level</h3>
-          <div className="grid grid-cols-5 gap-2 relative">
-            <div className="absolute top-5 left-[10%] right-[10%] h-1 bg-slate-100 z-0 rounded-full hidden sm:block" />
-            {selectedLevel !== null && (
-              <div
-                className="absolute top-5 left-[10%] h-1 bg-blue-500 z-0 rounded-full transition-all duration-300 hidden sm:block"
-                style={{ width: `${((selectedLevel - 1) / 4) * 80}%` }}
-              />
-            )}
-            {COGNITIVE_LEVELS.map(level => {
-              const isActive = selectedLevel === level.id
-              const isPast = selectedLevel !== null && level.id < selectedLevel
-              return (
-                <div key={level.id} className="relative z-10 flex flex-col items-center">
-                  <button
-                    onClick={() => setSelectedLevel(level.id)}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-200 border-2
-                        ${isActive ? 'bg-blue-500 border-blue-500 text-white scale-110 shadow-md'
-                        : isPast ? 'bg-blue-50 border-blue-400 text-blue-500'
-                          : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50'}`}
-                  >
-                    {level.id}
-                  </button>
-                  <span className={`text-[10px] mt-2 font-medium text-center transition-colors ${isActive ? 'text-blue-500' : 'text-slate-500'}`}>
-                    {level.label}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-          {selectedLevel !== null && (
-            <p className="text-xs font-medium text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
-              <span className="text-blue-500 font-bold mr-1">{COGNITIVE_LEVELS[selectedLevel - 1].label}:</span>
-              {COGNITIVE_LEVELS[selectedLevel - 1].desc}
-            </p>
-          )}
+      <div className="h-px bg-slate-100" />
+
+      {/* Mood */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-slate-700">How was the mood?</h3>
+        <div className="flex justify-between">
+          {EMOTIONS.map(emotion => (
+            <button
+              key={emotion.id}
+              onClick={() => !readOnly && setSelectedEmotion(emotion.id)}
+              className={`flex flex-col items-center py-2 rounded-2xl transition-all duration-200 w-16
+                  ${readOnly ? 'cursor-default' : ''}
+                  ${selectedEmotion === emotion.id ? 'bg-orange-50 ring-2 ring-orange-400 scale-105 shadow-sm' : (readOnly ? '' : 'hover:bg-slate-50')}`}
+            >
+              <span className="text-4xl mb-1">{emotion.emoji}</span>
+              <span className={`text-[10px] font-medium ${selectedEmotion === emotion.id ? 'text-orange-600' : 'text-slate-500'}`}>
+                {emotion.label}
+              </span>
+            </button>
+          ))}
         </div>
+      </div>
 
-        <div className="h-px bg-slate-100" />
+      <div className="h-px bg-slate-100" />
 
-        {/* Mood */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700">How was the mood?</h3>
-          <div className="flex justify-between">
-            {EMOTIONS.map(emotion => (
-              <button
-                key={emotion.id}
-                onClick={() => setSelectedEmotion(emotion.id)}
-                className={`flex flex-col items-center py-2 rounded-2xl transition-all duration-200 w-16
-                    ${selectedEmotion === emotion.id ? 'bg-orange-50 ring-2 ring-orange-400 scale-105 shadow-sm' : 'hover:bg-slate-50'}`}
-              >
-                <span className="text-4xl mb-1">{emotion.emoji}</span>
-                <span className={`text-[10px] font-medium ${selectedEmotion === emotion.id ? 'text-orange-600' : 'text-slate-500'}`}>
-                  {emotion.label}
-                </span>
-              </button>
-            ))}
-          </div>
+      {/* Time spent */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-700">Time spent</h3>
+          <span className="text-xl font-bold text-emerald-600">{timeSpent} min</span>
         </div>
-
-        <div className="h-px bg-slate-100" />
-
-        {/* Time spent */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-700">Time spent</h3>
-            <span className="text-xl font-bold text-emerald-600">{timeSpent} min</span>
+        {readOnly ? (
+          <div className="w-full h-2 bg-slate-100 rounded-full relative">
+            <div className="h-2 bg-emerald-400 rounded-full" style={{ width: `${(timeSpent / 120) * 100}%` }} />
           </div>
+        ) : (
           <input
             type="range"
             min={0}
@@ -1623,38 +1654,106 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
             onChange={e => setTimeSpent(Number(e.target.value))}
             className="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-emerald-500"
           />
-          <div className="flex justify-between text-xs text-slate-400">
-            <span>0 min</span>
-            <span>30</span>
-            <span>60</span>
-            <span>90</span>
-            <span>120 min</span>
-          </div>
+        )}
+        <div className="flex justify-between text-xs text-slate-400">
+          <span>0 min</span>
+          <span>30</span>
+          <span>60</span>
+          <span>90</span>
+          <span>120 min</span>
         </div>
+      </div>
 
-        <div className="h-px bg-slate-100" />
+      <div className="h-px bg-slate-100" />
 
-        {/* Notes */}
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-slate-700">Observations (optional)</h3>
+      {/* Notes */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium text-slate-700">Observations</h3>
+        {readOnly ? (
+          <p className="text-sm text-slate-600 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100 min-h-[48px]">
+            {notes || <span className="text-slate-400 italic">No notes recorded.</span>}
+          </p>
+        ) : (
           <Textarea
             placeholder={`E.g., They loved the ${subjectEntry.topic} activity today!`}
             className="resize-none h-20 bg-slate-50 border-slate-200 text-sm"
             value={notes}
             onChange={e => setNotes(e.target.value)}
           />
-        </div>
+        )}
+      </div>
 
+      {!readOnly && (
         <Button
           className="w-full h-12 text-base font-semibold rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition-all active:scale-[0.98]"
           onClick={handleSaveJournal}
           disabled={isSaving}
         >
-          {isSaving ? 'Saving…' : '💾 Save Journal Entry'}
+          {isSaving ? 'Saving…' : isPastDate ? '💾 Save Past Entry' : '💾 Save Journal Entry'}
         </Button>
-      </div>
+      )}
     </div>
   )
+
+  const renderJournal = () => {
+    // Future date
+    if (isFutureDate) {
+      return (
+        <div className="space-y-4">
+          <div className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-3xl shadow-lg p-8 flex flex-col items-center text-center space-y-3">
+            <span className="text-4xl">📅</span>
+            <h3 className="text-base font-bold text-slate-700">Come back on {new Date(date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })} to log this lesson</h3>
+            <p className="text-sm text-slate-400">Journal entries can only be recorded on or after the lesson date.</p>
+          </div>
+          <div className="opacity-40 pointer-events-none">
+            {renderJournalForm(true)}
+          </div>
+        </div>
+      )
+    }
+
+    // Past date with saved entry (read-only unless in edit mode)
+    if (isPastDate && existingEntry && !isEditMode) {
+      const loggedDate = new Date(date + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-full">
+              <span className="text-sm">📖</span>
+              <span className="text-xs font-semibold text-indigo-700">Logged on {loggedDate}</span>
+            </div>
+            <button
+              onClick={() => setIsEditMode(true)}
+              className="text-xs font-semibold text-slate-500 hover:text-indigo-600 px-3 py-1.5 rounded-full hover:bg-indigo-50 transition-colors border border-slate-200"
+            >
+              Edit
+            </button>
+          </div>
+          {renderJournalForm(true)}
+        </div>
+      )
+    }
+
+    // Today or past without entry or edit mode
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">
+            {isPastDate ? 'Log this past lesson:' : 'How did this lesson go?'}
+          </p>
+          {isEditMode && (
+            <button
+              onClick={() => setIsEditMode(false)}
+              className="text-xs font-semibold text-slate-400 hover:text-slate-600 px-3 py-1.5 rounded-full hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+        {renderJournalForm(false)}
+      </div>
+    )
+  }
 
   /* ─── Layout ── */
 
