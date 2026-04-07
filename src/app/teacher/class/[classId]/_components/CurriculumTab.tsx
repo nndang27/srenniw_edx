@@ -1,7 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Pencil, Calendar, List, CheckCircle, X, Save, Sparkles, Wifi, Radio } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Pencil, Calendar, List, CheckCircle, X, Save, Sparkles, Wifi, Radio, RefreshCw, BookOpen, ClipboardList, Users } from 'lucide-react'
 import { getCurriculum, SUBJECTS } from '@/lib/mockTeacherData'
+import type { ClassroomCourseData, ClassroomItem } from '@/lib/api'
+
+const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
 const SUBJECT_COLORS: Record<string, string> = {
   Maths: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -459,6 +462,89 @@ function LmsModal({ onClose, onConnected }: { onClose: () => void; onConnected: 
   )
 }
 
+// ── Google Classroom Item Card ───────────────────────────────────────────────
+function GcItem({ item, expanded, onToggle }: { item: ClassroomItem; expanded: boolean; onToggle: () => void }) {
+  const isMaterial = item.type === 'material'
+  const dueDateStr = item.due_date
+    ? new Date(item.due_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : null
+  const createdStr = item.created_time
+    ? new Date(item.created_time).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+    : null
+
+  return (
+    <div className={`rounded-xl border overflow-hidden transition-all ${isMaterial ? 'border-indigo-100 bg-indigo-50/50' : 'border-amber-100 bg-amber-50/50'}`}>
+      <button onClick={onToggle} className="w-full flex items-start justify-between gap-3 px-4 py-3 text-left hover:bg-white/40 transition-colors">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isMaterial ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
+              {isMaterial ? 'Material' : 'Assignment'}
+            </span>
+            {dueDateStr && (
+              <span className="text-[10px] text-slate-500 font-medium">Due: {dueDateStr}</span>
+            )}
+            {createdStr && !dueDateStr && (
+              <span className="text-[10px] text-slate-400">Posted: {createdStr}</span>
+            )}
+            {item.max_points && (
+              <span className="text-[10px] text-slate-500 font-medium">{item.max_points} pts</span>
+            )}
+          </div>
+          <p className="text-sm font-semibold text-slate-800 mt-1 leading-tight">{item.title}</p>
+          {item.submission_summary && (
+            <div className="flex items-center gap-3 mt-1.5">
+              <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                <Users size={9} /> {item.submission_summary.turned_in}/{item.submission_summary.total} submitted
+              </span>
+              {item.submission_summary.avg_grade !== null && (
+                <span className="text-[10px] text-emerald-600 font-semibold">
+                  Avg: {item.submission_summary.avg_grade}/{item.max_points}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+        <ChevronDown size={14} className={`text-slate-400 shrink-0 mt-0.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-white/60 px-4 py-3 space-y-3 bg-white/50">
+          {item.description && (
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Description</p>
+              <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed max-h-48 overflow-y-auto">{item.description}</pre>
+            </div>
+          )}
+          {item.students.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Student Submissions</p>
+              <div className="space-y-1.5">
+                {item.students.map(s => (
+                  <div key={s.student_id} className="flex items-center gap-3 bg-white/70 rounded-lg px-3 py-1.5">
+                    <span className="text-xs font-medium text-slate-700 flex-1">{s.student_name || s.student_id.slice(-6)}</span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                      s.state === 'RETURNED' ? 'bg-emerald-100 text-emerald-700' :
+                      s.state === 'TURNED_IN' ? 'bg-blue-100 text-blue-700' :
+                      'bg-slate-100 text-slate-500'
+                    }`}>{s.state.replace('_', ' ')}</span>
+                    {s.assigned_grade !== null
+                      ? <span className="text-xs font-bold text-emerald-600">{s.assigned_grade}/{item.max_points}</span>
+                      : s.draft_grade !== null
+                        ? <span className="text-xs text-slate-400">Draft: {s.draft_grade}</span>
+                        : <span className="text-xs text-slate-300">—</span>
+                    }
+                    {s.late && <span className="text-[9px] text-rose-500 font-semibold">LATE</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function CurriculumTab({ classId, subject }: Props) {
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([CURRENT_WEEK]))
@@ -469,7 +555,6 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const [calendarWeek, setCalendarWeek] = useState(CURRENT_WEEK)
   const [expandedCalDay, setExpandedCalDay] = useState<string | null>(null)
   const [savedOverrides, setSavedOverrides] = useState<Record<string, Record<string, SavedEntry>>>({})
-  const [timetable, setTimetable] = useState<Record<string, any[]>>({})
 
   // Original fallback for curricula list (topics)
   const curricula = getCurriculum(classId, subject)
@@ -532,6 +617,101 @@ export default function CurriculumTab({ classId, subject }: Props) {
 
   return (
     <div className="space-y-4">
+
+      {/* ── Google Classroom Sync Panel ─────────────────────────────────── */}
+      <div className="backdrop-blur-xl bg-white/70 border border-white/60 rounded-2xl shadow-sm overflow-hidden">
+        <button
+          onClick={() => setGcExpanded(v => !v)}
+          className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-white/40 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-md bg-blue-500/10 flex items-center justify-center">
+              <Radio size={11} className="text-blue-500" />
+            </div>
+            <span className="font-semibold text-sm text-slate-800">Google Classroom Sync</span>
+            {gcData && (
+              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                {gcData.materials.length} materials · {gcData.assignments.length} assignments
+              </span>
+            )}
+            {gcLoading && <span className="text-[10px] text-slate-400 animate-pulse">Loading…</span>}
+            {gcError && <span className="text-[10px] text-rose-500">{gcError}</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            {gcCourseId && !gcLoading && (
+              <button
+                onClick={e => { e.stopPropagation(); fetchClassroomData(gcCourseId) }}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+              >
+                <RefreshCw size={12} />
+              </button>
+            )}
+            <ChevronDown size={15} className={`text-slate-400 transition-transform ${gcExpanded ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
+
+        {gcExpanded && (
+          <div className="border-t border-slate-100 px-5 py-4 space-y-4">
+            {gcLoading && (
+              <div className="flex items-center justify-center py-8 text-sm text-slate-400">
+                <RefreshCw size={14} className="animate-spin mr-2" /> Fetching from Google Classroom…
+              </div>
+            )}
+
+            {!gcLoading && gcError && (
+              <div className="text-center py-6">
+                <p className="text-sm text-rose-500">{gcError}</p>
+                <p className="text-xs text-slate-400 mt-1">Start backend: <code className="bg-slate-100 px-1 rounded">uvicorn main:app --reload --port 8000</code></p>
+              </div>
+            )}
+
+            {!gcLoading && gcData && (
+              <>
+                {/* Materials */}
+                {gcData.materials.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <BookOpen size={13} className="text-indigo-500" />
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Lesson Materials ({gcData.materials.length})</span>
+                    </div>
+                    <div className="space-y-2">
+                      {gcData.materials.map(item => (
+                        <GcItem
+                          key={item.id}
+                          item={item}
+                          expanded={expandedItemId === item.id}
+                          onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Assignments */}
+                {gcData.assignments.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <ClipboardList size={13} className="text-amber-500" />
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Assignments / Homework ({gcData.assignments.length})</span>
+                    </div>
+                    <div className="space-y-2">
+                      {gcData.assignments.map(item => (
+                        <GcItem
+                          key={item.id}
+                          item={item}
+                          expanded={expandedItemId === item.id}
+                          onToggle={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Actions row */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
