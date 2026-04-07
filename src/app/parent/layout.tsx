@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { CalendarDays, TrendingUp, Lightbulb, Settings } from 'lucide-react'
+import { CalendarDays, TrendingUp, Lightbulb, Settings, Bell, X } from 'lucide-react'
 import { UserButton } from '@clerk/nextjs'
 import { Poppins } from 'next/font/google'
 import CommunicationHub from '@/components/shared/CommunicationHub'
@@ -23,14 +23,49 @@ const sectionColors: Record<SectionId, { active: string; ring: string }> = {
   insights:  { active: 'bg-emerald-500 text-white shadow-emerald-200', ring: 'ring-2 ring-emerald-300/40' },
 }
 
+interface ParentNotification {
+  id: number
+  title: string
+  body: string
+  time: string
+  read: boolean
+  icon: string
+}
+
+const PARENT_NOTIFICATIONS: ParentNotification[] = [
+  { id: 1, title: 'New lesson summary', body: "Emily's Week 8 Maths summary is ready to review.", time: '5 min ago', read: false, icon: '📚' },
+  { id: 2, title: 'At-home activity', body: "Ms Johnson shared a science activity for Sophie to try at home.", time: '1 hr ago', read: false, icon: '🔬' },
+  { id: 3, title: 'Teacher message', body: "Ms Johnson sent you a message about James's reading progress.", time: '2 hrs ago', read: false, icon: '💬' },
+  { id: 4, title: 'Weekly digest ready', body: "Your child's Week 7 learning digest is available.", time: 'Yesterday', read: true, icon: '📊' },
+  { id: 5, title: 'Curriculum update', body: "Week 9 curriculum has been uploaded. Tap to preview topics.", time: '2 days ago', read: true, icon: '📅' },
+]
+
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [bellOpen, setBellOpen] = useState(false)
+  const [notifications, setNotifications] = useState(PARENT_NOTIFICATIONS)
   const [activeSection, setActiveSection] = useState<SectionId | null>(null)
   const [navVisible, setNavVisible] = useState(true)
   const lastScrollY = useRef(0)
+  const bellRef = useRef<HTMLDivElement>(null)
   const isHome = pathname === '/parent'
+
+  const unreadCount = notifications.filter(n => !n.read).length
+  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+
+  // Click-outside to close bell dropdown
+  useEffect(() => {
+    if (!bellOpen) return
+    const handler = (e: MouseEvent) => {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [bellOpen])
 
   // Scroll fade for nav pills
   useEffect(() => {
@@ -87,6 +122,60 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
           LearnBridge
         </span>
         <div className="flex items-center gap-3">
+          {/* Notification Bell */}
+          <div className="relative" ref={bellRef}>
+            <button
+              onClick={() => setBellOpen(o => !o)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100/80 transition-colors relative"
+              aria-label="Notifications"
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {bellOpen && (
+              <div className="absolute right-0 top-10 w-80 bg-white/95 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl overflow-hidden z-50">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                  <span className="font-bold text-slate-800 text-sm">Notifications</span>
+                  <div className="flex items-center gap-2">
+                    {unreadCount > 0 && (
+                      <button onClick={markAllRead} className="text-[10px] font-semibold text-blue-500 hover:underline">
+                        Mark all read
+                      </button>
+                    )}
+                    <button onClick={() => setBellOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400">
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div className="max-h-72 overflow-y-auto [&::-webkit-scrollbar]:hidden">
+                  {notifications.map(n => (
+                    <button
+                      key={n.id}
+                      onClick={() => setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item))}
+                      className={`w-full flex items-start gap-3 px-4 py-3 border-b border-slate-50 text-left hover:bg-slate-50 transition-colors ${!n.read ? 'bg-blue-50/40' : ''}`}
+                    >
+                      <span className="text-lg shrink-0">{n.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${!n.read ? 'text-slate-800' : 'text-slate-600'}`}>{n.title}</p>
+                        <p className="text-xs text-slate-400 mt-0.5 leading-snug">{n.body}</p>
+                        <p className="text-[10px] text-slate-300 mt-1">{n.time}</p>
+                      </div>
+                      {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+                {notifications.length === 0 && (
+                  <p className="text-center text-sm text-slate-400 py-8">All caught up! 🎉</p>
+                )}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => setSettingsOpen(true)}
             className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100/80 transition-colors"

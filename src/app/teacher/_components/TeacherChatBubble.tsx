@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { MessageCircle, X, Send, ChevronLeft } from 'lucide-react'
 
 interface MockConversation {
@@ -79,6 +79,23 @@ const MOCK_MESSAGES: Record<string, MockMessage[]> = {
 export default function TeacherChatBubble() {
   const [open, setOpen] = useState(false)
   const [activeConv, setActiveConv] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const bubbleRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (
+        panelRef.current && !panelRef.current.contains(target) &&
+        bubbleRef.current && !bubbleRef.current.contains(target)
+      ) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
   const [draft, setDraft] = useState('')
   const [messages, setMessages] = useState(MOCK_MESSAGES)
   const [convs, setConvs] = useState(MOCK_CONVERSATIONS)
@@ -105,8 +122,9 @@ export default function TeacherChatBubble() {
     <>
       {/* Floating bubble */}
       <button
+        ref={bubbleRef}
         onClick={() => setOpen(o => !o)}
-        className="fixed bottom-6 left-6 z-40 w-14 h-14 rounded-full bg-white ring-2 ring-blue-400 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-white ring-2 ring-blue-400 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center"
         aria-label="Open parent chat"
       >
         <MessageCircle size={24} className="text-blue-500" />
@@ -119,7 +137,7 @@ export default function TeacherChatBubble() {
 
       {/* Panel */}
       {open && (
-        <div className="fixed bottom-24 left-6 z-50 w-80 h-[480px] bg-white/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        <div ref={panelRef} className="fixed bottom-24 right-6 z-50 w-80 h-[480px] bg-white/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
           {/* Panel header */}
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">
             {activeConv ? (

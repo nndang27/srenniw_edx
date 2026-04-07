@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, User, BookOpen, Bell, Globe, Save, Plus } from 'lucide-react'
 
 const SUBJECTS = ['All Subjects', 'Maths', 'Science', 'English', 'HSIE', 'Creative Arts', 'PE']
@@ -55,6 +55,7 @@ export default function TeacherSettingsModal({ open, onClose }: Props) {
     notifyWeeklySummary: false,
     language: 'en',
   })
+  const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -63,6 +64,17 @@ export default function TeacherSettingsModal({ open, onClose }: Props) {
       try { setSettings(JSON.parse(stored)) } catch { /* ignore */ }
     }
   }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open, onClose])
 
   const handleSave = () => {
     localStorage.setItem('teacherSettings', JSON.stringify(settings))
@@ -77,7 +89,7 @@ export default function TeacherSettingsModal({ open, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
-      <div className="w-full max-w-xl bg-white/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+      <div ref={modalRef} className="w-full max-w-xl bg-white/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <h2 className="font-bold text-slate-800 text-lg">Settings</h2>
@@ -180,16 +192,18 @@ export default function TeacherSettingsModal({ open, onClose }: Props) {
                   { key: 'notifyParentMessage' as const, label: 'Parent messages', desc: 'Alert when a parent sends you a message' },
                   { key: 'notifyWeeklySummary' as const, label: 'Weekly class summary', desc: 'Receive a weekly digest every Monday' },
                 ].map(({ key, label, desc }) => (
-                  <div key={key} className="flex items-start justify-between gap-4 py-3 border-b border-slate-100 last:border-0">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">{label}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
+                  <div key={key} className="flex items-center justify-between w-full py-3 border-b border-gray-100 last:border-0">
+                    <div className="flex-1 pr-4">
+                      <p className="text-sm font-medium text-gray-800">{label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
                     </div>
                     <button
+                      role="switch"
+                      aria-checked={settings[key]}
                       onClick={() => set(key, !settings[key])}
-                      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 mt-0.5 ${settings[key] ? 'bg-blue-500' : 'bg-slate-200'}`}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${settings[key] ? 'bg-blue-500' : 'bg-gray-200'}`}
                     >
-                      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings[key] ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${settings[key] ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
                 ))}

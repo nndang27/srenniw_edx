@@ -40,7 +40,6 @@ export default function CommunicationTab({ cls }: Props) {
   // Quick action modal states
   const [showReportModal, setShowReportModal] = useState(false)
   const [reportCopied, setReportCopied] = useState(false)
-  const [showReminderModal, setShowReminderModal] = useState(false)
   const [showPhotosModal, setShowPhotosModal] = useState(false)
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [photoCaption, setPhotoCaption] = useState('')
@@ -119,12 +118,6 @@ export default function CommunicationTab({ cls }: Props) {
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white/70 border border-white/60 rounded-full text-slate-600 hover:bg-white hover:shadow-sm transition-all backdrop-blur-xl"
         >
           <FileText size={12} /> Share Report
-        </button>
-        <button
-          onClick={() => setShowReminderModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white/70 border border-white/60 rounded-full text-slate-600 hover:bg-white hover:shadow-sm transition-all backdrop-blur-xl"
-        >
-          <Bell size={12} /> Send Reminder
         </button>
         <button
           onClick={() => setShowPhotosModal(true)}
@@ -266,35 +259,6 @@ export default function CommunicationTab({ cls }: Props) {
                 className="flex-1 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold"
               >Share via Email</button>
               <button onClick={() => setShowReportModal(false)} className="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">Done</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Send Reminder Modal */}
-      {showReminderModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md bg-white/90 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-slate-800 flex items-center gap-2"><Bell size={16} className="text-amber-500" /> Send Reminder to All Parents</h2>
-              <button onClick={() => setShowReminderModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X size={16} /></button>
-            </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-4">
-              <p className="text-xs text-slate-600 leading-relaxed">
-                📚 Reading logs are due this Friday — please ensure your child&apos;s log is signed and returned.<br /><br />
-                📅 Parent-teacher interviews are next week. Please confirm your time slot via the booking link.<br /><br />
-                🎨 Creative Arts materials needed: please send in clean recyclables by Monday.
-              </p>
-            </div>
-            <p className="text-xs text-slate-400 mb-5 flex items-center gap-1.5">
-              <span className="font-semibold text-slate-500">📧</span> Sending to <span className="font-semibold text-slate-700">{cls.students.length} parents</span>
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { showToast(`✅ Reminder sent to ${cls.students.length} parents`); setShowReminderModal(false) }}
-                className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold"
-              >Confirm & Send</button>
-              <button onClick={() => setShowReminderModal(false)} className="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
             </div>
           </div>
         </div>

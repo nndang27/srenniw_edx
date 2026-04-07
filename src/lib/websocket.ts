@@ -59,13 +59,17 @@ export function useChatbot(parentId: string) {
   const [history, setHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
 
   useEffect(() => {
-    if (!parentId) return
+    const effectiveId = parentId || 'guest'
     let active = true
 
     const connect = async () => {
-      const token = await getToken()
-      const socket = new WebSocket(`${WS_URL}/ws/chatbot/${parentId}?token=${token}`)
+      const token = await getToken().catch(() => null)
+      const socket = new WebSocket(`${WS_URL}/ws/chatbot/${effectiveId}?token=${token ?? ''}`)
       ws.current = socket
+
+      socket.onclose = (e) => {
+        if (e.code === 4001) console.warn('Chatbot: auth rejected')
+      }
 
       socket.onmessage = (e) => {
         if (!active) return
@@ -86,10 +90,10 @@ export function useChatbot(parentId: string) {
     return () => { active = false; ws.current?.close() }
   }, [parentId])
 
-  const sendMessage = useCallback((content: string, briefId?: string) => {
+  const sendMessage = useCallback((content: string, briefId?: string, feature: string = 'homework') => {
     setIsStreaming(true)
     setHistory(prev => [...prev, { role: 'user', content }])
-    ws.current?.send(JSON.stringify({ type: 'message', content, brief_id: briefId }))
+    ws.current?.send(JSON.stringify({ type: 'message', content, brief_id: briefId, feature }))
   }, [])
 
   return { history, streamingText, isStreaming, sendMessage }
