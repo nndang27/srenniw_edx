@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { Users, ChevronRight, Loader2 } from 'lucide-react'
+import { useApi } from '@/lib/api'
 
 const SUBJECT_COLORS: Record<string, string> = {
   Maths: 'bg-blue-100 text-blue-700',
@@ -31,41 +32,25 @@ type TeacherClass = {
 export default function TeacherLandingPage() {
   const { user } = useUser()
   const router = useRouter()
+  const api = useApi()
   const [expandedClass, setExpandedClass] = useState<string | null>(null)
-  
+
   const [classes, setClasses] = useState<TeacherClass[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // Simulated AI Stats (since we shifted from local mock to API, we'll assign dummy for now until we query insights for a whole class)
-  const [classStats, setClassStats] = useState<Record<string, any>>({})
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const usersRes = await fetch('/api/users')
-        const usersData = await usersRes.json()
-        
-        // Convert single class object to array
-        const classList = usersData.class ? [usersData.class] : []
+    api.getClasses()
+      .then((data: any[]) => {
+        const classList: TeacherClass[] = data.map((cls: any) => ({
+          id: cls.id,
+          name: cls.name,
+          studentCount: cls.parent_count ?? 0,
+          students: [],
+        }))
         setClasses(classList)
-
-        // Mock class level stats for UI
-        const stats: Record<string, any> = {}
-        for (const cls of classList) {
-          stats[cls.id] = {
-            avgLevel: 3.8, // Fallback dummy
-            emotion: 'Curious',
-            emoji: '🤔'
-          }
-        }
-        setClassStats(stats)
-      } catch (err) {
-        console.error('Failed to load data', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [])
 
   const now = new Date()
@@ -103,7 +88,6 @@ export default function TeacherLandingPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {classes.length === 0 && <div className="col-span-3 text-slate-400">No classes assigned.</div>}
         {classes.map((cls, idx) => {
-          const stats = classStats[cls.id] || { avgLevel: 0, emotion: 'Unknown', emoji: '❔' }
           const isExpanded = expandedClass === cls.id
           const grad = CARD_GRADIENTS[idx % CARD_GRADIENTS.length]
 
@@ -143,15 +127,11 @@ export default function TeacherLandingPage() {
                     ))}
                   </div>
 
-                  {/* Quick stats */}
+                  {/* Quick info */}
                   <div className="flex gap-4">
                     <div>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Avg Level</p>
-                      <p className="text-base font-bold text-slate-800">{stats.avgLevel} <span className="text-xs font-normal text-slate-400">/ 5</span></p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Mood</p>
-                      <p className="text-base font-bold text-slate-800">{stats.emoji} {stats.emotion}</p>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide font-semibold">Students</p>
+                      <p className="text-base font-bold text-slate-800">{cls.studentCount}</p>
                     </div>
                   </div>
                 </div>

@@ -3,7 +3,7 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Sunrise, BookOpen, Lightbulb, Gamepad2, BookMarked, ChevronDown, ChevronUp, Check } from 'lucide-react'
 import { SUBJECT_COLORS, SUBJECT_EMOJIS, type SubjectName, type DaySchedule } from '@/lib/mockTimetable'
-import { getDayEntries, saveSubjectEntry, getDayNote, saveDayNote, type SubjectEntry } from '@/lib/journal'
+
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -100,35 +100,23 @@ function JournalSection({ date, schedule }: { date: string; schedule: DaySchedul
       const raw = localStorage.getItem('childProfile')
       if (raw) setChildName(JSON.parse(raw).name ?? '')
     } catch { /* ignore */ }
-    setDayNote(getDayNote(date))
-    const existingSync = getDayEntries(date)
-    
-    // Attempt load from localStorage first
-    if (existingSync.length > 0) {
-      applyEntries(existingSync)
-    } else {
-      // Fallback to fetch from 400-day dataset so past days aren't empty
-      fetch('/api/insights')
-        .then(r => r.json())
-        .then(allData => {
-          const mockEntries = allData.filter((e: any) => e.date === date && e.is_school_day)
-          if (mockEntries.length > 0) {
-             const transformed = mockEntries.map((m: any) => ({
-               subject: m.subject,
-               cognitiveLevel: m.cognitiveLevel,
-               emotion: m.emotion,
-               timeSpent: 30,
-               notes: m.parent_note || ''
-             }))
-             applyEntries(transformed)
-             // Set the overall day note based on the first entry's parent_note (since our mock uses parent_note loosely)
-             if (mockEntries[0].parent_note && !getDayNote(date)) {
-               setDayNote(mockEntries[0].parent_note)
-             }
-          }
-        })
-        .catch(console.error)
-    }
+    // Load diary entries for this date from real API
+    fetch('/api/insights')
+      .then(r => r.json())
+      .then(allData => {
+        if (!Array.isArray(allData)) return
+        const dayEntries = allData.filter((e: any) => e.date === date)
+        if (dayEntries.length > 0) {
+          applyEntries(dayEntries.map((m: any) => ({
+            subject: m.subject,
+            cognitiveLevel: m.cognitiveLevel,
+            emotion: m.emotion,
+            timeSpent: m.timeSpent || 30,
+            notes: m.parent_note || m.notes || ''
+          })))
+        }
+      })
+      .catch(console.error)
   }, [date])
 
   const applyEntries = (entries: any[]) => {
@@ -167,21 +155,30 @@ function JournalSection({ date, schedule }: { date: string; schedule: DaySchedul
   const currentSubject = selected[currentIdx]
   const currentState   = subjectStates[currentSubject] ?? defaultState()
 
-  const saveCurrentSubject = () => {
+  const saveCurrentSubject = async () => {
     if (!currentState.level || !currentState.emotion) {
       showToast('Please select understanding level and mood.')
       return
     }
     const emotionLabel = EMOTIONS.find(e => e.id === currentState.emotion)?.label ?? ''
-    saveSubjectEntry({
-      date,
-      subject: currentSubject,
-      timestamp: Date.now(),
-      cognitiveLevel: currentState.level,
-      emotion: emotionLabel,
-      timeSpent: currentState.timeSpent,
-      notes: currentState.notes,
-    })
+    try {
+      const res = await fetch('/api/diary-note', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          subject: currentSubject,
+          cognitive_level: currentState.level,
+          emotion: emotionLabel,
+          time_spent: currentState.timeSpent,
+          parent_note: currentState.notes,
+        }),
+      })
+      if (!res.ok) throw new Error('Save failed')
+    } catch {
+      showToast('Failed to save. Please try again.')
+      return
+    }
     updateState(currentSubject, { saved: true })
     if (currentIdx < selected.length - 1) {
       setCurrentIdx(currentIdx + 1)
@@ -192,7 +189,7 @@ function JournalSection({ date, schedule }: { date: string; schedule: DaySchedul
 
   const handleFinalSave = async () => {
     setIsSaving(true)
-    saveDayNote(date, dayNote)
+    // day note saved as-is (no subject to attach to, so just show confirmation)
     setIsSaving(false)
     showToast('Journal saved! ✨')
     setStep('select')

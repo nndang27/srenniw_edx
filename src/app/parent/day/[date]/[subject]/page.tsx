@@ -10,14 +10,13 @@ import {
 } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import {
-  getScheduleForDate,
   getQuickPeekForSchedule,
   SUBJECT_COLORS,
   SUBJECT_BG_COLORS,
   SUBJECT_EMOJIS,
   type SubjectName,
 } from '@/lib/mockTimetable'
-import { getDayEntries, saveSubjectEntry, getTodayDate, type SubjectEntry } from '@/lib/journal'
+import { getTodayDate, type SubjectEntry } from '@/lib/journal'
 import TikTokHookPanel from '@/components/quick-peek/TikTokHookPanel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -997,8 +996,15 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const schedule = getScheduleForDate(date)
-  const rawEntry = schedule.find(s => s.subject === subject)
+  const [schedule, setSchedule] = useState<any[]>([])
+  useEffect(() => {
+    fetch('/api/timetable')
+      .then(r => r.json())
+      .then(data => setSchedule(data[date] || []))
+      .catch(console.error)
+  }, [date])
+
+  const rawEntry = schedule.find((s: any) => s.subject === subject)
   const subjectEntry = rawEntry ?? {
     subject,
     time: '',
@@ -1008,7 +1014,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   }
   const quickPeek = getQuickPeekForSchedule(subject, subjectEntry.topic)
 
-  const subjectIndex = schedule.findIndex(s => s.subject === subject)
+  const subjectIndex = schedule.findIndex((s: any) => s.subject === subject)
   const prevSubject = subjectIndex > 0 ? schedule[subjectIndex - 1] : null
   const nextSubject = subjectIndex < schedule.length - 1 ? schedule[subjectIndex + 1] : null
 
@@ -1037,18 +1043,32 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   const [existingEntry, setExistingEntry] = useState<SubjectEntry | null>(null)
   const [isEditMode, setIsEditMode] = useState(false)
 
-  // Load existing journal entry on mount
+  // Load existing journal entry on mount from API
   useEffect(() => {
-    const entries = getDayEntries(date)
-    const found = entries.find(e => e.subject === subject) ?? null
-    setExistingEntry(found)
-    if (found) {
-      const emotionId = EMOTIONS.find(e => e.label === found.emotion)?.id ?? null
-      setSelectedLevel(found.cognitiveLevel)
-      setSelectedEmotion(emotionId)
-      setTimeSpent(found.timeSpent)
-      setNotes(found.notes)
-    }
+    fetch('/api/insights')
+      .then(r => r.json())
+      .then((allData: any[]) => {
+        if (!Array.isArray(allData)) return
+        const found = allData.find(e => e.date === date && e.subject === subject) ?? null
+        if (found) {
+          const entry: SubjectEntry = {
+            date: found.date,
+            timestamp: Date.now(),
+            subject: found.subject,
+            cognitiveLevel: found.cognitiveLevel || 3,
+            emotion: found.emotion || 'Curious',
+            timeSpent: found.timeSpent || 30,
+            notes: found.parent_note || found.notes || '',
+          }
+          setExistingEntry(entry)
+          const emotionId = EMOTIONS.find(e => e.label === entry.emotion)?.id ?? null
+          setSelectedLevel(entry.cognitiveLevel)
+          setSelectedEmotion(emotionId)
+          setTimeSpent(entry.timeSpent)
+          setNotes(entry.notes)
+        }
+      })
+      .catch(console.error)
   }, [date, subject])
 
   const color = SUBJECT_COLORS[subject as SubjectName] ?? '#94a3b8'
@@ -1065,6 +1085,8 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
     setTimeout(() => setToast(null), 3000)
   }
 
+  const [savedScores, setSavedScores] = useState<Record<string, number> | null>(null)
+
   const handleSaveJournal = async () => {
     if (selectedLevel === null || selectedEmotion === null) {
       showToast('Please select understanding level and mood.')
@@ -1073,6 +1095,23 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
     setIsSaving(true)
     try {
       const emotionLabel = EMOTIONS.find(e => e.id === selectedEmotion)?.label ?? ''
+      const res = await fetch('/api/diary-note', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          subject,
+          cognitive_level: selectedLevel,
+          emotion: emotionLabel,
+          time_spent: timeSpent,
+          parent_note: notes,
+        }),
+      })
+      if (!res.ok) throw new Error('Save failed')
+      const result = await res.json()
+      // Store computed note scores returned from backend
+      if (result.scores) setSavedScores(result.scores)
+
       const saved: SubjectEntry = {
         date,
         timestamp: Date.now(),
@@ -1082,7 +1121,6 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
         timeSpent,
         notes,
       }
-      saveSubjectEntry(saved)
       setExistingEntry(saved)
       setIsEditMode(false)
       showToast(isPastDate ? 'Past entry saved! 📝' : 'Journal saved! ✨')
@@ -1753,6 +1791,20 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
           )}
         </div>
         {renderJournalForm(false)}
+        {savedScores && !isEditMode && (
+          <div className="backdrop-blur-xl bg-emerald-50/80 border border-emerald-200/60 rounded-2xl p-4 space-y-3">
+            <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Insight scores computed</p>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(savedScores).map(([key, val]) => (
+                <div key={key} className="flex items-center justify-between bg-white/70 rounded-xl px-3 py-2">
+                  <span className="text-[10px] text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                  <span className="text-xs font-bold text-emerald-600">{typeof val === 'number' ? val.toFixed(2) : val}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400">These feed into your child&apos;s development insights. View in the Insights tab.</p>
+          </div>
+        )}
       </div>
     )
   }
@@ -1808,10 +1860,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
                     <div 
                       className="relative flex flex-col items-center group cursor-pointer"
                       onClick={() => {
-                          const nextSchedule = getScheduleForDate(dayObj.date)
-                          if (nextSchedule.length > 0) {
-                              router.push(`/parent/day/${dayObj.date}/${encodeURIComponent(nextSchedule[0].subject)}`)
-                          }
+                          router.push(`/parent/day/${dayObj.date}`)
                       }}
                     >
                       <div 

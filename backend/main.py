@@ -22,6 +22,11 @@ app.include_router(classroom.router)
 def health():
     return {"status": "ok", "version": "1.0.0"}
 
+@app.get("/debug/token")
+def debug_token(payload: dict = __import__('fastapi').Depends(__import__('auth').verify_token)):
+    """Temporary: show decoded JWT claims to debug role issues."""
+    return {"payload": payload}
+
 from routers import game
 app.include_router(game.router)
 app.include_router(insights.router)

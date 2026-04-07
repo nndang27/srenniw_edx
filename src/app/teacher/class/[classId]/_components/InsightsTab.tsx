@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -10,19 +10,21 @@ import {
 import { Search } from 'lucide-react'
 import type { TeacherClass, Student } from '@/lib/mockTeacherData'
 import { SUBJECTS } from '@/lib/mockTeacherData'
+import PersonalityCard from '@/components/insights/PersonalityCard'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// Keys match backend _INTEL_KEYS exactly
 const INTELLIGENCES = [
   'Linguistic', 'Logical', 'Spatial', 'Kinesthetic',
-  'Musical', 'Interpersonal', 'Intrapersonal', 'Naturalistic',
+  'Musical', 'Interpersonal', 'Intrapersonal', 'Naturalist',
 ] as const
 type Intelligence = typeof INTELLIGENCES[number]
 
 const SUBJECT_TO_MI: Record<string, Intelligence[]> = {
   English: ['Linguistic'],
   Maths: ['Logical'],
-  Science: ['Logical', 'Naturalistic'],
+  Science: ['Logical', 'Naturalist'],
   'Creative Arts': ['Spatial', 'Musical'],
   PE: ['Kinesthetic', 'Interpersonal'],
   HSIE: ['Interpersonal', 'Intrapersonal'],
@@ -36,7 +38,7 @@ const MI_TIPS: Record<Intelligence, string> = {
   Musical: 'Integrate rhythm, songs, and audio patterns into lessons.',
   Interpersonal: 'Use cooperative learning, group projects, and peer teaching.',
   Intrapersonal: 'Provide reflection time, self-assessment, and personal goals.',
-  Naturalistic: 'Connect learning to the natural world through observation.',
+  Naturalist: 'Connect learning to the natural world through observation.',
 }
 
 const SUBJECT_COLORS: Record<string, string> = {
@@ -50,10 +52,7 @@ const SUBJECT_COLORS: Record<string, string> = {
 
 const EMOTION_EMOJI: Record<string, string> = {
   Curious: '🤔', Excited: '🎉', Happy: '😊', Anxious: '😰', Disengaged: '😔',
-}
-const EMOTION_BG: Record<string, string> = {
-  Curious: '#3b82f622', Excited: '#f59e0b22', Happy: '#10b98122',
-  Anxious: '#ef444422', Disengaged: '#94a3b822',
+  Proud: '😄', Tired: '😴', Frustrated: '😤', Neutral: '😐', Confident: '💪',
 }
 
 const VARK_COLORS: Record<string, string> = {
@@ -76,31 +75,45 @@ const VARK_TIPS: Record<string, string> = {
 }
 
 const BLOOM_LABELS = ['Remember', 'Understand', 'Apply', 'Analyse', 'Evaluate']
-const BASE_DATE = '2026-04-06'
+const BASE_DATE = new Date().toISOString().split('T')[0]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// MI: trung bình cognitive level của từng intelligence dựa trên subject mapping
+// Nếu class chỉ có 1 subject, các intelligence còn lại lấy trung bình chung làm baseline
 function computeMIScores(students: Student[]) {
+  const allEntries = students.flatMap(s => s.journalEntries)
+  const globalAvg = allEntries.length
+    ? allEntries.reduce((a, e) => a + e.cognitiveLevel, 0) / allEntries.length
+    : 3
+
   return INTELLIGENCES.map(intel => {
     const relevantSubjects = SUBJECTS.filter(s => SUBJECT_TO_MI[s]?.includes(intel))
-    const entries = students.flatMap(s =>
-      s.journalEntries.filter(e => relevantSubjects.includes(e.subject as typeof SUBJECTS[number]))
-    )
-    const avg = entries.length ? entries.reduce((a, e) => a + e.cognitiveLevel, 0) / entries.length : 0
+    const entries = allEntries.filter(e => relevantSubjects.includes(e.subject as typeof SUBJECTS[number]))
+    // Nếu không có entry cho intelligence này, dùng 80% global avg làm baseline
+    const avg = entries.length ? entries.reduce((a, e) => a + e.cognitiveLevel, 0) / entries.length : globalAvg * 0.8
     return { subject: intel, value: Math.round(avg * 20), fullMark: 100 }
   })
 }
 
+// VARK: phân bổ dựa trên số lượng entry theo từng subject (không dùng cognitive để tránh lệch)
 function computeVARK(students: Student[]) {
-  const totals: Record<string, number> = { Visual: 0, Auditory: 0, Reading: 0, Kinesthetic: 0 }
   const counts: Record<string, number> = { Visual: 0, Auditory: 0, Reading: 0, Kinesthetic: 0 }
   students.forEach(s => s.journalEntries.forEach(e => {
     const style = VARK_SUBJECT_MAP[e.subject]
-    if (style) { totals[style] += e.cognitiveLevel; counts[style]++ }
+    if (style) counts[style]++
   }))
-  const avgs = Object.keys(totals).map(k => ({ name: k, raw: counts[k] ? totals[k] / counts[k] : 0 }))
-  const sum = avgs.reduce((a, x) => a + x.raw, 0) || 1
-  return avgs.map(x => ({ name: x.name, value: Math.round((x.raw / sum) * 100), color: VARK_COLORS[x.name] }))
+  const total = Object.values(counts).reduce((a, x) => a + x, 0) || 1
+  // Đảm bảo mỗi style có tối thiểu 5% để radar không trống
+  const raw = Object.keys(counts).map(k => ({ name: k, raw: counts[k] / total }))
+  const minShare = 0.05
+  const adjusted = raw.map(x => ({ ...x, adj: Math.max(x.raw, minShare) }))
+  const adjTotal = adjusted.reduce((a, x) => a + x.adj, 0)
+  return adjusted.map(x => ({
+    name: x.name,
+    value: Math.round((x.adj / adjTotal) * 100),
+    color: VARK_COLORS[x.name],
+  }))
 }
 
 function computeGrowthVelocity(students: Student[], subject: string) {
@@ -135,21 +148,26 @@ function buildDates14() {
   })
 }
 
-function CircularProgress({ ratio, color }: { ratio: number; color: string }) {
-  const r = 34
-  const circ = 2 * Math.PI * r
-  return (
-    <svg width="88" height="88" viewBox="0 0 88 88" className="shrink-0">
-      <circle cx="44" cy="44" r={r} fill="none" stroke="#f1f5f9" strokeWidth="8" />
-      <circle
-        cx="44" cy="44" r={r}
-        fill="none" stroke={color} strokeWidth="8"
-        strokeDasharray={`${circ * ratio} ${circ}`}
-        strokeLinecap="round"
-        transform="rotate(-90 44 44)"
-      />
-    </svg>
-  )
+// ─── Backend Insights types (matches /api/teacher/classes/{id}/insights) ─────
+
+interface BackendInsights {
+  intelligences: {
+    radar_data: Record<string, number>
+    top_strengths: string[]
+    insight_message: string
+  }
+  vark: {
+    vark_distribution: Record<string, number>
+    primary_hint: string
+    multimodal_suggestion: string
+    disclaimer: string
+  }
+  personality: {
+    traits: Record<string, number>
+    superpower: string
+    insight: string
+    gentle_reminder?: string | null
+  }
 }
 
 // ─── Shared Props ─────────────────────────────────────────────────────────────
@@ -157,34 +175,31 @@ function CircularProgress({ ratio, color }: { ratio: number; color: string }) {
 interface Props {
   cls: TeacherClass
   subject: string
+  backendInsights?: BackendInsights | null
 }
 
 // ─── Class View ───────────────────────────────────────────────────────────────
 
-function ClassView({ cls, subject }: Props) {
+function ClassView({ cls, subject, backendInsights }: Props) {
   const displaySubjects = subject !== 'All' ? [subject] : [...SUBJECTS]
   const dates14 = useMemo(buildDates14, [])
 
   // Card 1 — Multiple Intelligences
-  const miScores = useMemo(() => computeMIScores(cls.students), [cls.students])
+  // Prefer backend-computed scores (uses time-decay + note_scores, matches parent side)
+  // Fall back to local computation if backend insights not yet loaded
+  const miScores = useMemo(() => {
+    if (backendInsights?.intelligences?.radar_data) {
+      const radar = backendInsights.intelligences.radar_data
+      return INTELLIGENCES.map(intel => ({
+        subject: intel,
+        value: radar[intel] ?? 40,
+        fullMark: 100,
+      }))
+    }
+    return computeMIScores(cls.students)
+  }, [backendInsights, cls.students])
+
   const top3MI = useMemo(() => [...miScores].sort((a, b) => b.value - a.value).slice(0, 3), [miScores])
-
-  // Card 2 — Emotional Wellbeing
-  const allEntries = useMemo(() => cls.students.flatMap(s => s.journalEntries), [cls.students])
-  const positivityRatio = allEntries.length
-    ? allEntries.filter(e => ['Curious', 'Excited', 'Happy'].includes(e.emotion)).length / allEntries.length
-    : 0
-  const wellbeingColor = positivityRatio > 0.6 ? '#10b981' : positivityRatio >= 0.4 ? '#f59e0b' : '#ef4444'
-  const wellbeingLabel = positivityRatio > 0.6 ? 'Positive' : positivityRatio >= 0.4 ? 'Mixed' : 'Concerning'
-
-  const concerningStudents = useMemo(() => {
-    const cutoff = new Date(BASE_DATE)
-    cutoff.setDate(cutoff.getDate() - 7)
-    return cls.students.filter(s => {
-      const recent = s.journalEntries.filter(e => new Date(e.date) >= cutoff)
-      return recent.filter(e => ['Anxious', 'Disengaged'].includes(e.emotion)).length >= 3
-    }).slice(0, 4)
-  }, [cls.students])
 
   // Card 3 — Cognitive Growth (14-day line chart)
   const growthLineData = useMemo(() => dates14.map(date => {
@@ -204,8 +219,23 @@ function ClassView({ cls, subject }: Props) {
   )
 
   // Card 4 — VARK
-  const varkData = useMemo(() => computeVARK(cls.students), [cls.students])
+  // Prefer backend-computed distribution (uses time-decay + note_scores, matches parent side)
+  const varkData = useMemo(() => {
+    if (backendInsights?.vark?.vark_distribution) {
+      const dist = backendInsights.vark.vark_distribution
+      return Object.entries(dist).map(([name, value]) => ({
+        name,
+        value,
+        color: VARK_COLORS[name] ?? '#94a3b8',
+      }))
+    }
+    return computeVARK(cls.students)
+  }, [backendInsights, cls.students])
+
   const dominantVARK = useMemo(() => [...varkData].sort((a, b) => b.value - a.value)[0], [varkData])
+
+  // VARK tip: use backend suggestion if available
+  const varkTip = backendInsights?.vark?.multimodal_suggestion ?? VARK_TIPS[dominantVARK?.name ?? 'Kinesthetic']
 
   return (
     <div className="space-y-5">
@@ -239,43 +269,80 @@ function ClassView({ cls, subject }: Props) {
           </div>
         </div>
 
-        {/* Card 2: Emotional Wellbeing */}
+        {/* Card 2: Class Personality Distribution */}
         <div className="backdrop-blur-xl bg-white/60 border border-white/40 rounded-3xl p-5 shadow-sm">
-          <h3 className="font-bold text-slate-800 text-sm mb-0.5">💚 Emotional Wellbeing</h3>
-          <p className="text-[10px] text-slate-400 mb-3">Class-wide positivity ratio across all journal entries</p>
-          <div className="flex items-center gap-4">
-            <div className="relative shrink-0">
-              <CircularProgress ratio={positivityRatio} color={wellbeingColor} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-bold" style={{ color: wellbeingColor }}>
-                  {Math.round(positivityRatio * 100)}%
-                </span>
+          <h3 className="font-bold text-slate-800 text-sm mb-0.5">🧬 Personality Profile</h3>
+          <p className="text-[10px] text-slate-400 mb-4">
+            Estimated trait distribution across {cls.students.length} students
+          </p>
+          {backendInsights?.personality ? (() => {
+            const TRAIT_MAP = [
+              { key: 'Openness',          label: 'Exploration & Creativity',    icon: '🎨', color: '#6366f1' },
+              { key: 'Conscientiousness', label: 'Persistence & Responsibility', icon: '✅', color: '#22c55e' },
+              { key: 'Extraversion',      label: 'Social Energy',               icon: '👥', color: '#f59e0b' },
+              { key: 'Agreeableness',     label: 'Empathy & Cooperation',       icon: '💗', color: '#f43f5e' },
+              { key: 'Neuroticism',       label: 'Emotional Sensitivity',       icon: '🧠', color: '#a855f7' },
+            ]
+            const traits = backendInsights.personality.traits ?? {}
+            const total = Object.values(traits).reduce((a, v) => a + v, 0) || 1
+            const n = cls.students.length
+
+            const dominant = TRAIT_MAP.reduce((best, t) =>
+              (traits[t.key] ?? 0) > (traits[best.key] ?? 0) ? t : best
+            , TRAIT_MAP[0])
+
+            const sorted = [...TRAIT_MAP].sort((a, b) => (traits[b.key] ?? 0) - (traits[a.key] ?? 0))
+
+            return (
+              <div className="space-y-4">
+                {/* Dominant class trait badge */}
+                <div className="flex items-center gap-3 rounded-xl p-3 border"
+                  style={{ background: dominant.color + '12', borderColor: dominant.color + '40' }}>
+                  <span className="text-2xl">{dominant.icon}</span>
+                  <div>
+                    <div className="text-[10px] text-slate-500">Dominant class trait</div>
+                    <div className="text-sm font-bold" style={{ color: dominant.color }}>
+                      {backendInsights.personality.superpower}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Per-trait bars with student count estimate */}
+                <div className="space-y-2.5">
+                  {sorted.map(t => {
+                    const val = traits[t.key] ?? 0
+                    const studentCount = Math.max(1, Math.round((val / total) * n))
+                    const isTop = t.key === dominant.key
+                    return (
+                      <div key={t.key} className="flex items-center gap-2.5">
+                        <span className="text-sm shrink-0">{t.icon}</span>
+                        <span className="text-[10px] font-semibold text-slate-600 w-28 shrink-0 truncate">{t.label}</span>
+                        <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${val}%`, background: t.color, opacity: isTop ? 1 : 0.5 }} />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 w-7 text-right">{val}%</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0"
+                          style={{ background: t.color + '18', color: t.color }}>
+                          ~{studentCount}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Insight */}
+                {backendInsights.personality.insight && (
+                  <p className="text-[10px] text-slate-400 leading-snug border-t border-slate-100 pt-3">
+                    ✨ {backendInsights.personality.insight}
+                  </p>
+                )}
               </div>
-            </div>
-            <div className="flex-1">
-              <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold mb-2"
-                style={{ backgroundColor: wellbeingColor + '22', color: wellbeingColor }}>
-                {wellbeingLabel}
-              </span>
-              <p className="text-[10px] text-slate-500 leading-snug">
-                {positivityRatio > 0.6
-                  ? 'Class is thriving emotionally. Keep celebrating effort and curiosity.'
-                  : positivityRatio >= 0.4
-                  ? 'Mixed emotional climate. Check in with disengaged students.'
-                  : 'Several students need emotional support. Consider class-wide wellbeing activities.'}
-              </p>
-            </div>
-          </div>
-          {concerningStudents.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-100">
-              <p className="text-[10px] font-bold text-amber-600 mb-1.5">⚠️ Students needing attention</p>
-              <div className="flex flex-wrap gap-1.5">
-                {concerningStudents.map(s => (
-                  <span key={s.id} className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 font-semibold">
-                    {s.name.split(' ')[0]}
-                  </span>
-                ))}
-              </div>
+            )
+          })() : (
+            <div className="animate-pulse space-y-3">
+              <div className="h-12 bg-slate-100 rounded-xl" />
+              {[1,2,3,4,5].map(i => <div key={i} className="h-3 bg-slate-100 rounded" />)}
             </div>
           )}
         </div>
@@ -335,7 +402,7 @@ function ClassView({ cls, subject }: Props) {
               </div>
             ))}
             <p className="text-[10px] text-slate-400 pt-1 leading-snug">
-              💡 {VARK_TIPS[dominantVARK?.name ?? 'Kinesthetic']}
+              💡 {varkTip}
             </p>
           </div>
         </div>
@@ -350,6 +417,12 @@ function IndividualView({ cls, subject }: Props) {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string>(cls.students[0]?.id ?? '')
   const [teacherNote, setTeacherNote] = useState('')
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteToast, setNoteToast] = useState<string | null>(null)
+
+  // Per-student backend insights (same pipeline as parent side)
+  const [studentInsights, setStudentInsights] = useState<BackendInsights | null>(null)
+  const [studentInsightsLoading, setStudentInsightsLoading] = useState(false)
 
   const filtered = useMemo(
     () => cls.students.filter(s => s.name.toLowerCase().includes(search.toLowerCase())),
@@ -360,22 +433,37 @@ function IndividualView({ cls, subject }: Props) {
   const displaySubjects = subject !== 'All' ? [subject] : [...SUBJECTS]
   const dates14 = useMemo(buildDates14, [])
 
-  // Section 1 — MI
-  const miScores = useMemo(() => computeMIScores([student]), [student])
+  // Fetch per-student insights whenever selected student changes
+  useEffect(() => {
+    if (!selectedId) return
+    setStudentInsights(null)
+    setStudentInsightsLoading(true)
+    fetch(`/api/student-insights/${selectedId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.intelligences && data?.vark) setStudentInsights(data)
+      })
+      .catch(() => {})
+      .finally(() => setStudentInsightsLoading(false))
+  }, [selectedId])
+
+  // Section 1 — MI: use per-student backend insights (identical to parent side)
+  const miScores = useMemo(() => {
+    if (studentInsights?.intelligences?.radar_data) {
+      const radar = studentInsights.intelligences.radar_data
+      return INTELLIGENCES.map(intel => ({
+        subject: intel,
+        value: radar[intel] ?? 40,
+        fullMark: 100,
+      }))
+    }
+    return computeMIScores([student])
+  }, [studentInsights, student])
+
   const top2MI = useMemo(() => [...miScores].sort((a, b) => b.value - a.value).slice(0, 2), [miScores])
 
-  // Section 2 — Emotional Wellbeing
+  // Section 2 — Personality Profile (backend)
   const allEntries = student.journalEntries
-  const positivityRatio = allEntries.length
-    ? allEntries.filter(e => ['Curious', 'Excited', 'Happy'].includes(e.emotion)).length / allEntries.length
-    : 0
-  const wellbeingColor = positivityRatio > 0.6 ? '#10b981' : positivityRatio >= 0.4 ? '#f59e0b' : '#ef4444'
-  const isConcerning = positivityRatio < 0.4
-
-  const emotionDots = dates14.map(date => ({
-    date,
-    emotion: student.journalEntries.find(e => e.date === date)?.emotion ?? null,
-  }))
 
   // Section 3 — Cognitive Growth
   const cogLineData = useMemo(() => dates14.map(date => {
@@ -403,9 +491,21 @@ function IndividualView({ cls, subject }: Props) {
   const overallAvg = +(allEntries.reduce((a, e) => a + e.cognitiveLevel, 0) / (allEntries.length || 1)).toFixed(1)
   const zpdLevel = Math.min(5, Math.round(overallAvg) + 1)
 
-  // Section 4 — VARK
-  const varkData = useMemo(() => computeVARK([student]), [student])
+  // Section 4 — VARK: use per-student backend insights
+  const varkData = useMemo(() => {
+    if (studentInsights?.vark?.vark_distribution) {
+      const dist = studentInsights.vark.vark_distribution
+      return Object.entries(dist).map(([name, value]) => ({
+        name,
+        value,
+        color: VARK_COLORS[name] ?? '#94a3b8',
+      }))
+    }
+    return computeVARK([student])
+  }, [studentInsights, student])
+
   const dominantVARK = useMemo(() => [...varkData].sort((a, b) => b.value - a.value)[0], [varkData])
+  const varkTip = studentInsights?.vark?.multimodal_suggestion ?? VARK_TIPS[dominantVARK?.name ?? 'Kinesthetic']
 
   return (
     <div className="flex gap-4">
@@ -448,9 +548,70 @@ function IndividualView({ cls, subject }: Props) {
         <div className="backdrop-blur-xl bg-white/60 border border-white/40 rounded-3xl p-4 shadow-sm flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={student.avatar} alt={student.name} className="w-11 h-11 rounded-full ring-2 ring-blue-200" />
-          <div>
+          <div className="flex-1">
             <p className="font-bold text-slate-800">{student.name}</p>
             <p className="text-[10px] text-slate-400">{allEntries.length} journal entries · Avg level {overallAvg}/5</p>
+          </div>
+          {studentInsightsLoading && (
+            <div className="flex items-center gap-1.5 text-[10px] text-violet-500">
+              <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              Loading insights…
+            </div>
+          )}
+        </div>
+
+        {/* Teacher Note */}
+        <div className="backdrop-blur-xl bg-white/60 border border-white/40 rounded-3xl p-5 shadow-sm">
+          <h4 className="font-bold text-slate-800 text-sm mb-3">📝 Teacher Note</h4>
+          <div className="space-y-2">
+            <textarea
+              value={teacherNote}
+              onChange={e => setTeacherNote(e.target.value)}
+              placeholder="Add a private observation note for this student..."
+              rows={2}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white/80 outline-none focus:border-blue-300 resize-none"
+            />
+            <button
+              disabled={noteSaving || !teacherNote.trim()}
+              onClick={async () => {
+                if (!teacherNote.trim() || noteSaving) return
+                setNoteSaving(true)
+                try {
+                  const lastEntry = student.journalEntries[student.journalEntries.length - 1]
+                  const date = lastEntry?.date ?? new Date().toISOString().split('T')[0]
+                  const subjectForNote = lastEntry?.subject ?? (subject !== 'All' ? subject : 'General')
+                  const res = await fetch('/api/teacher-diary-note', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      student_id: student.id,
+                      date,
+                      subject: subjectForNote,
+                      teacher_note: teacherNote,
+                    }),
+                  })
+                  if (!res.ok) throw new Error('Save failed')
+                  setNoteToast('Note saved ✓')
+                  setTimeout(() => setNoteToast(null), 2500)
+                } catch {
+                  setNoteToast('Failed to save')
+                  setTimeout(() => setNoteToast(null), 2500)
+                } finally {
+                  setNoteSaving(false)
+                }
+              }}
+              className="text-[10px] font-semibold px-3 py-1.5 rounded-xl bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40 transition-colors"
+            >
+              {noteSaving ? 'Saving…' : 'Save Note'}
+            </button>
+            {noteToast && (
+              <p className={`text-[10px] font-semibold ${noteToast.includes('Failed') ? 'text-red-500' : 'text-emerald-600'}`}>
+                {noteToast}
+              </p>
+            )}
           </div>
         </div>
 
@@ -477,62 +638,17 @@ function IndividualView({ cls, subject }: Props) {
           </p>
         </div>
 
-        {/* Section 2: Emotional Wellbeing */}
+        {/* Section 2: Personality Profile */}
         <div className="backdrop-blur-xl bg-white/60 border border-white/40 rounded-3xl p-5 shadow-sm">
-          <h4 className="font-bold text-slate-800 text-sm mb-3">💚 Emotional Wellbeing</h4>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative shrink-0">
-              <CircularProgress ratio={positivityRatio} color={wellbeingColor} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-bold" style={{ color: wellbeingColor }}>
-                  {Math.round(positivityRatio * 100)}%
-                </span>
-              </div>
+          {studentInsights?.personality ? (
+            <PersonalityCard data={studentInsights.personality} />
+          ) : (
+            <div className="animate-pulse space-y-3">
+              <div className="h-4 bg-slate-100 rounded w-1/2" />
+              <div className="h-3 bg-slate-100 rounded" />
+              <div className="h-3 bg-slate-100 rounded w-3/4" />
             </div>
-            <div className="flex-1">
-              <p className="text-xs font-semibold text-slate-700 mb-1">Positivity Ratio</p>
-              {isConcerning && (
-                <div className="text-[10px] text-red-600 font-semibold bg-red-50 border border-red-100 px-2.5 py-1 rounded-xl mb-2">
-                  ⚠️ Emotional support may be needed
-                </div>
-              )}
-              <p className="text-[10px] text-slate-400 leading-snug">
-                {positivityRatio > 0.6
-                  ? 'Thriving emotionally — curious, excited, and happy most sessions.'
-                  : positivityRatio >= 0.4
-                  ? 'Mixed emotions. Watch for patterns of anxiety or disengagement.'
-                  : 'Frequently anxious or disengaged. Consider a 1:1 check-in conversation.'}
-              </p>
-            </div>
-          </div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">14-Day Emotion Timeline</p>
-          <div className="flex flex-wrap gap-1.5">
-            {emotionDots.map(({ date, emotion }) => (
-              <div
-                key={date}
-                title={emotion
-                  ? `${new Date(date).toLocaleDateString('en-AU', { month: 'short', day: 'numeric' })}: ${emotion}`
-                  : 'No entry'}
-                className="w-7 h-7 rounded-full flex items-center justify-center text-sm"
-                style={{
-                  backgroundColor: emotion ? EMOTION_BG[emotion] : '#f8fafc',
-                  border: emotion ? undefined : '1px dashed #e2e8f0',
-                }}
-              >
-                {emotion ? EMOTION_EMOJI[emotion] : ''}
-              </div>
-            ))}
-          </div>
-          <div className="mt-4">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 block">Teacher Note</label>
-            <textarea
-              value={teacherNote}
-              onChange={e => setTeacherNote(e.target.value)}
-              placeholder="Add a private note about this student's wellbeing..."
-              rows={2}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white/80 outline-none focus:border-blue-300 resize-none"
-            />
-          </div>
+          )}
         </div>
 
         {/* Section 3: Cognitive Growth */}
@@ -609,7 +725,7 @@ function IndividualView({ cls, subject }: Props) {
               {dominantVARK?.name} ({dominantVARK?.value}%)
             </span>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
-              💡 {VARK_TIPS[dominantVARK?.name ?? 'Kinesthetic']}
+              💡 {varkTip}
             </p>
           </div>
         </div>
@@ -621,8 +737,22 @@ function IndividualView({ cls, subject }: Props) {
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
-export default function InsightsTab({ cls, subject }: Props) {
+export default function InsightsTab({ cls, subject }: Omit<Props, 'backendInsights'>) {
   const [view, setView] = useState<'class' | 'individual'>('class')
+  const [backendInsights, setBackendInsights] = useState<BackendInsights | null>(null)
+  const [insightsLoading, setInsightsLoading] = useState(true)
+
+  useEffect(() => {
+    if (!cls.id) return
+    setInsightsLoading(true)
+    fetch(`/api/class-insights/${cls.id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.intelligences && data?.vark) setBackendInsights(data)
+      })
+      .catch(() => { /* fall through to local computation */ })
+      .finally(() => setInsightsLoading(false))
+  }, [cls.id])
 
   return (
     <div className="space-y-4">
@@ -641,9 +771,17 @@ export default function InsightsTab({ cls, subject }: Props) {
         >
           👤 Individual View
         </button>
+        {insightsLoading && (
+          <span className="text-[10px] text-slate-400 animate-pulse">Loading insights…</span>
+        )}
+        {!insightsLoading && backendInsights && (
+          <span className="text-[10px] text-emerald-600 font-semibold">✓ Full AI insights</span>
+        )}
       </div>
 
-      {view === 'class' ? <ClassView cls={cls} subject={subject} /> : <IndividualView cls={cls} subject={subject} />}
+      {view === 'class'
+        ? <ClassView cls={cls} subject={subject} backendInsights={backendInsights} />
+        : <IndividualView cls={cls} subject={subject} backendInsights={backendInsights} />}
     </div>
   )
 }
