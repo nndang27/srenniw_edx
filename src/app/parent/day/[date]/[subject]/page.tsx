@@ -28,19 +28,19 @@ import { Textarea } from '@/components/ui/textarea'
 type TabId = 'journey' | 'activity' | 'journal'
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: 'journey',  label: 'Journey',  icon: Zap },
+  { id: 'journey', label: 'Journey', icon: Zap },
   { id: 'activity', label: 'Activity', icon: Dumbbell },
-  { id: 'journal',  label: 'Journal',  icon: NotebookPen },
+  { id: 'journal', label: 'Journal', icon: NotebookPen },
 ]
 
 /* ─── Journal constants ──────────────────────────────────────────────── */
 
 const COGNITIVE_LEVELS = [
-  { id: 1, label: 'Aware',       desc: 'Knows about the topic' },
+  { id: 1, label: 'Aware', desc: 'Knows about the topic' },
   { id: 2, label: 'Understands', desc: 'Can explain it' },
-  { id: 3, label: 'Applies',     desc: 'Can use it to solve problems' },
-  { id: 4, label: 'Analyses',    desc: 'Can compare and organise' },
-  { id: 5, label: 'Creates',     desc: 'Can design new things with it' },
+  { id: 3, label: 'Applies', desc: 'Can use it to solve problems' },
+  { id: 4, label: 'Analyses', desc: 'Can compare and organise' },
+  { id: 5, label: 'Creates', desc: 'Can design new things with it' },
 ]
 
 const EMOTIONS = [
@@ -1010,6 +1010,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   const [crossSubjectVisible, setCrossSubjectVisible] = useState(true)
   const [activityPage, setActivityPage] = useState(0)
   const [pageFade, setPageFade] = useState(true)
+  const [isPracticeModalOpen, setIsPracticeModalOpen] = useState(false)
 
   // Journal state
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
@@ -1074,122 +1075,154 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
 
   /* ─── Tab content renderers ── */
 
-  const renderJourney = () => {
-    return (
-      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-        {/* Left: content */}
-        <div className="flex-1 space-y-6 min-w-0">
-          {/* 60-Second Summary card */}
-          <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-indigo-50 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
-            <div className="mb-3">
-              <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-bold uppercase tracking-wider rounded-full">
-                {subject}
-              </span>
-            </div>
-            <h3 className="text-xl font-extrabold text-slate-800 tracking-tight mb-3">
-              ✨ The 60-Second Summary
-            </h3>
-            <p className="text-base text-slate-600 leading-relaxed font-medium">
-              {quickPeek.essence_text}
-            </p>
-            <div className="mt-5 p-4 bg-indigo-50/70 rounded-2xl border border-indigo-100/50">
-              <span className="font-bold text-indigo-900 block mb-1">Real-world example:</span>
-              <p className="italic text-slate-700 leading-relaxed text-sm">
-                {quickPeek.relatable_example}
-              </p>
+  const renderNavigation = () => (
+    <div className="flex items-center justify-between mt-8 p-4 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 shrink-0">
+      <button
+        onClick={() => prevSubject && router.push(`/parent/day/${date}/${encodeURIComponent(prevSubject.subject)}`)}
+        disabled={!prevSubject}
+        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${prevSubject ? 'text-indigo-600 hover:bg-slate-50' : 'opacity-0 pointer-events-none'
+          }`}
+      >
+        <ChevronLeft className="w-5 h-5" />
+        <span className="hidden sm:inline">Previous Subject</span>
+      </button>
+
+      <div className="text-slate-500 font-medium text-sm">
+        Subject {subjectIndex + 1} of {schedule.length}
+      </div>
+
+      <button
+        onClick={() => nextSubject && router.push(`/parent/day/${date}/${encodeURIComponent(nextSubject.subject)}`)}
+        disabled={!nextSubject}
+        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${nextSubject ? 'text-indigo-600 hover:bg-slate-50' : 'opacity-0 pointer-events-none'
+          }`}
+      >
+        <span className="hidden sm:inline">Next Subject</span>
+        <ChevronRight className="w-5 h-5" />
+      </button>
+    </div>
+  )
+
+  const renderJourney = () => (
+    <div className="w-full flex flex-col lg:flex-row gap-8 lg:gap-12 font-sans overflow-x-hidden text-slate-800">
+      {/* Main content panel */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* The Trailer */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 mb-6 lg:mb-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-indigo-50 relative overflow-hidden group hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-shadow duration-500 shrink-0">
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+
+          <div className="mb-3">
+            <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-bold uppercase tracking-wider rounded-full">
+              {subject}
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div className="flex items-center gap-3">
+              <h3 className="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight">
+                ✨ The 60-Second Summary
+              </h3>
             </div>
           </div>
 
-          {/* Dive Deeper — shadcn Accordion */}
-          <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
-            <h3 className="text-lg font-bold text-slate-700 mb-5 flex items-center gap-2">
-              🚀 Dive Deeper
-            </h3>
-            <Accordion type="single" collapsible className="w-full space-y-3">
+          <p className="text-lg sm:text-xl text-slate-600 leading-relaxed font-medium mt-2">
+            {quickPeek.essence_text}
+          </p>
+          <div className="mt-6 p-5 bg-indigo-50/70 rounded-2xl border border-indigo-100/50">
+            <span className="font-bold text-indigo-900 block mb-1">Real-world example:</span>
+            <p className="italic text-slate-700 leading-relaxed">
+              {quickPeek.relatable_example}
+            </p>
+          </div>
+        </div>
+
+        {/* The Deep Dive */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 shrink-0">
+          <h3 className="text-lg sm:text-xl font-bold text-slate-700 mb-6 flex items-center gap-3">
+            🚀 Dive Deeper
+          </h3>
+          <Accordion type="single" collapsible className="w-full space-y-4">
+
+            {quickPeek.core_concept && (
               <AccordionItem
                 value="core-concept"
                 className="border border-slate-100 rounded-2xl px-5 data-[state=open]:bg-slate-50/50 data-[state=open]:border-slate-200 transition-all duration-300"
               >
-                <AccordionTrigger className="text-base font-bold text-slate-800 hover:text-indigo-600 hover:no-underline py-4 text-left">
+                <AccordionTrigger className="text-lg font-bold text-slate-800 hover:text-indigo-600 hover:no-underline py-4 text-left">
                   Core Concept
                 </AccordionTrigger>
-                <AccordionContent className="text-slate-600 text-sm leading-relaxed pb-4">
+                <AccordionContent className="text-slate-600 text-base leading-relaxed pb-5">
                   {quickPeek.core_concept}
                 </AccordionContent>
               </AccordionItem>
+            )}
 
-              {Object.keys(quickPeek.key_vocabulary).length > 0 && (
-                <AccordionItem
-                  value="key-vocabulary"
-                  className="border border-slate-100 rounded-2xl px-5 data-[state=open]:bg-slate-50/50 data-[state=open]:border-slate-200 transition-all duration-300"
-                >
-                  <AccordionTrigger className="text-base font-bold text-slate-800 hover:text-indigo-600 hover:no-underline py-4 text-left">
-                    Key Vocabulary
-                  </AccordionTrigger>
-                  <AccordionContent className="text-slate-600 text-sm leading-relaxed pb-4">
-                    <ul className="space-y-2">
-                      {Object.entries(quickPeek.key_vocabulary).map(([term, def]) => (
-                        <li key={term} className="flex flex-col sm:flex-row gap-1 sm:gap-2">
-                          <span className="font-bold text-slate-800 shrink-0">{term}:</span>
-                          <span className="text-slate-600">{def}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </AccordionContent>
-                </AccordionItem>
-              )}
+            {quickPeek.key_vocabulary && Object.keys(quickPeek.key_vocabulary).length > 0 && (
+              <AccordionItem
+                value="key-vocabulary"
+                className="border border-slate-100 rounded-2xl px-5 data-[state=open]:bg-slate-50/50 data-[state=open]:border-slate-200 transition-all duration-300"
+              >
+                <AccordionTrigger className="text-lg font-bold text-slate-800 hover:text-indigo-600 hover:no-underline py-4 text-left">
+                  Key Vocabulary
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-600 text-base leading-relaxed pb-5">
+                  <ul className="space-y-3">
+                    {Object.entries(quickPeek.key_vocabulary).map(([term, def], idx) => (
+                      <li key={idx} className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                        <span className="font-bold text-slate-800 shrink-0">{term}:</span>
+                        <span className="text-slate-600">{def as string}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
+            )}
 
+            {quickPeek.why_this_matters && (
               <AccordionItem
                 value="why-this-matters"
                 className="border border-slate-100 rounded-2xl px-5 data-[state=open]:bg-slate-50/50 data-[state=open]:border-slate-200 transition-all duration-300"
               >
-                <AccordionTrigger className="text-base font-bold text-slate-800 hover:text-indigo-600 hover:no-underline py-4 text-left">
+                <AccordionTrigger className="text-lg font-bold text-slate-800 hover:text-indigo-600 hover:no-underline py-4 text-left">
                   Why This Matters
                 </AccordionTrigger>
-                <AccordionContent className="text-slate-600 text-sm leading-relaxed pb-4">
+                <AccordionContent className="text-slate-600 text-base leading-relaxed pb-5">
                   {quickPeek.why_this_matters}
                 </AccordionContent>
               </AccordionItem>
-            </Accordion>
-          </div>
+            )}
 
-          {/* Subject navigation */}
-          <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-100">
-            {prevSubject ? (
-              <button
-                onClick={() => router.push(`/parent/day/${date}/${encodeURIComponent(prevSubject.subject)}`)}
-                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
-              >
-                <ChevronLeft size={15} />
-                <div className="text-left">
-                  <p className="text-[10px] text-slate-400 leading-none mb-0.5">Previous</p>
-                  <p className="font-medium">{prevSubject.subject}</p>
-                </div>
-              </button>
-            ) : <div />}
-            {nextSubject ? (
-              <button
-                onClick={() => router.push(`/parent/day/${date}/${encodeURIComponent(nextSubject.subject)}`)}
-                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
-              >
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-400 leading-none mb-0.5">Next</p>
-                  <p className="font-medium">{nextSubject.subject}</p>
-                </div>
-                <ChevronRight size={15} />
-              </button>
-            ) : <div />}
-          </div>
+          </Accordion>
         </div>
 
-        {/* Right: TikTok panel */}
-        <div className="w-full lg:w-[340px] shrink-0">
-          <TikTokHookPanel videos={quickPeek.videos} />
-        </div>
+        {/* Afterclass Practice Panel */}
+        <button
+          onClick={() => setIsPracticeModalOpen(true)}
+          className="bg-white rounded-3xl p-6 sm:p-8 mt-6 lg:mt-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 shrink-0 text-left hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-700">
+              📝 Afterclass Practice
+            </h3>
+          </div>
+          <ChevronRight className="w-5 h-5 text-slate-400" />
+        </button>
+
+        {renderNavigation()}
       </div>
-    )
-  }
+
+      {/* Right: TikTok panel — always shown */}
+      <div className="w-full lg:w-[400px] shrink-0 lg:pt-4 pb-12">
+        <TikTokHookPanel videos={quickPeek.videos.length > 1 ? quickPeek.videos : [
+          "/samples/sample1.mp4",
+          "/samples/sample2.mp4",
+          "/samples/sample3.mp4",
+          "/samples/sample4.mp4",
+          "/samples/sample5.mp4"
+        ]} />
+      </div>
+    </div>
+  )
 
   const CROSS_SUBJECT_ACTIVITIES = [
     {
@@ -1319,9 +1352,8 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
             <button
               key={i}
               onClick={() => setPromptIndex(i)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                i === promptIndex ? 'bg-blue-500 w-5' : 'bg-blue-200 hover:bg-blue-300'
-              }`}
+              className={`w-2 h-2 rounded-full transition-all ${i === promptIndex ? 'bg-blue-500 w-5' : 'bg-blue-200 hover:bg-blue-300'
+                }`}
               aria-label={`Go to prompt ${i + 1}`}
             />
           ))}
@@ -1512,173 +1544,248 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
       </div>
 
       <div className="backdrop-blur-xl bg-white/60 border border-white/50 rounded-3xl shadow-lg p-5 space-y-7">
-          {/* Understanding level */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-slate-700">Understanding Level</h3>
-            <div className="grid grid-cols-5 gap-2 relative">
-              <div className="absolute top-5 left-[10%] right-[10%] h-1 bg-slate-100 z-0 rounded-full hidden sm:block" />
-              {selectedLevel !== null && (
-                <div
-                  className="absolute top-5 left-[10%] h-1 bg-blue-500 z-0 rounded-full transition-all duration-300 hidden sm:block"
-                  style={{ width: `${((selectedLevel - 1) / 4) * 80}%` }}
-                />
-              )}
-              {COGNITIVE_LEVELS.map(level => {
-                const isActive = selectedLevel === level.id
-                const isPast = selectedLevel !== null && level.id < selectedLevel
-                return (
-                  <div key={level.id} className="relative z-10 flex flex-col items-center">
-                    <button
-                      onClick={() => setSelectedLevel(level.id)}
-                      className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-200 border-2
-                        ${isActive ? 'bg-blue-500 border-blue-500 text-white scale-110 shadow-md'
-                          : isPast ? 'bg-blue-50 border-blue-400 text-blue-500'
-                          : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50'}`}
-                    >
-                      {level.id}
-                    </button>
-                    <span className={`text-[10px] mt-2 font-medium text-center transition-colors ${isActive ? 'text-blue-500' : 'text-slate-500'}`}>
-                      {level.label}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
+        {/* Understanding level */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-slate-700">Understanding Level</h3>
+          <div className="grid grid-cols-5 gap-2 relative">
+            <div className="absolute top-5 left-[10%] right-[10%] h-1 bg-slate-100 z-0 rounded-full hidden sm:block" />
             {selectedLevel !== null && (
-              <p className="text-xs font-medium text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
-                <span className="text-blue-500 font-bold mr-1">{COGNITIVE_LEVELS[selectedLevel - 1].label}:</span>
-                {COGNITIVE_LEVELS[selectedLevel - 1].desc}
-              </p>
+              <div
+                className="absolute top-5 left-[10%] h-1 bg-blue-500 z-0 rounded-full transition-all duration-300 hidden sm:block"
+                style={{ width: `${((selectedLevel - 1) / 4) * 80}%` }}
+              />
             )}
-          </div>
-
-          <div className="h-px bg-slate-100" />
-
-          {/* Mood */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-700">How was the mood?</h3>
-            <div className="flex justify-between">
-              {EMOTIONS.map(emotion => (
-                <button
-                  key={emotion.id}
-                  onClick={() => setSelectedEmotion(emotion.id)}
-                  className={`flex flex-col items-center py-2 rounded-2xl transition-all duration-200 w-16
-                    ${selectedEmotion === emotion.id ? 'bg-orange-50 ring-2 ring-orange-400 scale-105 shadow-sm' : 'hover:bg-slate-50'}`}
-                >
-                  <span className="text-4xl mb-1">{emotion.emoji}</span>
-                  <span className={`text-[10px] font-medium ${selectedEmotion === emotion.id ? 'text-orange-600' : 'text-slate-500'}`}>
-                    {emotion.label}
+            {COGNITIVE_LEVELS.map(level => {
+              const isActive = selectedLevel === level.id
+              const isPast = selectedLevel !== null && level.id < selectedLevel
+              return (
+                <div key={level.id} className="relative z-10 flex flex-col items-center">
+                  <button
+                    onClick={() => setSelectedLevel(level.id)}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-200 border-2
+                        ${isActive ? 'bg-blue-500 border-blue-500 text-white scale-110 shadow-md'
+                        : isPast ? 'bg-blue-50 border-blue-400 text-blue-500'
+                          : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50'}`}
+                  >
+                    {level.id}
+                  </button>
+                  <span className={`text-[10px] mt-2 font-medium text-center transition-colors ${isActive ? 'text-blue-500' : 'text-slate-500'}`}>
+                    {level.label}
                   </span>
-                </button>
-              ))}
-            </div>
+                </div>
+              )
+            })}
           </div>
-
-          <div className="h-px bg-slate-100" />
-
-          {/* Time spent */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-700">Time spent</h3>
-              <span className="text-xl font-bold text-emerald-600">{timeSpent} min</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={120}
-              step={5}
-              value={timeSpent}
-              onChange={e => setTimeSpent(Number(e.target.value))}
-              className="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-emerald-500"
-            />
-            <div className="flex justify-between text-xs text-slate-400">
-              <span>0 min</span>
-              <span>30</span>
-              <span>60</span>
-              <span>90</span>
-              <span>120 min</span>
-            </div>
-          </div>
-
-          <div className="h-px bg-slate-100" />
-
-          {/* Notes */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-slate-700">Observations (optional)</h3>
-            <Textarea
-              placeholder={`E.g., They loved the ${subjectEntry.topic} activity today!`}
-              className="resize-none h-20 bg-slate-50 border-slate-200 text-sm"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-            />
-          </div>
-
-          <Button
-            className="w-full h-12 text-base font-semibold rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition-all active:scale-[0.98]"
-            onClick={handleSaveJournal}
-            disabled={isSaving}
-          >
-            {isSaving ? 'Saving…' : '💾 Save Journal Entry'}
-          </Button>
+          {selectedLevel !== null && (
+            <p className="text-xs font-medium text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+              <span className="text-blue-500 font-bold mr-1">{COGNITIVE_LEVELS[selectedLevel - 1].label}:</span>
+              {COGNITIVE_LEVELS[selectedLevel - 1].desc}
+            </p>
+          )}
         </div>
+
+        <div className="h-px bg-slate-100" />
+
+        {/* Mood */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-700">How was the mood?</h3>
+          <div className="flex justify-between">
+            {EMOTIONS.map(emotion => (
+              <button
+                key={emotion.id}
+                onClick={() => setSelectedEmotion(emotion.id)}
+                className={`flex flex-col items-center py-2 rounded-2xl transition-all duration-200 w-16
+                    ${selectedEmotion === emotion.id ? 'bg-orange-50 ring-2 ring-orange-400 scale-105 shadow-sm' : 'hover:bg-slate-50'}`}
+              >
+                <span className="text-4xl mb-1">{emotion.emoji}</span>
+                <span className={`text-[10px] font-medium ${selectedEmotion === emotion.id ? 'text-orange-600' : 'text-slate-500'}`}>
+                  {emotion.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="h-px bg-slate-100" />
+
+        {/* Time spent */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-700">Time spent</h3>
+            <span className="text-xl font-bold text-emerald-600">{timeSpent} min</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={120}
+            step={5}
+            value={timeSpent}
+            onChange={e => setTimeSpent(Number(e.target.value))}
+            className="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-emerald-500"
+          />
+          <div className="flex justify-between text-xs text-slate-400">
+            <span>0 min</span>
+            <span>30</span>
+            <span>60</span>
+            <span>90</span>
+            <span>120 min</span>
+          </div>
+        </div>
+
+        <div className="h-px bg-slate-100" />
+
+        {/* Notes */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-slate-700">Observations (optional)</h3>
+          <Textarea
+            placeholder={`E.g., They loved the ${subjectEntry.topic} activity today!`}
+            className="resize-none h-20 bg-slate-50 border-slate-200 text-sm"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+          />
+        </div>
+
+        <Button
+          className="w-full h-12 text-base font-semibold rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition-all active:scale-[0.98]"
+          onClick={handleSaveJournal}
+          disabled={isSaving}
+        >
+          {isSaving ? 'Saving…' : '💾 Save Journal Entry'}
+        </Button>
+      </div>
     </div>
   )
 
   /* ─── Layout ── */
 
+  const WEEK_DAYS = [
+    { name: 'Monday',    date: '2026-04-06' },
+    { name: 'Tuesday',   date: '2026-04-07' },
+    { name: 'Wednesday', date: '2026-04-08' },
+    { name: 'Thursday',  date: '2026-04-09' },
+    { name: 'Friday',    date: '2026-04-10' },
+  ]
+
+  const currentDayName = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })
+
   return (
-    <div className="flex flex-col h-full min-h-[calc(100vh-89px)]">
+    <div className="flex flex-col h-full min-h-[calc(100vh-89px)] bg-slate-50/30">
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-sm font-medium">
           {toast}
         </div>
       )}
 
-      {/* Sticky top bar: back + subject badge */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-100 px-4 py-3 flex items-center gap-3">
-        <button
-          onClick={() => router.push('/parent')}
-          className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
-        >
-          <ArrowLeft size={16} />
-          <span className="hidden sm:inline">Back to Calendar</span>
-        </button>
-        <div className="flex-1" />
-        <div
-          className="flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold"
-          style={{ background: bgColor, color }}
-        >
-          <span>{emoji}</span>
-          <span>{subject}</span>
+      {/* Main Container for Header and Content */}
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-6 sm:py-10">
+        
+        {/* Top Navigation Row */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between mb-8 gap-y-6">
+          {/* Left: Back Button */}
+          <div className="w-auto sm:w-1/4 flex justify-start order-1">
+            <button
+              onClick={() => router.push('/parent')}
+              className="flex items-center gap-1.5 text-sm font-bold text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-wider"
+            >
+              <ArrowLeft size={16} />
+              <span className="hidden lg:inline">Back to Calendar</span>
+              <span className="inline lg:hidden">Back</span>
+            </button>
+          </div>
+
+          {/* Center: Horizontal 5-Day Calendar */}
+          <div className="w-full sm:w-2/4 order-3 sm:order-2 px-2 sm:px-6">
+            <div className="flex items-center justify-between w-full relative max-w-md mx-auto">
+              {WEEK_DAYS.map((dayObj, idx) => {
+                const isActive = currentDayName === dayObj.name
+                const isLast = idx === WEEK_DAYS.length - 1
+                const dayIndex = WEEK_DAYS.findIndex(d => d.name === currentDayName)
+                const isPast = dayIndex >= idx
+
+                return (
+                  <div key={dayObj.name} className={`flex items-center ${!isLast ? 'flex-1' : ''}`}>
+                    <div 
+                      className="relative flex flex-col items-center group cursor-pointer"
+                      onClick={() => {
+                          const nextSchedule = getScheduleForDate(dayObj.date)
+                          if (nextSchedule.length > 0) {
+                              router.push(`/parent/day/${dayObj.date}/${encodeURIComponent(nextSchedule[0].subject)}`)
+                          }
+                      }}
+                    >
+                      <div 
+                         className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs transition-all duration-300 z-10 relative
+                           ${isActive 
+                             ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-100 scale-110' 
+                             : isPast 
+                                ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' 
+                                : 'bg-white text-slate-400 border border-slate-100 hover:border-indigo-300 hover:text-indigo-500'}`}
+                      >
+                         {dayObj.name.slice(0, 3)}
+                      </div>
+                    </div>
+
+                    {/* Connecting Line */}
+                    {!isLast && (
+                      <div className="flex-1 h-0.5 mx-1 sm:mx-2 rounded-full bg-slate-100 relative overflow-hidden">
+                        <div 
+                          className="absolute top-0 left-0 h-full bg-indigo-600 transition-all duration-500"
+                          style={{ width: isPast && dayIndex > idx ? '100%' : '0%' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          
+          {/* Right: Subject Badge */}
+          <div className="w-auto sm:w-1/4 flex justify-end order-2 sm:order-3">
+            <div
+              className="flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold shadow-sm border border-white/50"
+              style={{ background: bgColor, color }}
+            >
+              <span>{emoji}</span>
+              <span>{subject}</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Subject + topic header */}
-      <div className="px-4 pt-4 pb-3 bg-white/60 backdrop-blur-xl border-b border-white/40">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-0.5">
-          {new Date(date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
-        <h1 className="text-xl font-bold text-slate-900">{subjectEntry.topic}</h1>
-        <p className="text-xs text-slate-500 mt-0.5">{subjectEntry.time} · {subjectEntry.teacher}</p>
-      </div>
+        {/* Big Large Header */}
+        <header className="mb-8 flex flex-col items-center text-center">
+          {/* Current Subject Context Info */}
+          <div className="space-y-0.5 flex flex-col items-center text-center">
+             <p className="text-slate-400 font-bold text-xs sm:text-sm">
+                {new Date(date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
+             </p>
+             <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
+                {subjectEntry.topic}
+             </h2>
+             <div className="flex items-center justify-center gap-2 text-slate-500 font-bold text-[10px] sm:text-xs pt-1">
+                <div className="flex items-center gap-1">
+                    <Clock size={14} />
+                    {subjectEntry.time}
+                </div>
+                <div className="w-1 h-1 bg-slate-200 rounded-full" />
+                <span>{subjectEntry.teacher}</span>
+             </div>
+          </div>
+        </header>
 
-      {/* Body: horizontal tab bar + content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
-
-        {/* Horizontal tab bar — always visible */}
-        <div className="px-3 py-2 backdrop-blur-xl bg-white/60 border-b border-white/40 sticky top-0 z-10">
-          <div className="flex backdrop-blur-xl bg-white/60 border border-white/50 rounded-2xl p-1 gap-1">
-            {TABS.map(({ id, label, icon: Icon }) => (
+        {/* Tab switcher bar */}
+        <div className="mb-8 flex justify-center">
+          <div className="flex bg-white shadow-md border border-slate-100 rounded-full p-1.5 w-fit">
+            {TABS.map(({ id, label }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-xl transition-all
+                className={`px-6 sm:px-8 py-2.5 text-sm font-black rounded-full transition-all duration-300
                   ${activeTab === id
-                    ? 'bg-white shadow-sm font-semibold'
-                    : 'text-slate-500 hover:text-slate-700'}`}
-                style={activeTab === id ? { color } : undefined}
+                    ? 'shadow-sm text-white'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                style={activeTab === id ? { backgroundColor: color } : undefined}
               >
-                <Icon size={15} />
                 {label}
               </button>
             ))}
@@ -1700,9 +1807,29 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
                 </div>
               )}
 
+              {/* Subject navigation arrows (for non-journey tabs) */}
+              {activeTab !== 'journey' && renderNavigation()}
             </div>
         </div>
       </div>
+
+      {/* Afterclass Practice Modal */}
+      {isPracticeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-10 max-w-sm w-full mx-auto text-center transform transition-all animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-slate-800 mb-4">Afterclass Practice</h3>
+            <p className="text-slate-600 mb-8 p-4 bg-indigo-50 rounded-2xl text-lg font-medium border border-indigo-100">
+              This will available afterclass
+            </p>
+            <Button
+              onClick={() => setIsPracticeModalOpen(false)}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 text-base font-bold transition-transform active:scale-95"
+            >
+              Understood
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
