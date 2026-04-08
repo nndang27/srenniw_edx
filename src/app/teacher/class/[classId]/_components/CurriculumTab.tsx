@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Pencil, Calendar, List, CheckCircle, X, Save, Sparkles, Wifi, Radio, RefreshCw, BookOpen, ClipboardList, Users } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight, Pencil, Calendar, List, CheckCircle, X, Save, Sparkles, Wifi, Radio, RefreshCw, BookOpen, ClipboardList, Users, Plus } from 'lucide-react'
 import { getCurriculum, SUBJECTS } from '@/lib/mockTeacherData'
 import { useApi, type ClassroomCourseData, ClassroomItem } from '@/lib/api'
 import { SUBJECT_COLORS as TIMETABLE_COLORS, SUBJECT_BG_COLORS, type SubjectName } from '@/lib/mockTimetable'
@@ -547,7 +547,7 @@ function GcItem({ item, expanded, onToggle }: { item: ClassroomItem; expanded: b
 }
 
 export default function CurriculumTab({ classId, subject }: Props) {
-  const [view, setView] = useState<'list' | 'calendar'>('list')
+  const [view, setView] = useState<'list' | 'calendar' | 'submission' | 'source'>('submission')
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([CURRENT_WEEK]))
   const [toast, setToast] = useState<string | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
@@ -566,6 +566,86 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const [gcCourseId, setGcCourseId] = useState<string | null>(null)
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
   const [timetable, setTimetable] = useState<any>(null)
+  
+  // Editor State
+  const editorRef = useRef<HTMLDivElement>(null)
+  const [wordCount, setWordCount] = useState(0)
+  const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  const [fontSize, setFontSize] = useState('12pt')
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const [isSourceMode, setIsSourceMode] = useState(false)
+  const [sourceHtml, setSourceHtml] = useState('')
+  const [selectedColor, setSelectedColor] = useState('#000000')
+  const [selectedHighlight, setSelectedHighlight] = useState('#FEF3C7')
+  const [showAttachModal, setShowAttachModal] = useState(false)
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string, size: string }[]>([])
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(new Date())
+  const [selectedSubjectTitle, setSelectedSubjectTitle] = useState(subject === 'All' ? 'Science' : subject)
+  const [subjectList, setSubjectList] = useState(['Math', 'Science', 'English', 'History', 'Art'])
+  const [showSubjectPicker, setShowSubjectPicker] = useState(false)
+  const [isCreatingSubject, setIsCreatingSubject] = useState(false)
+  const [newSubjectValue, setNewSubjectValue] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAddSubject = () => {
+    if (newSubjectValue.trim()) {
+      if (!subjectList.includes(newSubjectValue.trim())) {
+        setSubjectList([...subjectList, newSubjectValue.trim()])
+      }
+      setSelectedSubjectTitle(newSubjectValue.trim())
+      setNewSubjectValue('')
+      setIsCreatingSubject(false)
+      setShowSubjectPicker(false)
+    }
+  }
+
+  const formatDate = (date: Date) => {
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}`
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files).map(f => ({
+        name: f.name,
+        size: (f.size / 1024 / 1024).toFixed(1) + ' MB'
+      }))
+      setAttachedFiles(prev => [...prev, ...newFiles])
+      setShowAttachModal(false)
+    }
+  }
+
+  const removeFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const toggleSourceMode = () => {
+    if (isSourceMode) {
+      if (editorRef.current) editorRef.current.innerHTML = sourceHtml
+      setIsSourceMode(false)
+    } else {
+      setSourceHtml(editorRef.current?.innerHTML || '')
+      setIsSourceMode(true)
+    }
+  }
+
+  const handleZoom = (delta: number) => {
+    setZoomLevel(prev => Math.min(Math.max(prev + delta, 0.5), 2))
+  }
+
+  const applyFormat = (command: string, value: string = '') => {
+    document.execCommand(command, false, value)
+    if (editorRef.current) editorRef.current.focus()
+  }
+
+  const handleEditorInput = () => {
+    const text = editorRef.current?.innerText || ''
+    const count = text.trim() ? text.trim().split(/\s+/).length : 0
+    setWordCount(count)
+  }
 
   // Original fallback for curricula list (topics)
   const curricula = getCurriculum(classId, subject)
@@ -752,6 +832,13 @@ export default function CurriculumTab({ classId, subject }: Props) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setView('submission')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
+              ${view === 'submission' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}
+          >
+            <ClipboardList size={13} /> Submission
+          </button>
+          <button
             onClick={() => setView('list')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
               ${view === 'list' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}
@@ -829,7 +916,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
             )
           })}
         </div>
-      ) : (
+      ) : view === 'calendar' ? (
         <div className="space-y-3">
           {/* Week navigation */}
           <div className="flex items-center justify-between">
@@ -1017,9 +1104,552 @@ export default function CurriculumTab({ classId, subject }: Props) {
               )
             })()}
 
-            <p className="text-[10px] text-slate-300 mt-3 text-center">
-              Term · Week {calendarWeek} of {TERM_WEEKS} · Tap a subject to expand
-            </p>
+          </div>
+        </div>
+      ) : (
+        /* Submission View - High Fidelity Rich Text Editor Mock */
+        <div className="backdrop-blur-xl bg-white/90 border border-white/60 rounded-[2.5rem] p-10 shadow-2xl space-y-8 anim-slide-up">
+          <div className={`space-y-5 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-slate-50 p-10 overflow-y-auto' : ''}`}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black text-slate-800 tracking-tight">Add Lecture</h2>
+              <div className="flex items-center gap-3">
+                {/* Subject Picker */}
+                <div className="relative">
+                  <button 
+                    onClick={() => { setShowSubjectPicker(!showSubjectPicker); setShowDatePicker(false); }}
+                    className="flex items-center gap-3 px-6 py-2.5 bg-white border-[1.5px] border-slate-200 rounded-full text-sm font-bold text-slate-700 hover:border-blue-500 transition-all shadow-sm"
+                  >
+                    <BookOpen size={16} className="text-blue-500" />
+                    <span>{selectedSubjectTitle}</span>
+                    <ChevronDown size={14} className="text-slate-400" />
+                  </button>
+                  
+                  {showSubjectPicker && (
+                    <div className="absolute top-full right-0 mt-3 w-56 bg-white border border-slate-200 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] z-[100] p-2 anim-slide-up">
+                      <div className="max-h-[220px] overflow-y-auto custom-scrollbar">
+                        {subjectList.map(s => (
+                          <button
+                            key={s}
+                            onClick={() => { setSelectedSubjectTitle(s); setShowSubjectPicker(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-xs font-bold rounded-xl transition-colors
+                              ${selectedSubjectTitle === s ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      <div className="h-px bg-slate-100 my-2" />
+                      
+                      {isCreatingSubject ? (
+                        <div className="px-3 pb-2 pt-1 animate-in fade-in slide-in-from-top-1">
+                          <input
+                            autoFocus
+                            value={newSubjectValue}
+                            onChange={(e) => setNewSubjectValue(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddSubject()}
+                            placeholder="Type subject..."
+                            className="w-full text-xs font-bold border border-blue-200 rounded-lg px-3 py-2 outline-none focus:ring-1 ring-blue-400"
+                          />
+                          <div className="flex justify-end gap-2 mt-2">
+                             <button onClick={() => setIsCreatingSubject(false)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+                             <button onClick={handleAddSubject} className="text-[10px] font-bold text-blue-600 hover:text-blue-700">Add</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setIsCreatingSubject(true)}
+                          className="w-full flex items-center justify-center gap-2 py-2 text-xs font-black text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                        >
+                          <Plus size={14} /> Add More
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Date Picker */}
+                <div className="relative">
+                  <button 
+                    onClick={() => { setShowDatePicker(!showDatePicker); setShowSubjectPicker(false); }}
+                    className="flex items-center gap-3 px-6 py-2.5 bg-white border-[1.5px] border-slate-200 rounded-full text-sm font-bold text-slate-700 hover:border-blue-500 transition-all shadow-sm"
+                  >
+                    <Calendar size={16} className="text-blue-500" />
+                    <span>{formatDate(selectedDate)}</span>
+                    <ChevronDown size={14} className="text-slate-400" />
+                  </button>
+                
+                {showDatePicker && (
+                  <div className="absolute top-full right-0 mt-3 w-[280px] bg-white border border-slate-200 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] z-[100] p-4 anim-slide-up">
+                    <div className="flex items-center justify-between mb-4 px-1">
+                      <span className="font-black text-slate-800">
+                        {calendarMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                      </span>
+                      <div className="flex gap-1">
+                        <button 
+                          onClick={() => setCalendarMonth(new Date(calendarMonth.setMonth(calendarMonth.getMonth() - 1)))}
+                          className="p-1 hover:bg-slate-50 rounded-lg text-slate-400"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <button 
+                          onClick={() => setCalendarMonth(new Date(calendarMonth.setMonth(calendarMonth.getMonth() + 1)))}
+                          className="p-1 hover:bg-slate-50 rounded-lg text-slate-400"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                      {['S','M','T','W','T','F','S'].map(d => (
+                        <span key={d} className="text-[10px] font-bold text-slate-300 uppercase">{d}</span>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                      {(() => {
+                        const daysInMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate();
+                        const firstDay = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1).getDay();
+                        const today = new Date();
+                        const cells = [];
+                        
+                        for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} />);
+                        for (let d = 1; d <= daysInMonth; d++) {
+                          const isToday = today.getDate() === d && today.getMonth() === calendarMonth.getMonth() && today.getFullYear() === calendarMonth.getFullYear();
+                          const isSelected = selectedDate.getDate() === d && selectedDate.getMonth() === calendarMonth.getMonth() && selectedDate.getFullYear() === calendarMonth.getFullYear();
+                          
+                          cells.push(
+                            <button
+                              key={d}
+                              onClick={() => {
+                                const newDate = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), d);
+                                setSelectedDate(newDate);
+                                setShowDatePicker(false);
+                              }}
+                              className={`relative w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all
+                                ${isSelected ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-slate-50 text-slate-600'}`}
+                            >
+                              {d}
+                              {isToday && !isSelected && (
+                                <div className="absolute inset-0 border-[1.5px] border-red-500 rounded-full m-0.5" />
+                              )}
+                            </button>
+                          );
+                        }
+                        return cells;
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+            
+            {/* Editor Interface */}
+            <div className="border-[1.5px] border-slate-950 rounded-sm overflow-hidden bg-white shadow-lg flex flex-col relative max-w-7xl mx-auto w-full">
+              {/* Menu Bar */}
+              <div className="flex items-center gap-5 px-4 py-2 bg-white text-[13px] font-medium text-slate-700 border-b border-slate-100">
+                <div className="relative">
+                  <button 
+                    onClick={() => setActiveMenu(activeMenu === 'edit' ? null : 'edit')}
+                    className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${activeMenu === 'edit' ? 'bg-slate-100' : ''}`}
+                  >
+                    Edit
+                  </button>
+                  {activeMenu === 'edit' && (
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-md shadow-xl z-50 py-1 anim-slide-up">
+                      {[
+                        { label: 'Undo', cmd: 'undo', icon: '⤺', shortcut: 'Ctrl+Z' },
+                        { label: 'Redo', cmd: 'redo', icon: '⤻', shortcut: 'Ctrl+Y' },
+                        { label: 'divider' },
+                        { label: 'Cut', cmd: 'cut', icon: '✂', shortcut: 'Ctrl+X' },
+                        { label: 'Copy', cmd: 'copy', icon: '❐', shortcut: 'Ctrl+C' },
+                        { label: 'Paste', cmd: 'paste', icon: '📋', shortcut: 'Ctrl+V' },
+                        { label: 'divider' },
+                        { label: 'Select all', cmd: 'selectAll', icon: '⠿', shortcut: 'Ctrl+A' },
+                      ].map((item, i) => item.label === 'divider' ? (
+                        <div key={i} className="h-px bg-slate-100 my-1" />
+                      ) : (
+                        <button
+                          key={item.label}
+                          onClick={() => { applyFormat(item.cmd!); setActiveMenu(null) }}
+                          className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="w-4 flex justify-center opacity-70">{item.icon}</span>
+                            <span>{item.label}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono">{item.shortcut}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <button 
+                    onClick={() => setActiveMenu(activeMenu === 'insert' ? null : 'insert')}
+                    className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${activeMenu === 'insert' ? 'bg-slate-100' : ''}`}
+                  >
+                    Insert
+                  </button>
+                  {activeMenu === 'insert' && (
+                    <div className="absolute top-full left-0 mt-1 w-52 bg-white border border-slate-200 rounded-md shadow-xl z-50 py-1 anim-slide-up">
+                      {[
+                        { label: 'Link', icon: '🔗', cmd: 'createLink' },
+                        { label: 'Image', icon: '🖼', cmd: 'insertImage' },
+                        { label: 'Media', icon: '🎬', cmd: '' },
+                        { label: 'Document', icon: '📄', cmd: '' },
+                        { label: 'divider' },
+                        { label: 'Equation', icon: '√x', cmd: '' },
+                        { label: 'Table', icon: '⊞', cmd: '' },
+                        { label: 'Embed', icon: '☁', cmd: '' },
+                        { label: 'divider' },
+                        { label: 'Horizontal line', icon: '—', cmd: 'insertHorizontalRule' },
+                      ].map((item, i) => item.label === 'divider' ? (
+                        <div key={i} className="h-px bg-slate-100 my-1" />
+                      ) : (
+                        <button
+                          key={item.label}
+                          onClick={() => { 
+                            if (item.cmd) {
+                              if (item.cmd === 'createLink') {
+                                const url = prompt('Enter URL:')
+                                if (url) applyFormat(item.cmd, url)
+                              } else if (item.cmd === 'insertImage') {
+                                const url = prompt('Enter Image URL:')
+                                if (url) applyFormat(item.cmd, url)
+                              } else {
+                                applyFormat(item.cmd)
+                              }
+                            }
+                            setActiveMenu(null) 
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="w-5 flex justify-center opacity-70">{item.icon}</span>
+                            <span>{item.label}</span>
+                          </div>
+                          {(item.label === 'Link' || item.label === 'Table') && <ChevronRight size={10} className="text-slate-400" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {['View', 'Format'].map(item => (
+                  <div key={item} className="relative">
+                    <button 
+                      onClick={() => setActiveMenu(activeMenu === item.toLowerCase() ? null : item.toLowerCase())}
+                      className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${activeMenu === item.toLowerCase() ? 'bg-slate-100' : ''}`}
+                    >
+                      {item}
+                    </button>
+                    {activeMenu === 'view' && item === 'View' && (
+                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-md shadow-xl z-50 py-1 anim-slide-up">
+                         <button 
+                          onClick={() => { setIsFullscreen(true); setActiveMenu(null) }}
+                          className={`w-full flex items-center gap-3 px-3 py-1.5 text-xs ${isFullscreen ? 'text-slate-300 pointer-events-none' : 'text-slate-600 hover:bg-slate-50'}`}
+                        >
+                          <span className="w-5 text-center">⤢</span>
+                          <span>Full-screen</span>
+                        </button>
+                        <button 
+                          onClick={() => { setIsFullscreen(false); setActiveMenu(null) }}
+                          className={`w-full flex items-center gap-3 px-3 py-1.5 text-xs ${!isFullscreen ? 'text-slate-300 pointer-events-none' : 'text-slate-600 hover:bg-slate-50'}`}
+                        >
+                          <span className="w-5 text-center">⤡</span>
+                          <span>Exit Fullscreen</span>
+                        </button>
+                        <div className="h-px bg-slate-100 my-1" />
+                        <button 
+                          onClick={() => { toggleSourceMode(); setActiveMenu(null) }}
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                        >
+                          <span className="w-5 text-center text-[10px] font-mono">&lt;/&gt;</span>
+                          <span>HTML Editor</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {activeMenu === 'format' && item === 'Format' && (
+                      <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-md shadow-xl z-50 py-1 anim-slide-up">
+                        {[
+                          { label: 'Bold', cmd: 'bold', icon: 'B', shortcut: 'Ctrl+B', iconClass: 'font-bold' },
+                          { label: 'Italic', cmd: 'italic', icon: 'I', shortcut: 'Ctrl+I', iconClass: 'italic' },
+                          { label: 'Underline', cmd: 'underline', icon: 'U', shortcut: 'Ctrl+U', iconClass: 'underline' },
+                          { label: 'Strikethrough', cmd: 'strikeThrough', icon: 'S̶', shortcut: '' },
+                          { label: 'divider' },
+                          { label: 'Superscript', cmd: 'superscript', icon: 'T²', shortcut: '' },
+                          { label: 'Subscript', cmd: 'subscript', icon: 'T₂', shortcut: '' },
+                          { label: 'Code', cmd: 'formatBlock', value: 'PRE', icon: '<>', shortcut: '' },
+                        ].map((sub, i) => sub.label === 'divider' ? (
+                          <div key={i} className="h-px bg-slate-100 my-1" />
+                        ) : (
+                          <button
+                            key={sub.label}
+                            onClick={() => { applyFormat(sub.cmd!, sub.value); setActiveMenu(null) }}
+                            className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-slate-700 hover:bg-[#0091BD] hover:text-white transition-colors"
+                          >
+                            <div className="flex items-center gap-4">
+                              <span className={`w-5 text-center text-base ${sub.iconClass || ''}`}>{sub.icon}</span>
+                              <span className="font-medium">{sub.label}</span>
+                            </div>
+                            {sub.shortcut && <span className="text-[11px] opacity-60 font-mono">{sub.shortcut}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Toolbar */}
+              <div className="flex items-center flex-wrap gap-x-6 gap-y-3 px-4 py-2.5 border-t border-slate-100 bg-white">
+                <div className="relative">
+                  <button 
+                    onClick={() => setActiveMenu(activeMenu === 'font-size' ? null : 'font-size')}
+                    className="flex items-center gap-1 group cursor-pointer hover:bg-slate-50 px-2 py-1 rounded"
+                  >
+                    <span className="text-[13px] text-slate-700">{fontSize}</span>
+                    <ChevronDown size={14} className="text-slate-400" />
+                  </button>
+                  {activeMenu === 'font-size' && (
+                    <div className="absolute top-full left-0 mt-1 w-24 bg-white border border-slate-200 rounded-md shadow-xl z-50 py-1">
+                      {[
+                        { label: '8pt', val: '1' },
+                        { label: '10pt', val: '2' },
+                        { label: '12pt', val: '3' },
+                        { label: '14pt', val: '4' },
+                        { label: '18pt', val: '5' },
+                        { label: '24pt', val: '6' },
+                        { label: '36pt', val: '7' },
+                      ].map(s => (
+                        <button
+                          key={s.label}
+                          onClick={() => { applyFormat('fontSize', s.val); setFontSize(s.label); setActiveMenu(null) }}
+                          className="w-full text-left px-3 py-1 text-xs hover:bg-slate-50 text-slate-600"
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 group cursor-pointer pr-4 border-r border-slate-200">
+                  <span className="text-[13px] text-slate-700">Paragraph</span>
+                  <ChevronDown size={14} className="text-slate-400" />
+                </div>
+                
+                <div className="flex items-center gap-4 pr-4 border-r border-slate-200">
+                  <button onClick={() => applyFormat('bold')} className="text-sm font-bold text-slate-800 hover:bg-slate-100 px-2 rounded">B</button>
+                  <button onClick={() => applyFormat('italic')} className="text-sm italic text-slate-800 hover:bg-slate-100 px-2 rounded font-serif">I</button>
+                  <button onClick={() => applyFormat('underline')} className="text-sm underline text-slate-800 hover:bg-slate-100 px-2 rounded">U</button>
+                </div>
+
+                <div className="flex items-center gap-4 pr-4 border-r border-slate-200">
+                  <div className="relative">
+                    <button 
+                      onClick={() => setActiveMenu(activeMenu === 'font-color' ? null : 'font-color')}
+                      className="flex flex-col items-center hover:bg-slate-50 rounded px-1 transition-colors"
+                    >
+                      <span className="text-sm font-bold text-slate-800">A</span>
+                      <div className="w-4 h-0.5" style={{ backgroundColor: selectedColor }} />
+                    </button>
+                    {activeMenu === 'font-color' && (
+                      <div className="absolute top-full left-0 mt-2 p-3 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 grid grid-cols-4 gap-2 w-max min-w-[120px] anim-slide-up">
+                        {['#000000', '#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'].map(c => (
+                          <button
+                            key={c}
+                            onClick={() => { applyFormat('foreColor', c); setSelectedColor(c); setActiveMenu(null) }}
+                            style={{ backgroundColor: c }}
+                            className="w-6 h-6 rounded-md border border-slate-100 hover:scale-110 active:scale-95 transition-all shadow-sm"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronDown size={14} className="text-slate-400 -ml-3" />
+                  
+                  <div className="relative">
+                    <button 
+                      onClick={() => setActiveMenu(activeMenu === 'font-highlight' ? null : 'font-highlight')}
+                      className="flex flex-col items-center hover:bg-slate-50 rounded px-1 transition-colors"
+                    >
+                      <Pencil size={13} className="text-slate-800" />
+                      <div className="w-4 h-0.5" style={{ backgroundColor: selectedHighlight }} />
+                    </button>
+                    {activeMenu === 'font-highlight' && (
+                      <div className="absolute top-full left-0 mt-2 p-3 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 grid grid-cols-4 gap-2 w-max min-w-[120px] anim-slide-up">
+                        {['#FCF8E3', '#FEF3C7', '#DCFCE7', '#DBEAFE', '#F3E8FF', '#FFE4E6', '#F1F5F9', '#FFFFFF'].map(c => (
+                          <button
+                            key={c}
+                            onClick={() => { applyFormat('hiliteColor', c); setSelectedHighlight(c); setActiveMenu(null) }}
+                            style={{ backgroundColor: c }}
+                            className="w-6 h-6 rounded-md border border-slate-100 hover:scale-110 active:scale-95 transition-all shadow-sm"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronDown size={14} className="text-slate-400 -ml-3" />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button onClick={() => applyFormat('superscript')} className="text-sm text-slate-800 hover:bg-slate-100 px-2 rounded">T<sup>2</sup></button>
+                  <ChevronDown size={14} className="text-slate-400" />
+                  <div className="w-[1.5px] h-5 bg-slate-100 mx-2" />
+                  <button onClick={() => setView('source')} className="flex flex-col gap-0.5 opacity-40 hover:opacity-100 transition-opacity">
+                    <div className="w-0.5 h-0.5 rounded-full bg-black" />
+                    <div className="w-0.5 h-0.5 rounded-full bg-black" />
+                    <div className="w-0.5 h-0.5 rounded-full bg-black" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Editable Area */}
+              <div className="relative overflow-hidden bg-white" style={{ zoom: zoomLevel }}>
+                {isSourceMode ? (
+                  <textarea
+                    value={sourceHtml}
+                    onChange={(e) => setSourceHtml(e.target.value)}
+                    className="w-full min-h-[300px] p-6 font-mono text-sm bg-slate-50 text-slate-700 focus:outline-none resize-none border-0"
+                    placeholder="Type raw HTML here..."
+                  />
+                ) : (
+                  <div 
+                    ref={editorRef}
+                    onInput={handleEditorInput}
+                    className="min-h-[280px] p-6 text-[15px] text-slate-800 outline-none focus:ring-0 selection:bg-blue-100 font-normal leading-relaxed" 
+                    contentEditable 
+                    spellCheck="false"
+                  />
+                )}
+              </div>
+
+              {/* Status Bar */}
+              <div className="flex items-center justify-between px-4 py-2 bg-white text-[12px] text-slate-500 border-t border-slate-100">
+                <span className="font-medium">{wordCount} words</span>
+                
+                <div className="flex items-center gap-4">
+                  <span 
+                    onClick={toggleSourceMode}
+                    className={`font-mono transition-colors cursor-pointer text-sm ${isSourceMode ? 'text-blue-600 font-bold' : 'opacity-60 hover:opacity-100'}`}
+                  >
+                    &lt;/&gt;
+                  </span>
+                  <span 
+                    onClick={() => handleZoom(0.1)}
+                    className="text-lg opacity-60 hover:opacity-100 cursor-pointer leading-none"
+                  >
+                    +
+                  </span>
+                  <span 
+                    onClick={() => handleZoom(-0.1)}
+                    className="text-lg opacity-60 hover:opacity-100 cursor-pointer leading-none"
+                  >
+                    &minus;
+                  </span>
+                  <button 
+                    onClick={() => setIsFullscreen(!isFullscreen)}
+                    className="flex flex-col gap-0.5 opacity-60 hover:opacity-100 cursor-pointer"
+                  >
+                    <div className="w-0.5 h-0.5 rounded-full bg-black" />
+                    <div className="w-0.5 h-0.5 rounded-full bg-black" />
+                    <div className="w-0.5 h-0.5 rounded-full bg-black" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Selected Files List */}
+          {attachedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-3 pt-2">
+              {attachedFiles.map((file, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg group animate-in fade-in slide-in-from-left-4 duration-300">
+                  <span className="text-xs text-slate-400">📄</span>
+                  <span className="text-xs font-bold text-slate-700 max-w-[120px] truncate">{file.name}</span>
+                  <span className="text-[10px] text-slate-400">({file.size})</span>
+                  <button onClick={() => removeFile(i)} className="text-slate-300 hover:text-red-500 transition-colors ml-1">
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between pt-4">
+            <button 
+              onClick={() => setShowAttachModal(true)}
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-slate-50 transition-all group"
+            >
+              <div className="w-10 h-10 rounded-full border-[1.5px] border-slate-900 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all shadow-sm">
+                <span className="text-xl rotate-45 transform">📎</span>
+              </div>
+              <span className="text-base font-bold text-slate-800">Attach</span>
+            </button>
+            
+            <div className="flex gap-4">
+              <button
+                onClick={() => setView('list')}
+                className="px-8 py-3 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition-all active:scale-95"
+              >
+                Cancel
+              </button>
+              <button className="px-10 py-3 rounded-2xl bg-[#0091BD] hover:bg-[#007EA7] text-white text-sm font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attachment Modal Overlay */}
+      {showAttachModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center anim-fade-in px-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowAttachModal(false)} />
+          
+          <div className="relative bg-white rounded-3xl w-full max-w-4xl p-1 shadow-2xl overflow-hidden border border-white/20 anim-scale-up">
+            <div className="p-12 border-2 border-dashed border-slate-200 rounded-[1.4rem] m-2 flex flex-col items-center justify-center text-center space-y-6">
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                multiple
+                className="hidden" 
+                onChange={handleFileChange}
+              />
+              
+              <div className="relative w-16 h-20 mb-2">
+                <div className="absolute inset-0 border-2 border-slate-400 rounded-sm" />
+                <div className="absolute top-0 right-0 w-5 h-5 bg-white border-l-2 border-b-2 border-slate-400" />
+                <div className="absolute inset-x-2 top-8 space-y-1">
+                   {[1,2,3,4].map(i => <div key={i} className="h-[1px] bg-slate-300 w-full" />)}
+                </div>
+                <div className="absolute bottom-2 right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-md">
+                   <ChevronRight size={14} className="text-blue-500 -rotate-90 transform" />
+                </div>
+              </div>
+
+              <h3 className="text-2xl font-bold text-slate-700">Drop document here to upload</h3>
+              
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-[#0091BD] hover:bg-[#007EA7] text-white px-10 py-3.5 rounded-xl font-black text-sm tracking-wider uppercase shadow-lg shadow-blue-500/20 active:scale-95 transition-all outline-none"
+              >
+                Select from device
+              </button>
+            </div>
+            
+            <button 
+              onClick={() => setShowAttachModal(false)}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors"
+            >
+              <X size={20} />
+            </button>
           </div>
         </div>
       )}
