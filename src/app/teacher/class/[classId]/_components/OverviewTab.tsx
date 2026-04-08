@@ -36,12 +36,12 @@ export default function OverviewTab({ cls, subject }: Props) {
   const performers = topPerformers(filteredStudents)
 
   // Count parents who logged today (students with an entry for today)
-  const today = '2026-04-06'
+  const today = new Date().toISOString().split('T')[0]
   const loggedToday = filteredStudents.filter(s => s.journalEntries.some(e => e.date === today)).length
 
   // Weekly line chart data — avg cognitive level per day per subject (last 7 days)
   const weekDates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date('2026-04-06')
+    const d = new Date()
     d.setDate(d.getDate() - (6 - i))
     return d.toISOString().split('T')[0]
   })
@@ -67,7 +67,7 @@ export default function OverviewTab({ cls, subject }: Props) {
   // Subject Performance Table — this week vs last week avg cognitive level
   const thisWeek = weekDates.slice(-7)
   const lastWeekDates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date('2026-04-06')
+    const d = new Date()
     d.setDate(d.getDate() - (13 - i))
     return d.toISOString().split('T')[0]
   })

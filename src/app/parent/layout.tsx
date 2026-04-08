@@ -42,34 +42,6 @@ const PARENT_NOTIFICATIONS: ParentNotification[] = [
   { id: 5, title: 'Curriculum update', body: "Week 9 curriculum has been uploaded. Tap to preview topics.", time: '2 days ago', read: true, icon: '📅' },
 ]
 
-// ─── Seed localStorage with historical journal data on first load ─────────────
-
-const SEED_FLAG = 'historicalDataSeeded_v2'
-
-function seedHistoricalData() {
-  if (typeof window === 'undefined') return
-  if (localStorage.getItem(SEED_FLAG)) return
-
-  import('@/lib/historicalJournalData').then(({ HISTORICAL_JOURNAL_ENTRIES, getHistoricalLegacyEntries }) => {
-    // Only seed if the stores are empty (don't overwrite real user data)
-    const existingDay = localStorage.getItem('learnbridge_day_journal')
-    const existingLegacy = localStorage.getItem('learnbridge_journal')
-
-    const dayEntries = existingDay ? JSON.parse(existingDay) : []
-    const legacyEntries = existingLegacy ? JSON.parse(existingLegacy) : []
-
-    if (dayEntries.length === 0) {
-      localStorage.setItem('learnbridge_day_journal', JSON.stringify(HISTORICAL_JOURNAL_ENTRIES))
-    }
-    if (legacyEntries.length === 0) {
-      localStorage.setItem('learnbridge_journal', JSON.stringify(getHistoricalLegacyEntries()))
-    }
-
-    localStorage.setItem(SEED_FLAG, '1')
-  }).catch(() => {
-    // Silently ignore seeding errors — app works without historical data
-  })
-}
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -77,8 +49,20 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bellOpen, setBellOpen] = useState(false)
 
-  // Seed historical journal data on first visit
-  useEffect(() => { seedHistoricalData() }, [])
+  // One-time cleanup: remove all seeded mock localStorage data
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const CLEAR_FLAG = 'mockDataCleared_v1'
+    if (!localStorage.getItem(CLEAR_FLAG)) {
+      localStorage.removeItem('learnbridge_day_journal')
+      localStorage.removeItem('learnbridge_journal')
+      localStorage.removeItem('historicalDataSeeded_v2')
+      localStorage.removeItem('historicalDataSeeded_v1')
+      localStorage.removeItem('historicalDataSeeded')
+      localStorage.setItem(CLEAR_FLAG, '1')
+    }
+  }, [])
+
   const [notifications, setNotifications] = useState(PARENT_NOTIFICATIONS)
   const [activeSection, setActiveSection] = useState<SectionId | null>(null)
   const [navVisible, setNavVisible] = useState(true)
@@ -194,7 +178,8 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
                         setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item))
                         setBellOpen(false)
                         const title = n.title.toLowerCase()
-                        if (title.includes('summary') || title.includes('digest')) {
+                        if (title.includes('summary') || title.includes('digest') || title.includes('activity')) {
+                          const isActivity = title.includes('activity')
                           const today = new Date()
                           const yyyy = today.getFullYear()
                           const mm = String(today.getMonth() + 1).padStart(2, '0')
@@ -215,7 +200,8 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
                             }
                             
                             if (schedule && schedule.length > 0) {
-                              router.push(`/parent/day/${targetDate}/${encodeURIComponent(schedule[0].subject)}`)
+                              const baseRoute = `/parent/day/${targetDate}/${encodeURIComponent(schedule[0].subject)}`
+                              router.push(isActivity ? `${baseRoute}?tab=activity` : baseRoute)
                             } else {
                               if (pathname !== '/parent') router.push('/parent')
                               setTimeout(() => document.getElementById(`section-calendar`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
@@ -223,8 +209,6 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
                           }).catch(() => {
                             if (pathname !== '/parent') router.push('/parent')
                           })
-                        } else if (title.includes('activity')) {
-                          router.push('/parent/action')
                         } else if (title.includes('message')) {
                           window.dispatchEvent(new CustomEvent('open-communication-hub', { detail: { tab: 'teacher' } }))
                         }

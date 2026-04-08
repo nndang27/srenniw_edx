@@ -1,8 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, LayoutDashboard, BookOpen, BarChart2, MessageSquare } from 'lucide-react'
-import { SUBJECTS, getClass } from '@/lib/mockTeacherData'
+import { SUBJECTS } from '@/lib/mockTeacherData'
+import type { TeacherClass } from '@/lib/mockTeacherData'
+import { useApi } from '@/lib/api'
 import OverviewTab from './_components/OverviewTab'
 import CurriculumTab from './_components/CurriculumTab'
 import InsightsTab from './_components/InsightsTab'
@@ -31,12 +33,40 @@ export default function ClassDashboardPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const classId = params.classId as string
+  const api = useApi()
 
   const initialSubject = searchParams.get('subject') ?? 'All'
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
+  const initialTab = (searchParams.get('tab') as TabId) ?? 'overview'
+  const [activeTab, setActiveTab] = useState<TabId>(TABS.some(t => t.id === initialTab) ? initialTab : 'overview')
   const [subject, setSubject] = useState(initialSubject)
+  const [cls, setCls] = useState<TeacherClass | null>(null)
+  const [loadingClass, setLoadingClass] = useState(true)
 
-  const cls = getClass(classId)
+
+  useEffect(() => {
+    Promise.all([
+      api.getClasses(),
+      api.getClassStudents(classId),
+    ]).then(([classes, students]) => {
+      const classInfo = classes.find((c: any) => c.id === classId)
+      if (classInfo) {
+        setCls({
+          id: classInfo.id,
+          name: classInfo.name,
+          studentCount: students.length,
+          students,
+        })
+      }
+    }).catch(console.error).finally(() => setLoadingClass(false))
+  }, [classId])
+
+  if (loadingClass) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-57px)]">
+        <p className="text-slate-400 animate-pulse">Loading class…</p>
+      </div>
+    )
+  }
 
   if (!cls) {
     return (

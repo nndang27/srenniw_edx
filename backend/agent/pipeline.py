@@ -40,7 +40,7 @@ _shared_tools = get_shared_curricullm_tools() + get_shared_supabase_tools()
 
 
 model = ChatOpenAI(
-    model="minimax-m2.5:cloud",
+    model= "minimax-m2.5:cloud",
     base_url="http://localhost:11434/v1",
     api_key="ollama",
     temperature=0.7,

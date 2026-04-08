@@ -1,7 +1,9 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Send, Zap, Users, User, MessageSquare, Bell, BookOpen, X, Calendar, FileText, Camera, Check, Upload } from 'lucide-react'
 import type { TeacherClass } from '@/lib/mockTeacherData'
+import { useApi } from '@/lib/api'
+import type { Brief } from '@/types'
 
 const MESSAGE_TYPES = [
   { id: 'update', label: 'Weekly Update', icon: Bell },
@@ -9,13 +11,6 @@ const MESSAGE_TYPES = [
   { id: 'activity', label: 'At-Home Activity', icon: BookOpen },
   { id: 'concern', label: 'Concern', icon: User },
   { id: 'praise', label: 'Praise', icon: MessageSquare },
-]
-
-const RECENT_MESSAGES = [
-  { id: 1, to: 'All Parents', type: 'Weekly Update', preview: 'This week we covered fractions and equivalent decimals...', date: '2026-04-05', status: 'sent' },
-  { id: 2, to: 'Emily Watson', type: 'Concern', preview: 'I wanted to share some observations about Emily\'s engagement...', date: '2026-04-04', status: 'read' },
-  { id: 3, to: 'All Parents', type: 'At-Home Activity', preview: 'Try this fun science experiment at home using household items...', date: '2026-04-03', status: 'sent' },
-  { id: 4, to: 'James O\'Brien', type: 'Praise', preview: 'James had an outstanding week — his reading comprehension...', date: '2026-04-02', status: 'read' },
 ]
 
 const AI_DRAFTS: Record<string, string> = {
@@ -31,6 +26,8 @@ interface Props {
 }
 
 export default function CommunicationTab({ cls }: Props) {
+  const api = useApi()
+  const [recentBriefs, setRecentBriefs] = useState<Brief[]>([])
   const [recipient, setRecipient] = useState<'all' | string>('all')
   const [messageType, setMessageType] = useState('update')
   const [body, setBody] = useState('')
@@ -45,6 +42,10 @@ export default function CommunicationTab({ cls }: Props) {
   const [photoCaption, setPhotoCaption] = useState('')
   const [photoRecipient, setPhotoRecipient] = useState('all')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    api.getTeacherBriefs(cls.id).then(setRecentBriefs).catch(console.error)
+  }, [cls.id])
 
   const mockReportUrl = `https://learnbridge.app/reports/${cls.id}/term2-week8`
 
@@ -217,17 +218,20 @@ export default function CommunicationTab({ cls }: Props) {
             <Bell size={14} className="text-amber-500" /> Recent Messages
           </h3>
           <div className="space-y-3">
-            {RECENT_MESSAGES.map(msg => (
-              <div key={msg.id} className="p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
+            {recentBriefs.length === 0 && (
+              <p className="text-xs text-slate-400 text-center py-3">No briefs sent yet.</p>
+            )}
+            {recentBriefs.slice(0, 5).map(brief => (
+              <div key={brief.id} className="p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-bold text-blue-600">{msg.to}</span>
-                  <span className="text-[10px] text-slate-400">{msg.date.slice(5)}</span>
+                  <span className="text-[10px] font-bold text-blue-600">All Parents</span>
+                  <span className="text-[10px] text-slate-400">{brief.created_at ? new Date(brief.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : ''}</span>
                 </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600 font-semibold">{msg.type}</span>
-                <p className="text-xs text-slate-500 mt-1.5 leading-snug line-clamp-2">{msg.preview}</p>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600 font-semibold capitalize">{brief.content_type?.replace('_', ' ')}</span>
+                <p className="text-xs text-slate-500 mt-1.5 leading-snug line-clamp-2">{brief.raw_input}</p>
                 <div className="flex items-center gap-1 mt-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${msg.status === 'read' ? 'bg-emerald-400' : 'bg-slate-300'}`} />
-                  <span className="text-[10px] text-slate-400 capitalize">{msg.status}</span>
+                  <div className={`w-1.5 h-1.5 rounded-full ${brief.status === 'done' ? 'bg-emerald-400' : brief.status === 'processing' ? 'bg-amber-400' : 'bg-slate-300'}`} />
+                  <span className="text-[10px] text-slate-400 capitalize">{brief.status}</span>
                 </div>
               </div>
             ))}

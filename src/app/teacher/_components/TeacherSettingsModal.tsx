@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { X, User, BookOpen, Bell, Globe, Save, Plus } from 'lucide-react'
+import { useApi } from '@/lib/api'
 
 const SUBJECTS = ['All Subjects', 'Maths', 'Science', 'English', 'HSIE', 'Creative Arts', 'PE']
 
@@ -9,12 +10,6 @@ const LANGUAGES = [
   { code: 'vi', label: 'Tiếng Việt', flag: '🇻🇳' },
   { code: 'zh', label: '普通话', flag: '🇨🇳' },
   { code: 'ar', label: 'العربية', flag: '🇸🇦' },
-]
-
-const MOCK_CLASSES = [
-  { id: 'cls-1', name: 'Year 4A', count: 22 },
-  { id: 'cls-2', name: 'Year 4B', count: 20 },
-  { id: 'cls-3', name: 'Year 5A', count: 24 },
 ]
 
 const SECTIONS = [
@@ -42,8 +37,10 @@ interface Props {
 }
 
 export default function TeacherSettingsModal({ open, onClose }: Props) {
+  const api = useApi()
   const [section, setSection] = useState('profile')
   const [saved, setSaved] = useState(false)
+  const [dbClasses, setDbClasses] = useState<any[]>([])
   const [settings, setSettings] = useState<Settings>({
     name: 'Ms Sarah Johnson',
     email: 'sarah.johnson@northside.edu.au',
@@ -67,6 +64,7 @@ export default function TeacherSettingsModal({ open, onClose }: Props) {
 
   useEffect(() => {
     if (!open) return
+    api.getClasses().then(setDbClasses).catch(console.error)
     const handleClickOutside = (e: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
         onClose()
@@ -169,11 +167,11 @@ export default function TeacherSettingsModal({ open, onClose }: Props) {
               <>
                 <p className="text-xs text-slate-400">Manage the classes you teach.</p>
                 <div className="space-y-2">
-                  {MOCK_CLASSES.map(cls => (
+                  {dbClasses.map(cls => (
                     <div key={cls.id} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-800">{cls.name}</p>
-                        <p className="text-xs text-slate-400">{cls.count} students</p>
+                        <p className="text-xs text-slate-400">{cls.parent_count ?? 0} parents · {cls.year_level}</p>
                       </div>
                       <span className="text-xs font-semibold text-blue-500 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full">Active</span>
                     </div>

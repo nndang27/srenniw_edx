@@ -43,7 +43,6 @@ next-env.d.ts
 # clerk configuration (can include secrets)
 /.clerk/
 
-
 # --- Python ---
 venv/
 backend/venv/
@@ -55,4 +54,3 @@ __pycache__/
 
 # local tool configs
 .claude/
-

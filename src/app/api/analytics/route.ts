@@ -1,21 +1,36 @@
+import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { dataService } from '@/lib/dataService'
 
-export async function GET() {
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+
+async function fetchAnalytics(): Promise<NextResponse> {
   try {
-    const data = await dataService.getAnalytics()
-    return NextResponse.json(data)
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 })
+    const { getToken } = await auth()
+    const token = await getToken()
+
+    if (token) {
+      // Proxy to FastAPI — computes insights from student_diaries table
+      const res = await fetch(`${BACKEND_URL}/api/parent/insights`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        return NextResponse.json(await res.json())
+      }
+    }
+  } catch {
+    // Fall through to mock data
   }
+
+  // Fallback: pre-computed mock analytics
+  const data = await dataService.getAnalytics()
+  return NextResponse.json(data)
+}
+
+export async function GET() {
+  return fetchAnalytics()
 }
 
 export async function POST() {
-  // Insights POST API expects entries but we just return the precomputed mock
-  try {
-    const data = await dataService.getAnalytics()
-    return NextResponse.json(data)
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 })
-  }
+  return fetchAnalytics()
 }

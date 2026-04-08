@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import teacher, parent, chat, chatbot, insights
+from routers import teacher, parent, chat, chatbot, insights, classroom
 
 app = FastAPI(title="Srenniw API", version="1.0.0")
 
@@ -16,10 +16,16 @@ app.include_router(teacher.router)
 app.include_router(parent.router)
 app.include_router(chat.router)
 app.include_router(chatbot.router)
+app.include_router(classroom.router)
 
 @app.get("/health")
 def health():
     return {"status": "ok", "version": "1.0.0"}
+
+@app.get("/debug/token")
+def debug_token(payload: dict = __import__('fastapi').Depends(__import__('auth').verify_token)):
+    """Temporary: show decoded JWT claims to debug role issues."""
+    return {"payload": payload}
 
 from routers import game
 app.include_router(game.router)

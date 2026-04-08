@@ -8,8 +8,6 @@ import {
   type SubjectName,
 } from '@/lib/mockTimetable'
 import { useJournalEntries } from '@/hooks/useJournalEntries'
-
-const SUBJECTS: SubjectName[] = ['Maths', 'Science', 'English', 'HSIE', 'Creative Arts', 'PE']
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 function getWeekStart(date: Date): Date {
@@ -35,11 +33,19 @@ export default function CalendarPage() {
   
   const [timetable, setTimetable] = useState<Record<string, any[]>>({})
   const [loading, setLoading] = useState(true)
+  const [subjects, setSubjects] = useState<SubjectName[]>([])
 
   useEffect(() => {
     fetch('/api/timetable')
       .then(r => r.json())
-      .then(d => setTimetable(d))
+      .then(d => {
+        setTimetable(d)
+        // Derive unique subjects from timetable
+        const allSubjects = Object.values(d as Record<string, any[]>)
+          .flat()
+          .map((s: any) => s.subject as SubjectName)
+        setSubjects([...new Set(allSubjects)])
+      })
       .catch(e => console.error(e))
       .finally(() => setLoading(false))
   }, [])
@@ -97,7 +103,7 @@ export default function CalendarPage() {
           >
             All
           </button>
-          {SUBJECTS.map(sub => {
+          {subjects.map(sub => {
             const isActive = activeFilter === sub
             return (
               <button
