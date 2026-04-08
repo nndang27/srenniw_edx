@@ -1,10 +1,10 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import {
   ChevronDown, ChevronLeft, ChevronRight, Pencil, Calendar, List,
   CheckCircle, X, Save, Sparkles, Wifi, RefreshCw, BookOpen,
-  ClipboardList, Users, Zap, Send, MessageSquare, Plus, Paperclip,
+  ClipboardList, Users, Zap, Send, MessageSquare, Plus, Paperclip, Trash2,
 } from 'lucide-react'
 import { SUBJECTS } from '@/lib/mockTeacherData'
 import type { ClassroomCourseData, ClassroomItem, ClassroomWeeklyTopic } from '@/lib/api'
@@ -604,8 +604,8 @@ function WeekEditor({
         const statusBorder = isProcessing
           ? 'border-l-4 border-l-red-400 bg-red-50/40'
           : isDone
-          ? 'border-l-4 border-l-emerald-400 bg-emerald-50/30'
-          : ''
+            ? 'border-l-4 border-l-emerald-400 bg-emerald-50/30'
+            : ''
 
         return (
           <div key={subj} className={`pt-3 rounded-xl transition-all ${statusBorder}`}>
@@ -771,7 +771,7 @@ function LmsModal({ onClose, onConnected, classId }: { onClose: () => void; onCo
                     ${done ? 'bg-emerald-500' : active ? 'bg-blue-500' : 'bg-slate-100'}`}>
                     {done ? <CheckCircle size={16} className="text-white" />
                       : active ? <div className="w-3 h-3 rounded-full bg-white animate-pulse" />
-                      : <div className="w-3 h-3 rounded-full bg-slate-300" />}
+                        : <div className="w-3 h-3 rounded-full bg-slate-300" />}
                   </div>
                   <span className={`text-sm font-medium ${done ? 'text-emerald-600' : active ? 'text-blue-600' : 'text-slate-400'}`}>
                     {label}
@@ -890,10 +890,9 @@ function GcItem({ item, expanded, onToggle }: { item: ClassroomItem; expanded: b
                 {item.students.map(s => (
                   <div key={s.student_id} className="flex items-center gap-3 bg-white/70 rounded-lg px-3 py-1.5">
                     <span className="text-xs font-medium text-slate-700 flex-1">{s.student_name || s.student_id.slice(-6)}</span>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                      s.state === 'RETURNED' ? 'bg-emerald-100 text-emerald-700' :
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${s.state === 'RETURNED' ? 'bg-emerald-100 text-emerald-700' :
                       s.state === 'TURNED_IN' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
-                    }`}>{s.state.replace('_', ' ')}</span>
+                      }`}>{s.state.replace('_', ' ')}</span>
                     {s.assigned_grade !== null
                       ? <span className="text-xs font-bold text-emerald-600">{s.assigned_grade}/{item.max_points}</span>
                       : s.draft_grade !== null
@@ -943,8 +942,10 @@ export default function CurriculumTab({ classId, subject }: Props) {
 
   // ── Add Lecture editor state ────────────────────────────────────────────────
   const editorRef = useRef<HTMLDivElement>(null)
+  const homeworkEditorRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [wordCount, setWordCount] = useState(0)
+  const [homeworkWordCount, setHomeworkWordCount] = useState(0)
   const [editorActiveMenu, setEditorActiveMenu] = useState<string | null>(null)
   const [fontSize, setFontSize] = useState('12pt')
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -979,11 +980,16 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const [lectureBlocks, setLectureBlocks] = useState<LectureBlock[]>([])
   const [savingCalendar, setSavingCalendar] = useState(false)
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [draggingGcItem, setDraggingGcItem] = useState<ClassroomItem | null>(null)
   const [dragOverCell, setDragOverCell] = useState<string | null>(null)
+  const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<{ day: string, index: number } | null>(null)
+  const [dragOverTrash, setDragOverTrash] = useState(false)
+  const [trashConfirmInfo, setTrashConfirmInfo] = useState<{ id: string | null; gcItem: ClassroomItem | null } | null>(null)
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null)
 
   const formatEditorDate = (d: Date) => {
-    const m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    const m = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     return `${d.getDate()} ${m[d.getMonth()]} ${d.getFullYear()}`
   }
   const handleAddSubject = () => {
@@ -994,7 +1000,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
   }
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const files = Array.from(e.target.files).map(f => ({ name: f.name, size: (f.size/1024/1024).toFixed(1)+' MB' }))
+      const files = Array.from(e.target.files).map(f => ({ name: f.name, size: (f.size / 1024 / 1024).toFixed(1) + ' MB' }))
       setAttachedFiles(prev => [...prev, ...files])
       setShowAttachModal(false)
     }
@@ -1032,16 +1038,25 @@ export default function CurriculumTab({ classId, subject }: Props) {
     setShowAddLecture(true)
     // populate editor content after it renders
     setTimeout(() => {
+      const parts = (lb.content || '').split('<!--HOMEWORK_DELIMITER-->')
       if (editorRef.current) {
-        editorRef.current.innerHTML = lb.content || ''
+        editorRef.current.innerHTML = parts[0] || ''
         handleEditorInput()
+      }
+      if (homeworkEditorRef.current) {
+        homeworkEditorRef.current.innerHTML = parts.length > 1 ? parts[1] : ''
+        const text = homeworkEditorRef.current.innerText || ''
+        setHomeworkWordCount(text.trim() ? text.trim().split(/\s+/).length : 0)
       }
     }, 50)
   }
 
   const handleSubmitLecture = async () => {
     const title = editorTitle.trim() || `${editorSubject} Lecture`
-    const content = editorRef.current?.innerHTML || ''
+    const lectureHtml = editorRef.current?.innerHTML || ''
+    const homeworkHtml = homeworkEditorRef.current?.innerHTML || ''
+    const content = lectureHtml + '<!--HOMEWORK_DELIMITER-->' + homeworkHtml
+
     setSubmittingLecture(true)
     try {
       const token = await getToken()
@@ -1071,7 +1086,9 @@ export default function CurriculumTab({ classId, subject }: Props) {
       setEditorTitle('')
       setEditingBlock(null)
       if (editorRef.current) editorRef.current.innerHTML = ''
+      if (homeworkEditorRef.current) homeworkEditorRef.current.innerHTML = ''
       setWordCount(0)
+      setHomeworkWordCount(0)
       setShowAddLecture(false)
     } catch { showToast('❌ Failed to save block') }
     finally { setSubmittingLecture(false) }
@@ -1104,46 +1121,89 @@ export default function CurriculumTab({ classId, subject }: Props) {
     } catch { /* silent */ }
   }
 
-  const handleDropOnCell = (e: React.DragEvent, weekId: string, dayIdx: number) => {
-    e.preventDefault(); setDragOverCell(null)
+  const handleDropOnCell = (e: React.DragEvent, weekId: string, dayIdx: number, targetBlockId?: string, insertIndex?: number) => {
+    e.preventDefault(); e.stopPropagation();
+    setDragOverCell(null); setDragOverBlockId(null); setDragOverIndex(null);
+
+    if (draggingGcItem) {
+      // Converting GC Item into a Lecture Block temporarily
+      const cleanTitle = draggingGcItem.title.replace(/^\[\d{4}-W\d{2}\]\s*/, '').replace(/^Week\s+\d+:\s*/, '').replace(/\s*—\s*(Lesson Plan|Homework)$/, '').trim()
+      const newBlock: LectureBlock = {
+        id: `temp-${Date.now()}`,
+        class_id: classId as string,
+        title: cleanTitle,
+        subject: 'General',
+        content: `<!--GC_ITEM_ID:${draggingGcItem.id}-->`,
+        week_id: weekId,
+        day_of_week: dayIdx,
+        sort_order: 0,
+      }
+      setLectureBlocks(prev => {
+        let cellBlocks = prev.filter(b => b.week_id === weekId && b.day_of_week === dayIdx).sort((a, b) => a.sort_order - b.sort_order)
+        if (insertIndex !== undefined && insertIndex <= cellBlocks.length) cellBlocks.splice(insertIndex, 0, newBlock)
+        else cellBlocks.push(newBlock)
+        cellBlocks = cellBlocks.map((b, i) => ({ ...b, sort_order: i }))
+        return [...prev.filter(b => !(b.week_id === weekId && b.day_of_week === dayIdx)), ...cellBlocks]
+      })
+      setDraggingGcItem(null)
+      return
+    }
+
     if (!draggingId) return
-    const cellBlocks = lectureBlocks.filter(b => b.week_id === weekId && b.day_of_week === dayIdx && b.id !== draggingId)
-    if (cellBlocks.length > 0) {
-      // Show Replace/Cancel modal
-      setConflictInfo({ draggedId: draggingId, targetId: cellBlocks[0].id, targetWeekId: weekId, targetDayIdx: dayIdx })
+
+    if (targetBlockId) {
+      // Dropped ON a block -> Replace/Stack modal
+      setConflictInfo({ draggedId: draggingId, targetId: targetBlockId, targetWeekId: weekId, targetDayIdx: dayIdx })
     } else {
-      // Empty slot — place immediately and save to DB
-      setLectureBlocks(prev => prev.map(b =>
-        b.id === draggingId ? { ...b, week_id: weekId, day_of_week: dayIdx, sort_order: 0 } : b
-      ))
-      putBlockPosition(draggingId, weekId, dayIdx, 0)
+      // Dropped in the cell or between blocks
+      setLectureBlocks(prev => {
+        let next = [...prev] // Note: In UI we don't delete blocks upon replace directly here, just moving.
+        const movingBlock = next.find(b => b.id === draggingId)
+        if (!movingBlock) return prev
+
+        // Remove moving block from old position
+        next = next.filter(b => b.id !== draggingId)
+
+        // Get blocks in the target cell
+        let cellBlocks = next.filter(b => b.week_id === weekId && b.day_of_week === dayIdx).sort((a, b) => a.sort_order - b.sort_order)
+
+        // Re-calculate sorting
+        if (insertIndex !== undefined && insertIndex <= cellBlocks.length) {
+          cellBlocks.splice(insertIndex, 0, { ...movingBlock, week_id: weekId, day_of_week: dayIdx, sort_order: 0 })
+        } else {
+          cellBlocks.push({ ...movingBlock, week_id: weekId, day_of_week: dayIdx, sort_order: 0 })
+        }
+
+        // Re-assign sort orders to be safe
+        cellBlocks = cellBlocks.map((b, i) => ({ ...b, sort_order: i }))
+
+        // Replace cell blocks in the master list
+        return [...next.filter(b => !(b.week_id === weekId && b.day_of_week === dayIdx)), ...cellBlocks]
+      })
     }
     setDraggingId(null)
   }
 
-  const resolveConflict = async (mode: 'replace' | 'stack') => {
+  const resolveConflict = (mode: 'replace' | 'stack') => {
     if (!conflictInfo) return
     const { draggedId, targetId, targetWeekId, targetDayIdx } = conflictInfo
     setConflictInfo(null)
+
     if (mode === 'replace') {
-      // DELETE old block from DB, schedule new one
-      await deleteBlock(targetId)
+      // UI ONLY: Remove the target block, move the dragged block
       setLectureBlocks(prev => {
         const next = prev.filter(b => b.id !== targetId)
         return next.map(b => b.id === draggedId ? { ...b, week_id: targetWeekId, day_of_week: targetDayIdx, sort_order: 0 } : b)
       })
-      await putBlockPosition(draggedId, targetWeekId, targetDayIdx, 0)
-      showToast('✅ Block replaced and saved!')
+      showToast('✅ Block replaced (Click Save to finalize)')
     } else {
-      // Stack — both share slot, new goes on top
+      // Stack UI ONLY
       setLectureBlocks(prev => prev.map(b => {
         if (b.id === draggedId) return { ...b, week_id: targetWeekId, day_of_week: targetDayIdx, sort_order: 0 }
         if (b.id === targetId) return { ...b, week_id: targetWeekId, day_of_week: targetDayIdx, sort_order: 1 }
         return b
       }))
-      await putBlockPosition(draggedId, targetWeekId, targetDayIdx, 0)
-      await putBlockPosition(targetId, targetWeekId, targetDayIdx, 1)
-      showToast('✅ Blocks stacked and saved!')
+      showToast('✅ Blocks stacked (Click Save to finalize)')
     }
   }
 
@@ -1154,7 +1214,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
       const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/lecture-blocks/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ blocks: lectureBlocks.map(b => ({ id: b.id, week_id: b.week_id, day_of_week: b.day_of_week, sort_order: b.sort_order })) }),
+        body: JSON.stringify({ blocks: lectureBlocks }),
       })
       if (!res.ok) throw new Error()
       showToast('✅ Calendar saved!')
@@ -1304,9 +1364,26 @@ export default function CurriculumTab({ classId, subject }: Props) {
     for (const item of currentWeekItems) {
       const key = `${currentWeekNum}_${item.subject}`
       setAiSubjectStatus(prev => ({ ...prev, [key]: 'processing' }))
-      await new Promise(r => setTimeout(r, 2000 + Math.random() * 1500))
-      const result = generateAIResult(item.subject, item.topic)
-      setAiResults(prev => ({ ...prev, [key]: result }))
+      try {
+        const token = await getToken()
+        const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/topics/ai-generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            week: currentWeekNum,
+            subject: item.subject,
+            topic: item.topic,
+            learningGoal: item.learningGoal,
+          })
+        })
+        const result = await res.json()
+        setAiResults(prev => ({ ...prev, [key]: result }))
+      } catch (err) {
+        console.error('Failed to generate AI data for', item.subject, err)
+        // Fallback struct so it doesn't crash the UI component
+        const fb = { summary: 'Error generating', deepDive: 'Please try again manually.', tiktoks: [], suggestions: [], bondingLocations: [] }
+        setAiResults(prev => ({ ...prev, [key]: fb }))
+      }
       setAiSubjectStatus(prev => ({ ...prev, [key]: 'done' }))
     }
     setAiRunning(false)
@@ -1320,94 +1397,173 @@ export default function CurriculumTab({ classId, subject }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      {/* Global Trash Drop Zone OVERLAY */}
+      {(draggingId || draggingGcItem) && (
+        <div className="fixed inset-0 z-[60] pointer-events-none transition-opacity duration-300">
+          <div
+            className={`absolute bottom-12 right-12 w-32 h-32 rounded-3xl flex flex-col items-center justify-center border-[3px] transition-all pointer-events-auto shadow-2xl ${dragOverTrash
+              ? 'bg-red-500/90 border-red-300 text-white scale-110 shadow-red-500/50 rotate-3'
+              : 'bg-red-500/70 border-red-400/50 text-red-100 scale-100 backdrop-blur-md hover:bg-red-500/80 hover:scale-105'
+              }`}
+            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverTrash(true) }}
+            onDragLeave={() => setDragOverTrash(false)}
+            onDrop={e => {
+              e.preventDefault(); e.stopPropagation();
+              setDragOverTrash(false);
+              setTrashConfirmInfo({ id: draggingId, gcItem: draggingGcItem })
+            }}
+          >
+            <Trash2 size={dragOverTrash ? 44 : 32} className={`mb-2 transition-all ${dragOverTrash ? 'animate-bounce drop-shadow-md' : 'opacity-80'}`} />
+            <span className="text-[10px] font-extrabold tracking-widest opacity-90 drop-shadow-sm uppercase">Drop to Delete</span>
+          </div>
+        </div>
+      )}
 
-      {/* ── Main content — always visible ──────────────────────────────────── */}
-      <>
-          {/* ── Actions row ──────────────────────────────────────────────────── */}
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-2">
-              <button onClick={() => { setView('list'); setListWeek(null) }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
-                  ${view === 'list' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}>
-                <List size={13} /> List View
-              </button>
-              <button onClick={() => setView('calendar')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
-                  ${view === 'calendar' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}>
-                <Calendar size={13} /> Calendar View
-              </button>
+      {/* Trash Confirm Modal */}
+      {trashConfirmInfo && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200 border border-slate-100">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-500 flex items-center justify-center mb-4">
+              <Trash2 size={24} />
             </div>
-            <div className="flex items-center gap-2">
-              {/* AI Agent button */}
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Block</h3>
+            <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+              Are you sure you want to delete this class block? This action can be undone if you haven't clicked Save Calendar yet.
+            </p>
+            <div className="flex gap-3">
               <button
-                onClick={runAiAgent}
-                disabled={aiRunning || (weekMap[currentWeekNum] ?? []).length === 0}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold shadow-sm transition-all
-                  ${aiRunning
-                    ? 'bg-violet-100 text-violet-500 border border-violet-200 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white'}`}
+                onClick={() => { setTrashConfirmInfo(null); setDraggingId(null); setDraggingGcItem(null) }}
+                className="flex-1 px-4 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
               >
-                {aiRunning ? (
-                  <>
-                    <RefreshCw size={13} className="animate-spin" />
-                    AI running…
-                  </>
-                ) : (
-                  <>
-                    <Zap size={13} />
-                    Run AI on this week
-                  </>
-                )}
+                Cancel
               </button>
-              {/* LMS sync */}
-              <button onClick={() => setShowLmsModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold rounded-full border border-blue-200 transition-colors">
-                <Wifi size={12} /> Sync LMS
+              <button
+                onClick={async () => {
+                  if (trashConfirmInfo.id) {
+                    const block = lectureBlocks.find(b => b.id === trashConfirmInfo.id)
+                    const gcMatch = block?.content?.match(/<!--GC_ITEM_ID:(.*?)-->/)
+                    if (gcMatch) {
+                      const gcId = gcMatch[1]
+                      await fetch(`${BASE_URL}/api/teacher/classes/${classId}/course-items/${gcId}`, {
+                        method: 'DELETE', headers: { Authorization: `Bearer ${await getToken()}` }
+                      }).catch(() => { })
+                    }
+                    await deleteBlock(trashConfirmInfo.id)
+                    setLectureBlocks(prev => prev.filter(b => b.id !== trashConfirmInfo.id))
+                  }
+                  if (trashConfirmInfo.gcItem) {
+                    const gcId = trashConfirmInfo.gcItem.id
+                    await fetch(`${BASE_URL}/api/teacher/classes/${classId}/course-items/${gcId}`, {
+                      method: 'DELETE', headers: { Authorization: `Bearer ${await getToken()}` }
+                    }).catch(() => { })
+
+                    setGcData(prev => prev ? {
+                      ...prev,
+                      materials: (prev.materials || []).filter(m => m.id !== gcId),
+                      assignments: (prev.assignments || []).filter(a => a.id !== gcId)
+                    } : prev)
+                  }
+                  setTrashConfirmInfo(null)
+                  setDraggingId(null)
+                  setDraggingGcItem(null)
+                  showToast('🗑️ Block permanently deleted!')
+                }}
+                className="flex-1 px-4 py-2.5 rounded-xl font-bold text-white bg-red-500 hover:bg-red-600 shadow-md shadow-red-500/20 transition-all active:scale-95"
+              >
+                Delete
               </button>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* ── AI Legend (shown while running or after done) ─────────────────── */}
-          {(aiRunning || Object.values(aiSubjectStatus).some(s => s !== 'idle')) && (
-            <div className="flex items-center gap-4 px-4 py-2.5 bg-slate-50/80 border border-slate-100 rounded-2xl text-[11px] text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse inline-block" />
-                AI processing
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
-                Done — click Review to open
-              </span>
-            </div>
-          )}
+      {/* ── Main content — always visible ──────────────────────────────────── */}
+      <>
+        {/* ── Actions row ──────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setView('list'); setListWeek(null) }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
+                  ${view === 'list' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}>
+              <List size={13} /> List View
+            </button>
+            <button onClick={() => setView('calendar')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
+                  ${view === 'calendar' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}>
+              <Calendar size={13} /> Calendar View
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* AI Agent button */}
+            <button
+              onClick={runAiAgent}
+              disabled={aiRunning || (weekMap[currentWeekNum] ?? []).length === 0}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold shadow-sm transition-all
+                  ${aiRunning
+                  ? 'bg-violet-100 text-violet-500 border border-violet-200 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white'}`}
+            >
+              {aiRunning ? (
+                <>
+                  <RefreshCw size={13} className="animate-spin" />
+                  AI running…
+                </>
+              ) : (
+                <>
+                  <Zap size={13} />
+                  Run AI on this week
+                </>
+              )}
+            </button>
+            {/* LMS sync */}
+            <button onClick={() => setShowLmsModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold rounded-full border border-blue-200 transition-colors">
+              <Wifi size={12} /> Sync LMS
+            </button>
+          </div>
+        </div>
 
-          {/* ── Loading indicator ─────────────────────────────────────────────── */}
-          {gcLoading && (
-            <div className="flex items-center justify-center py-8 text-sm text-slate-400">
-              <RefreshCw size={14} className="animate-spin mr-2" /> Loading curriculum…
-            </div>
-          )}
+        {/* ── AI Legend (shown while running or after done) ─────────────────── */}
+        {(aiRunning || Object.values(aiSubjectStatus).some(s => s !== 'idle')) && (
+          <div className="flex items-center gap-4 px-4 py-2.5 bg-slate-50/80 border border-slate-100 rounded-2xl text-[11px] text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse inline-block" />
+              AI processing
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
+              Done — click Review to open
+            </span>
+          </div>
+        )}
 
-          {/* ── List View ─────────────────────────────────────────────────── */}
-          {!gcLoading && view === 'list' && (() => {
-            const displayWeek = listWeek ?? currentWeekNum
-            const isCurrentWeek = displayWeek === currentWeekNum
-            const weekId = dbWeeklyTopics.find(wt => wt.week === displayWeek)?.week_id ?? ''
-            // Group by subject: each subject gets its material + assignment
-            const weekTopics = weekMap[displayWeek] ?? []
-            const weekMaterials = gcData?.materials?.filter(m => m.week_id === weekId) ?? []
-            const weekAssignments = gcData?.assignments?.filter(a => a.week_id === weekId) ?? []
+        {/* ── Loading indicator ─────────────────────────────────────────────── */}
+        {gcLoading && (
+          <div className="flex items-center justify-center py-8 text-sm text-slate-400">
+            <RefreshCw size={14} className="animate-spin mr-2" /> Loading curriculum…
+          </div>
+        )}
 
-            const hasData = weekTopics.length > 0 || weekMaterials.length > 0
+        {/* ── List View ─────────────────────────────────────────────────── */}
+        {!gcLoading && view === 'list' && (() => {
+          const displayWeek = listWeek ?? currentWeekNum
+          const isCurrentWeek = displayWeek === currentWeekNum
+          const weekId = dbWeeklyTopics.find(wt => wt.week === displayWeek)?.week_id ?? ''
+          // Group by subject: each subject gets its material + assignment
+          const weekTopics = weekMap[displayWeek] ?? []
+          const weekMaterials = gcData?.materials?.filter(m => m.week_id === weekId) ?? []
+          const weekAssignments = gcData?.assignments?.filter(a => a.week_id === weekId) ?? []
 
-            // Build per-subject map
-            const subjects = [...new Set([
-              ...weekTopics.map(t => t.subject),
-              ...weekMaterials.map(() => 'Maths'),
-            ])]
+          const hasData = weekTopics.length > 0 || weekMaterials.length > 0
 
-            return (
+          // Build per-subject map
+          const subjects = [...new Set([
+            ...weekTopics.map(t => t.subject),
+            ...weekMaterials.map(() => 'Maths'),
+          ])]
+
+          return (
             <div className="space-y-3">
               {/* Header row */}
               <div className="flex items-center gap-3">
@@ -1459,6 +1615,24 @@ export default function CurriculumTab({ classId, subject }: Props) {
                     <div className={`flex items-center gap-2 px-5 py-3 border-b border-slate-100`}>
                       <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${subjectColor}`}>{subj}</span>
                       <span className="text-xs text-slate-400">{cleanMaterialTitle}</span>
+
+                      {/* AI Status / Review Button */}
+                      <div className="ml-auto flex items-center gap-2">
+                        {aiSubjectStatus[`${displayWeek}_${subj}`] === 'processing' && (
+                          <span className="flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+                            AI running…
+                          </span>
+                        )}
+                        {aiSubjectStatus[`${displayWeek}_${subj}`] === 'done' && (
+                          <button
+                            onClick={() => handleSubjectClick({ subject: subj, topic: cleanMaterialTitle, learningGoal: topicInfo?.learningGoal ?? '' })}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full hover:bg-emerald-100 transition-colors shadow-sm"
+                          >
+                            <CheckCircle size={10} /> Review
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Lesson row */}
@@ -1548,658 +1722,697 @@ export default function CurriculumTab({ classId, subject }: Props) {
                 )
               })}
             </div>
-            )
-          })()}
+          )
+        })()}
 
-          {/* ── Calendar View ─────────────────────────────────────────────────── */}
-          {!gcLoading && view === 'calendar' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <button onClick={() => { setCalendarWeek(w => Math.max(1, w - 1)); setExpandedCalDay(null) }}
-                  disabled={calendarWeek <= 1}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-slate-200 bg-white/70 text-xs font-semibold text-slate-600 hover:bg-white disabled:opacity-30 transition-colors">
-                  <ChevronLeft size={13} /> Prev
-                </button>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-800">{weekNameMap[calendarWeek] ?? `Week ${calendarWeek}`}</span>
-                  {calendarWeek === currentWeekNum && (
-                    <span className="text-[10px] font-bold uppercase tracking-wide bg-blue-500 text-white px-2 py-0.5 rounded-full">This Week</span>
-                  )}
-                </div>
-                <button onClick={() => { setCalendarWeek(w => Math.min(totalWeeks, w + 1)); setExpandedCalDay(null) }}
-                  disabled={calendarWeek >= totalWeeks}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-slate-200 bg-white/70 text-xs font-semibold text-slate-600 hover:bg-white disabled:opacity-30 transition-colors">
-                  Next <ChevronRight size={13} />
-                </button>
+        {/* ── Calendar View ─────────────────────────────────────────────────── */}
+        {!gcLoading && view === 'calendar' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <button onClick={() => { setCalendarWeek(w => Math.max(1, w - 1)); setExpandedCalDay(null) }}
+                disabled={calendarWeek <= 1}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-slate-200 bg-white/70 text-xs font-semibold text-slate-600 hover:bg-white disabled:opacity-30 transition-colors">
+                <ChevronLeft size={13} /> Prev
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-800">{weekNameMap[calendarWeek] ?? `Week ${calendarWeek}`}</span>
+                {calendarWeek === currentWeekNum && (
+                  <span className="text-[10px] font-bold uppercase tracking-wide bg-blue-500 text-white px-2 py-0.5 rounded-full">This Week</span>
+                )}
               </div>
+              <button onClick={() => { setCalendarWeek(w => Math.min(totalWeeks, w + 1)); setExpandedCalDay(null) }}
+                disabled={calendarWeek >= totalWeeks}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-slate-200 bg-white/70 text-xs font-semibold text-slate-600 hover:bg-white disabled:opacity-30 transition-colors">
+                Next <ChevronRight size={13} />
+              </button>
+            </div>
 
-              <div className="flex gap-1 px-1 overflow-x-auto">
-                {Array.from({ length: totalWeeks }, (_, i) => i + 1).map(w => (
-                  <button key={w} onClick={() => { setCalendarWeek(w); setExpandedCalDay(null) }}
-                    className={`flex-1 min-w-[6px] h-1.5 rounded-full transition-colors ${
-                      w === calendarWeek ? 'bg-blue-500' : w === currentWeekNum ? 'bg-blue-200' : 'bg-slate-200 hover:bg-slate-300'
+            <div className="flex gap-1 px-1 overflow-x-auto">
+              {Array.from({ length: totalWeeks }, (_, i) => i + 1).map(w => (
+                <button key={w} onClick={() => { setCalendarWeek(w); setExpandedCalDay(null) }}
+                  className={`flex-1 min-w-[6px] h-1.5 rounded-full transition-colors ${w === calendarWeek ? 'bg-blue-500' : w === currentWeekNum ? 'bg-blue-200' : 'bg-slate-200 hover:bg-slate-300'
                     }`} title={weekNameMap[w] ?? `Week ${w}`} />
-                ))}
-              </div>
+              ))}
+            </div>
 
-              {(() => {
-                  // Calendar shows GC materials (lessons) + teacher lecture blocks
-                  const weekMonday = weekStartDateMap[calendarWeek]
-                  const calWeekId = dbWeeklyTopics.find(wt => wt.week === calendarWeek)?.week_id
-                  const calWeekMaterials = gcData?.materials?.filter(it => it.week_id === calWeekId) ?? []
-                  const dayGcItems: Record<number, ClassroomItem[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] }
-                  for (const it of calWeekMaterials) { dayGcItems[0].push(it) }
+            {(() => {
+              // Calendar shows GC materials (lessons) + teacher lecture blocks
+              const weekMonday = weekStartDateMap[calendarWeek]
+              const calWeekId = dbWeeklyTopics.find(wt => wt.week === calendarWeek)?.week_id
+              const overriddenGcIds = new Set(lectureBlocks.map(b => b.content?.match(/<!--GC_ITEM_ID:(.*?)-->/)?.[1]).filter(Boolean))
+              const calWeekMaterials = gcData?.materials?.filter(it => it.week_id === calWeekId && !overriddenGcIds.has(it.id)) ?? []
+              const dayGcItems: Record<number, ClassroomItem[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] }
+              for (const it of calWeekMaterials) { dayGcItems[0].push(it) }
 
-                  return (
-              <div className="backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-4 shadow-sm">
-                {/* Calendar header with Save button */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="grid grid-cols-5 gap-2 flex-1 mr-2">
+              return (
+                <div className="backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-4 shadow-sm">
+                  {/* Calendar header with Save button */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="grid grid-cols-5 gap-2 flex-1 mr-2">
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, dayIdx) => {
+                        const hdrDate = weekMonday ? new Date(weekMonday) : null
+                        if (hdrDate) hdrDate.setDate(hdrDate.getDate() + dayIdx)
+                        return (
+                          <div key={day} className="text-center text-[10px] font-bold text-slate-400 pb-1.5 border-b border-slate-100">
+                            <div>{day.slice(0, 3).toUpperCase()}</div>
+                            <div className="text-[9px] font-normal text-slate-300">{hdrDate ? `${hdrDate.getDate()}/${hdrDate.getMonth() + 1}` : ''}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <button
+                      onClick={saveCalendar}
+                      disabled={savingCalendar}
+                      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-[10px] font-bold shadow-sm transition-all"
+                    >
+                      <Save size={11} />
+                      {savingCalendar ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
                     {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, dayIdx) => {
-                      const hdrDate = weekMonday ? new Date(weekMonday) : null
-                      if (hdrDate) hdrDate.setDate(hdrDate.getDate() + dayIdx)
+                      const cellKey = `${calWeekId ?? calendarWeek}-${dayIdx}`
+                      const isDragOver = dragOverCell === cellKey
+                      const gcItems = dayGcItems[dayIdx] ?? []
+                      const lblocks = calWeekId
+                        ? lectureBlocks.filter(b => b.week_id === calWeekId && b.day_of_week === dayIdx).sort((a, b) => a.sort_order - b.sort_order)
+                        : []
+                      const hasContent = gcItems.length > 0 || lblocks.length > 0
                       return (
-                        <div key={day} className="text-center text-[10px] font-bold text-slate-400 pb-1.5 border-b border-slate-100">
-                          <div>{day.slice(0, 3).toUpperCase()}</div>
-                          <div className="text-[9px] font-normal text-slate-300">{hdrDate ? `${hdrDate.getDate()}/${hdrDate.getMonth() + 1}` : ''}</div>
+                        <div
+                          key={day}
+                          className={`flex flex-col gap-0.5 min-h-[72px] rounded-xl transition-all ${isDragOver ? 'bg-blue-50 ring-2 ring-blue-400 ring-dashed p-1' : 'p-0.5'
+                            }`}
+                          onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey); setDragOverBlockId(null); setDragOverIndex(null) }}
+                          onDragLeave={() => setDragOverCell(null)}
+                          onDrop={e => calWeekId ? handleDropOnCell(e, calWeekId, dayIdx, undefined, lblocks.length) : undefined}
+                        >
+                          {/* GC lesson items (originally non-draggable, now draggable) */}
+                          {gcItems.map((it, gcIndex) => {
+                            const cleanTitle = it.title
+                              .replace(/^\[\d{4}-W\d{2}\]\s*/, '')
+                              .replace(/^Week\s+\d+:\s*/, '')
+                              .replace(/\s*—\s*(Lesson Plan|Homework)$/, '')
+                              .trim()
+                            return (
+                              <Fragment key={it.id}>
+                                <div
+                                  className={`h-2 transition-all ${dragOverIndex?.day === cellKey && dragOverIndex?.index === -(gcIndex + 1) ? 'bg-blue-400 rounded' : 'bg-transparent'}`}
+                                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverIndex({ day: cellKey, index: -(gcIndex + 1) }); setDragOverCell(null); setDragOverBlockId(null) }}
+                                  onDrop={e => { calWeekId && handleDropOnCell(e, calWeekId, dayIdx, undefined, 0) }}
+                                />
+                                <div
+                                  draggable
+                                  onDragStart={e => {
+                                    setDraggingGcItem(it);
+                                    e.dataTransfer.effectAllowed = 'move';
+                                  }}
+                                  onDragEnd={() => { setDraggingGcItem(null); setDragOverCell(null); setDragOverBlockId(null); setDragOverIndex(null) }}
+                                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverBlockId(it.id); setDragOverCell(null); setDragOverIndex(null) }}
+                                  onDragLeave={() => setDragOverBlockId(null)}
+                                  onDrop={e => { calWeekId && handleDropOnCell(e, calWeekId, dayIdx, it.id) }}
+                                  onClick={() => { setListWeek(calendarWeek); setView('list') }}
+                                  className={`rounded-xl p-2 border text-left w-full cursor-grab active:cursor-grabbing transition-all select-none bg-indigo-50 border-indigo-200 text-indigo-700 my-0.5 ${dragOverBlockId === it.id ? 'ring-2 ring-red-500 scale-105 z-10 shadow-lg' :
+                                    draggingGcItem?.id === it.id ? 'opacity-40 scale-95' : 'hover:shadow-sm hover:scale-[1.02]'}`}
+                                >
+                                  <p className="text-[9px] font-bold leading-tight opacity-60 uppercase">📖 Lesson</p>
+                                  <p className="text-[9px] leading-tight mt-0.5 font-medium line-clamp-2">{cleanTitle}</p>
+                                </div>
+                              </Fragment>
+                            )
+                          })}
+
+                          {/* Teacher lecture blocks (draggable) */}
+                          {lblocks.map((lb, index) => {
+                            const isGcOverride = lb.content?.includes('<!--GC_ITEM_ID:')
+                            const subjectColor: Record<string, string> = {
+                              Maths: 'bg-blue-50 border-blue-200 text-blue-700',
+                              Science: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+                              English: 'bg-violet-50 border-violet-200 text-violet-700',
+                              HSIE: 'bg-amber-50 border-amber-200 text-amber-700',
+                              'Creative Arts': 'bg-pink-50 border-pink-200 text-pink-700',
+                              PE: 'bg-orange-50 border-orange-200 text-orange-700',
+                            }
+                            const color = isGcOverride ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : (subjectColor[lb.subject] ?? 'bg-slate-50 border-slate-200 text-slate-700')
+                            return (
+                              <Fragment key={lb.id}>
+                                {/* Insert Zone Above Block */}
+                                <div
+                                  className={`h-2 transition-all ${dragOverIndex?.day === cellKey && dragOverIndex?.index === index ? 'bg-blue-400 rounded' : 'bg-transparent'}`}
+                                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverIndex({ day: cellKey, index }); setDragOverCell(null); setDragOverBlockId(null) }}
+                                  onDrop={e => { calWeekId && handleDropOnCell(e, calWeekId, dayIdx, undefined, index) }}
+                                />
+                                {/* The Block */}
+                                <div
+                                  draggable
+                                  onDragStart={e => handleDragStart(e, lb.id)}
+                                  onDragEnd={() => { setDraggingId(null); setDragOverCell(null); setDragOverBlockId(null); setDragOverIndex(null) }}
+                                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverBlockId(lb.id); setDragOverCell(null); setDragOverIndex(null) }}
+                                  onDragLeave={() => setDragOverBlockId(null)}
+                                  onDrop={e => { calWeekId && handleDropOnCell(e, calWeekId, dayIdx, lb.id) }}
+                                  onClick={() => isGcOverride ? (() => { setListWeek(calendarWeek); setView('list') })() : handleEditBlock(lb)}
+                                  className={`rounded-xl p-2 border text-left w-full cursor-grab active:cursor-grabbing transition-all select-none ${color} ${dragOverBlockId === lb.id ? 'ring-2 ring-red-500 scale-105 z-10 shadow-lg' :
+                                    draggingId === lb.id ? 'opacity-40 scale-95' : 'hover:shadow-sm'
+                                    }`}
+                                >
+                                  <p className="text-[9px] font-bold leading-tight opacity-60 uppercase">{isGcOverride ? '📖 Lesson' : `✏️ ${lb.subject}`}</p>
+                                  <p className="text-[9px] leading-tight mt-0.5 font-medium line-clamp-2">{lb.title}</p>
+                                </div>
+                              </Fragment>
+                            )
+                          })}
+
+                          {/* Empty drop zone hint / Bottom Insert Zone */}
+                          <div
+                            className={`min-h-[40px] mt-1 flex-1 flex items-center justify-center rounded transition-all border border-transparent ${isDragOver || (dragOverIndex?.day === cellKey && dragOverIndex?.index === lblocks.length)
+                              ? 'border-dashed border-blue-400 bg-blue-50/50'
+                              : !hasContent ? 'border-dashed border-slate-200' : ''
+                              }`}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverIndex({ day: cellKey, index: lblocks.length }); setDragOverCell(null); setDragOverBlockId(null) }}
+                            onDrop={e => { calWeekId && handleDropOnCell(e, calWeekId, dayIdx, undefined, lblocks.length) }}
+                          >
+                            <span className="text-[9px] text-slate-300">
+                              {(isDragOver || (dragOverIndex?.day === cellKey && dragOverIndex?.index === lblocks.length)) ? 'Drop here' : (!hasContent ? '—' : '')}
+                            </span>
+                          </div>
                         </div>
                       )
                     })}
                   </div>
-                  <button
-                    onClick={saveCalendar}
-                    disabled={savingCalendar}
-                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-[10px] font-bold shadow-sm transition-all"
-                  >
-                    <Save size={11} />
-                    {savingCalendar ? 'Saving…' : 'Save'}
-                  </button>
+
+                  <p className="text-[10px] text-slate-300 mt-3 text-center">
+                    {weekNameMap[calendarWeek] ?? `Week ${calendarWeek}`} of {totalWeeks} · Drag blocks to schedule · GC items shown in indigo
+                  </p>
                 </div>
-                <div className="grid grid-cols-5 gap-2">
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, dayIdx) => {
-                    const cellKey = `${calWeekId ?? calendarWeek}-${dayIdx}`
-                    const isDragOver = dragOverCell === cellKey
-                    const gcItems = dayGcItems[dayIdx] ?? []
-                    const lblocks = calWeekId
-                      ? lectureBlocks.filter(b => b.week_id === calWeekId && b.day_of_week === dayIdx).sort((a,b) => a.sort_order - b.sort_order)
-                      : []
-                    const hasContent = gcItems.length > 0 || lblocks.length > 0
+              )
+            })()}
+
+            {/* ── Add Lecture Editor ───────────────────────────────────────── */}
+            <div className="mt-4">
+              {/* Section header / toggle */}
+              <button
+                onClick={() => { setShowAddLecture(v => !v); setEditingBlock(null) }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold shadow-sm transition-all"
+              >
+                <Plus size={14} />
+                {showAddLecture ? 'Close Editor' : 'Add Lecture / Homework'}
+              </button>
+
+              {showAddLecture && (
+                <div className={`mt-4 space-y-5 backdrop-blur-xl bg-white/90 border border-white/60 rounded-3xl p-6 shadow-xl ${isFullscreen ? 'fixed inset-0 z-[9999] bg-slate-50 p-10 overflow-y-auto rounded-none' : ''}`}>
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex-1 min-w-[200px]">
+                      <h2 className="text-base font-black text-slate-800 tracking-tight mb-1.5">
+                        {editingBlock ? '✏️ Edit Block' : 'Add Lecture'}
+                      </h2>
+                      <input
+                        type="text"
+                        value={editorTitle}
+                        onChange={e => setEditorTitle(e.target.value)}
+                        placeholder="Block title (e.g. Fractions – Day 1)…"
+                        className="w-full text-sm font-semibold border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 ring-blue-400 text-slate-700 placeholder:text-slate-300"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {/* Subject Picker */}
+                      <div className="relative">
+                        <button
+                          onClick={() => { setShowSubjectPicker(!showSubjectPicker); setShowDatePicker(false) }}
+                          className="flex items-center gap-2 px-4 py-2 bg-white border-[1.5px] border-slate-200 rounded-full text-xs font-bold text-slate-700 hover:border-blue-500 transition-all shadow-sm"
+                        >
+                          <BookOpen size={13} className="text-blue-500" />
+                          <span>{editorSubject}</span>
+                          <ChevronDown size={12} className="text-slate-400" />
+                        </button>
+                        {showSubjectPicker && (
+                          <div className="absolute top-full right-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] p-2">
+                            <div className="max-h-[200px] overflow-y-auto">
+                              {editorSubjectList.map(s => (
+                                <button
+                                  key={s}
+                                  onClick={() => { setEditorSubject(s); setShowSubjectPicker(false) }}
+                                  className={`w-full text-left px-3 py-2 text-xs font-bold rounded-xl transition-colors ${editorSubject === s ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                                >
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="h-px bg-slate-100 my-1.5" />
+                            {isCreatingSubject ? (
+                              <div className="px-2 pb-1.5">
+                                <input
+                                  autoFocus
+                                  value={newSubjectValue}
+                                  onChange={e => setNewSubjectValue(e.target.value)}
+                                  onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
+                                  placeholder="Type subject..."
+                                  className="w-full text-xs font-bold border border-blue-200 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 ring-blue-400"
+                                />
+                                <div className="flex justify-end gap-2 mt-1.5">
+                                  <button onClick={() => setIsCreatingSubject(false)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+                                  <button onClick={handleAddSubject} className="text-[10px] font-bold text-blue-600 hover:text-blue-700">Add</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setIsCreatingSubject(true)}
+                                className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-black text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                              >
+                                <Plus size={12} /> Add More
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Date Picker */}
+                      <div className="relative">
+                        <button
+                          onClick={() => { setShowDatePicker(!showDatePicker); setShowSubjectPicker(false) }}
+                          className="flex items-center gap-2 px-4 py-2 bg-white border-[1.5px] border-slate-200 rounded-full text-xs font-bold text-slate-700 hover:border-blue-500 transition-all shadow-sm"
+                        >
+                          <Calendar size={13} className="text-blue-500" />
+                          <span>{formatEditorDate(editorDate)}</span>
+                          <ChevronDown size={12} className="text-slate-400" />
+                        </button>
+                        {showDatePicker && (
+                          <div className="absolute top-full right-0 mt-2 w-[260px] bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] p-3">
+                            <div className="flex items-center justify-between mb-3 px-1">
+                              <span className="font-black text-slate-800 text-xs">
+                                {editorCalMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                              </span>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => setEditorCalMonth(new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth() - 1, 1))}
+                                  className="p-1 hover:bg-slate-50 rounded-lg text-slate-400"
+                                >
+                                  <ChevronLeft size={14} />
+                                </button>
+                                <button
+                                  onClick={() => setEditorCalMonth(new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth() + 1, 1))}
+                                  className="p-1 hover:bg-slate-50 rounded-lg text-slate-400"
+                                >
+                                  <ChevronRight size={14} />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
+                              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                                <span key={i} className="text-[9px] font-bold text-slate-300 uppercase">{d}</span>
+                              ))}
+                            </div>
+                            <div className="grid grid-cols-7 gap-0.5">
+                              {(() => {
+                                const daysInMonth = new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth() + 1, 0).getDate()
+                                const firstDay = new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth(), 1).getDay()
+                                const today = new Date()
+                                const cells = []
+                                for (let i = 0; i < firstDay; i++) cells.push(<div key={`e-${i}`} />)
+                                for (let d = 1; d <= daysInMonth; d++) {
+                                  const isToday = today.getDate() === d && today.getMonth() === editorCalMonth.getMonth() && today.getFullYear() === editorCalMonth.getFullYear()
+                                  const isSelected = editorDate.getDate() === d && editorDate.getMonth() === editorCalMonth.getMonth() && editorDate.getFullYear() === editorCalMonth.getFullYear()
+                                  cells.push(
+                                    <button
+                                      key={d}
+                                      onClick={() => { setEditorDate(new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth(), d)); setShowDatePicker(false) }}
+                                      className={`w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg transition-all relative
+                                          ${isSelected ? 'bg-blue-600 text-white shadow' : 'hover:bg-slate-50 text-slate-600'}`}
+                                    >
+                                      {d}
+                                      {isToday && !isSelected && <div className="absolute inset-0 border border-red-400 rounded-full m-0.5" />}
+                                    </button>
+                                  )
+                                }
+                                return cells
+                              })()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Editor Interface */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm flex flex-col">
+                    {/* Menu Bar */}
+                    <div className="flex items-center gap-4 px-4 py-1.5 bg-white text-xs font-medium text-slate-700 border-b border-slate-100">
+                      {/* Edit menu */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setEditorActiveMenu(editorActiveMenu === 'edit' ? null : 'edit')}
+                          className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'edit' ? 'bg-slate-100' : ''}`}
+                        >
+                          Edit
+                        </button>
+                        {editorActiveMenu === 'edit' && (
+                          <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                            {[
+                              { label: 'Undo', cmd: 'undo', icon: '⤺', shortcut: 'Ctrl+Z' },
+                              { label: 'Redo', cmd: 'redo', icon: '⤻', shortcut: 'Ctrl+Y' },
+                              { label: 'divider' },
+                              { label: 'Cut', cmd: 'cut', icon: '✂', shortcut: 'Ctrl+X' },
+                              { label: 'Copy', cmd: 'copy', icon: '❐', shortcut: 'Ctrl+C' },
+                              { label: 'Select all', cmd: 'selectAll', icon: '⠿', shortcut: 'Ctrl+A' },
+                            ].map((item, i) => item.label === 'divider' ? (
+                              <div key={i} className="h-px bg-slate-100 my-1" />
+                            ) : (
+                              <button
+                                key={item.label}
+                                onClick={() => { applyFormat(item.cmd!); setEditorActiveMenu(null) }}
+                                className="w-full flex items-center justify-between px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="opacity-70">{item.icon}</span>
+                                  <span>{item.label}</span>
+                                </div>
+                                <span className="text-[9px] text-slate-400 font-mono">{item.shortcut}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Insert menu */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setEditorActiveMenu(editorActiveMenu === 'insert' ? null : 'insert')}
+                          className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'insert' ? 'bg-slate-100' : ''}`}
+                        >
+                          Insert
+                        </button>
+                        {editorActiveMenu === 'insert' && (
+                          <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                            {[
+                              { label: 'Link', icon: '🔗', cmd: 'createLink' },
+                              { label: 'Image', icon: '🖼', cmd: 'insertImage' },
+                              { label: 'divider' },
+                              { label: 'Horizontal line', icon: '—', cmd: 'insertHorizontalRule' },
+                            ].map((item, i) => item.label === 'divider' ? (
+                              <div key={i} className="h-px bg-slate-100 my-1" />
+                            ) : (
+                              <button
+                                key={item.label}
+                                onClick={() => {
+                                  if (item.cmd === 'createLink') { const url = prompt('Enter URL:'); if (url) applyFormat(item.cmd, url) }
+                                  else if (item.cmd === 'insertImage') { const url = prompt('Enter Image URL:'); if (url) applyFormat(item.cmd, url) }
+                                  else if (item.cmd) applyFormat(item.cmd)
+                                  setEditorActiveMenu(null)
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                              >
+                                <span className="opacity-70">{item.icon}</span>
+                                <span>{item.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* View menu */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setEditorActiveMenu(editorActiveMenu === 'view' ? null : 'view')}
+                          className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'view' ? 'bg-slate-100' : ''}`}
+                        >
+                          View
+                        </button>
+                        {editorActiveMenu === 'view' && (
+                          <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                            <button onClick={() => { setIsFullscreen(true); setEditorActiveMenu(null) }} className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                              <span>⤢</span> Full-screen
+                            </button>
+                            <button onClick={() => { setIsFullscreen(false); setEditorActiveMenu(null) }} className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                              <span>⤡</span> Exit Fullscreen
+                            </button>
+                            <div className="h-px bg-slate-100 my-1" />
+                            <button onClick={() => { toggleSourceMode(); setEditorActiveMenu(null) }} className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                              <span className="font-mono text-[10px]">&lt;/&gt;</span> HTML Editor
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Format menu */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setEditorActiveMenu(editorActiveMenu === 'format' ? null : 'format')}
+                          className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'format' ? 'bg-slate-100' : ''}`}
+                        >
+                          Format
+                        </button>
+                        {editorActiveMenu === 'format' && (
+                          <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                            {[
+                              { label: 'Bold', cmd: 'bold', icon: 'B', shortcut: 'Ctrl+B', iconClass: 'font-bold' },
+                              { label: 'Italic', cmd: 'italic', icon: 'I', shortcut: 'Ctrl+I', iconClass: 'italic' },
+                              { label: 'Underline', cmd: 'underline', icon: 'U', shortcut: 'Ctrl+U', iconClass: 'underline' },
+                              { label: 'Strikethrough', cmd: 'strikeThrough', icon: 'S̶', shortcut: '' },
+                            ].map(sub => (
+                              <button
+                                key={sub.label}
+                                onClick={() => { applyFormat(sub.cmd); setEditorActiveMenu(null) }}
+                                className="w-full flex items-center justify-between px-3 py-1 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className={`w-4 text-center ${sub.iconClass || ''}`}>{sub.icon}</span>
+                                  <span>{sub.label}</span>
+                                </div>
+                                {sub.shortcut && <span className="text-[9px] opacity-60 font-mono">{sub.shortcut}</span>}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Toolbar */}
+                    <div className="flex items-center flex-wrap gap-x-4 gap-y-2 px-4 py-2 border-b border-slate-100 bg-white">
+                      {/* Font size */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setEditorActiveMenu(editorActiveMenu === 'font-size' ? null : 'font-size')}
+                          className="flex items-center gap-1 hover:bg-slate-50 px-2 py-1 rounded"
+                        >
+                          <span className="text-xs text-slate-700">{fontSize}</span>
+                          <ChevronDown size={11} className="text-slate-400" />
+                        </button>
+                        {editorActiveMenu === 'font-size' && (
+                          <div className="absolute top-full left-0 mt-1 w-20 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                            {[{ label: '8pt', val: '1' }, { label: '10pt', val: '2' }, { label: '12pt', val: '3' }, { label: '14pt', val: '4' }, { label: '18pt', val: '5' }, { label: '24pt', val: '6' }, { label: '36pt', val: '7' }].map(s => (
+                              <button key={s.label} onClick={() => { applyFormat('fontSize', s.val); setFontSize(s.label); setEditorActiveMenu(null) }} className="w-full text-left px-3 py-1 text-xs hover:bg-slate-50 text-slate-600">{s.label}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="w-px h-4 bg-slate-200" />
+
+                      {/* B I U */}
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => applyFormat('bold')} className="text-xs font-bold text-slate-800 hover:bg-slate-100 w-7 h-7 rounded flex items-center justify-center">B</button>
+                        <button onClick={() => applyFormat('italic')} className="text-xs italic text-slate-800 hover:bg-slate-100 w-7 h-7 rounded flex items-center justify-center font-serif">I</button>
+                        <button onClick={() => applyFormat('underline')} className="text-xs underline text-slate-800 hover:bg-slate-100 w-7 h-7 rounded flex items-center justify-center">U</button>
+                      </div>
+
+                      <div className="w-px h-4 bg-slate-200" />
+
+                      {/* Font color */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setEditorActiveMenu(editorActiveMenu === 'font-color' ? null : 'font-color')}
+                          className="flex flex-col items-center hover:bg-slate-50 rounded px-1"
+                        >
+                          <span className="text-xs font-bold text-slate-800">A</span>
+                          <div className="w-4 h-0.5" style={{ backgroundColor: selectedColor }} />
+                        </button>
+                        {editorActiveMenu === 'font-color' && (
+                          <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 grid grid-cols-4 gap-1.5">
+                            {['#000000', '#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'].map(c => (
+                              <button key={c} onClick={() => { applyFormat('foreColor', c); setSelectedColor(c); setEditorActiveMenu(null) }} style={{ backgroundColor: c }} className="w-5 h-5 rounded border border-slate-100 hover:scale-110 transition-all" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Highlight color */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setEditorActiveMenu(editorActiveMenu === 'font-highlight' ? null : 'font-highlight')}
+                          className="flex flex-col items-center hover:bg-slate-50 rounded px-1"
+                        >
+                          <Pencil size={11} className="text-slate-800" />
+                          <div className="w-4 h-0.5" style={{ backgroundColor: selectedHighlight }} />
+                        </button>
+                        {editorActiveMenu === 'font-highlight' && (
+                          <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 grid grid-cols-4 gap-1.5">
+                            {['#FCF8E3', '#FEF3C7', '#DCFCE7', '#DBEAFE', '#F3E8FF', '#FFE4E6', '#F1F5F9', '#FFFFFF'].map(c => (
+                              <button key={c} onClick={() => { applyFormat('hiliteColor', c); setSelectedHighlight(c); setEditorActiveMenu(null) }} style={{ backgroundColor: c }} className="w-5 h-5 rounded border border-slate-100 hover:scale-110 transition-all" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Editable Area */}
+                    <div className="relative overflow-hidden bg-white" style={{ zoom: zoomLevel }}>
+                      {isSourceMode ? (
+                        <textarea
+                          value={sourceHtml}
+                          onChange={e => setSourceHtml(e.target.value)}
+                          className="w-full min-h-[240px] p-5 font-mono text-xs bg-slate-50 text-slate-700 focus:outline-none resize-none border-0"
+                          placeholder="Type raw HTML here..."
+                        />
+                      ) : (
+                        <div
+                          ref={editorRef}
+                          onInput={handleEditorInput}
+                          className="min-h-[240px] p-5 text-sm text-slate-800 outline-none focus:ring-0 selection:bg-blue-100 leading-relaxed"
+                          contentEditable
+                          spellCheck={false}
+                          suppressContentEditableWarning
+                        />
+                      )}
+                    </div>
+
+                    {/* Status Bar */}
+                    <div className="flex items-center justify-between px-4 py-1.5 bg-white text-[11px] text-slate-500 border-t border-slate-100">
+                      <span>{wordCount} words</span>
+                      <div className="flex items-center gap-3">
+                        <span onClick={toggleSourceMode} className={`font-mono cursor-pointer transition-colors ${isSourceMode ? 'text-blue-600 font-bold' : 'opacity-60 hover:opacity-100'}`}>&lt;/&gt;</span>
+                        <span onClick={() => handleZoom(0.1)} className="cursor-pointer opacity-60 hover:opacity-100 text-base leading-none">+</span>
+                        <span onClick={() => handleZoom(-0.1)} className="cursor-pointer opacity-60 hover:opacity-100 text-base leading-none">−</span>
+                        <span onClick={() => setIsFullscreen(!isFullscreen)} className="cursor-pointer opacity-60 hover:opacity-100">⤢</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── Homework Editor ────────────────────────── */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm flex flex-col mt-4">
+                    <div className="px-4 py-2 bg-amber-50/50 border-b border-amber-100 flex items-center gap-2">
+                      <span className="text-xs font-bold text-amber-700">📋 Homework & Assignments</span>
+                    </div>
+                    <div className="relative overflow-hidden bg-white" style={{ zoom: zoomLevel }}>
+                      <div
+                        ref={homeworkEditorRef}
+                        onInput={() => {
+                          const text = homeworkEditorRef.current?.innerText || ''
+                          const count = text.trim() ? text.trim().split(/\s+/).length : 0
+                          setHomeworkWordCount(count)
+                        }}
+                        className="min-h-[100px] p-5 text-sm text-slate-800 outline-none focus:ring-0 selection:bg-amber-100 leading-relaxed empty:before:content-['Enter_homework_instructions_here...'] empty:before:text-slate-300 pointer-events-auto"
+                        contentEditable
+                        spellCheck={false}
+                        suppressContentEditableWarning
+                      />
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-1.5 bg-white text-[11px] text-slate-500 border-t border-slate-100">
+                      <span>{homeworkWordCount} words</span>
+                    </div>
+                  </div>
+
+                  {/* Attached files */}
+                  {attachedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {attachedFiles.map((file, i) => (
+                        <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg">
+                          <span className="text-xs text-slate-400">📄</span>
+                          <span className="text-xs font-semibold text-slate-700 max-w-[120px] truncate">{file.name}</span>
+                          <span className="text-[9px] text-slate-400">({file.size})</span>
+                          <button onClick={() => removeFile(i)} className="text-slate-300 hover:text-red-500 transition-colors">
+                            <X size={11} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-between pt-2">
+                    <button
+                      onClick={() => setShowAttachModal(true)}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 transition-all text-xs font-semibold text-slate-700"
+                    >
+                      <Paperclip size={14} className="text-slate-500" />
+                      Attach
+                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => { setShowAddLecture(false); setEditingBlock(null) }}
+                        className="px-5 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSubmitLecture}
+                        disabled={submittingLecture}
+                        className="px-7 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all"
+                      >
+                        {submittingLecture ? (editingBlock ? 'Saving…' : 'Adding…') : (editingBlock ? 'Save Changes' : 'Add to Queue')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Queue: unscheduled lecture blocks ────────────────────────── */}
+            {lectureBlocks.filter(b => b.week_id === null).length > 0 && (
+              <div className="mt-4 backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-700">📦 Queue — Unscheduled Blocks</h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Drag a block onto a calendar day to schedule it</p>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {lectureBlocks.filter(b => b.week_id === null).length} block{lectureBlocks.filter(b => b.week_id === null).length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {lectureBlocks.filter(b => b.week_id === null).map(lb => {
+                    const qSubjectColor: Record<string, string> = {
+                      Maths: 'bg-blue-50 border-blue-200 text-blue-700',
+                      Science: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+                      English: 'bg-violet-50 border-violet-200 text-violet-700',
+                      HSIE: 'bg-amber-50 border-amber-200 text-amber-700',
+                      'Creative Arts': 'bg-pink-50 border-pink-200 text-pink-700',
+                      PE: 'bg-orange-50 border-orange-200 text-orange-700',
+                    }
+                    const qColor = qSubjectColor[lb.subject] ?? 'bg-slate-50 border-slate-200 text-slate-700'
                     return (
                       <div
-                        key={day}
-                        className={`flex flex-col gap-1 min-h-[72px] rounded-xl transition-all ${
-                          isDragOver ? 'bg-blue-50 ring-2 ring-blue-400 ring-dashed p-1' : 'p-0'
-                        }`}
-                        onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey) }}
-                        onDragLeave={() => setDragOverCell(null)}
-                        onDrop={e => calWeekId ? handleDropOnCell(e, calWeekId, dayIdx) : undefined}
+                        key={lb.id}
+                        draggable
+                        onDragStart={e => handleDragStart(e, lb.id)}
+                        onDragEnd={handleDragEnd}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl border select-none transition-all hover:shadow-md ${qColor} ${draggingId === lb.id ? 'opacity-40 scale-95 cursor-grabbing' : 'cursor-grab'}`}
                       >
-                        {/* GC lesson items (not draggable) */}
-                        {gcItems.map(it => {
-                          const cleanTitle = it.title
-                            .replace(/^\[\d{4}-W\d{2}\]\s*/, '')
-                            .replace(/^Week\s+\d+:\s*/, '')
-                            .replace(/\s*—\s*(Lesson Plan|Homework)$/, '')
-                            .trim()
-                          return (
-                            <button key={it.id}
-                              onClick={() => { setListWeek(calendarWeek); setView('list') }}
-                              className="rounded-xl p-2 border text-left w-full transition-all hover:scale-[1.02] hover:shadow-sm bg-indigo-50 border-indigo-200 text-indigo-700">
-                              <p className="text-[9px] font-bold leading-tight opacity-60 uppercase">📖 Lesson</p>
-                              <p className="text-[9px] leading-tight mt-0.5 font-medium line-clamp-2">{cleanTitle}</p>
-                            </button>
-                          )
-                        })}
-
-                        {/* Teacher lecture blocks (draggable) */}
-                        {lblocks.map(lb => {
-                          const subjectColor: Record<string,string> = {
-                            Maths: 'bg-blue-50 border-blue-200 text-blue-700',
-                            Science: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-                            English: 'bg-violet-50 border-violet-200 text-violet-700',
-                            HSIE: 'bg-amber-50 border-amber-200 text-amber-700',
-                            'Creative Arts': 'bg-pink-50 border-pink-200 text-pink-700',
-                            PE: 'bg-orange-50 border-orange-200 text-orange-700',
-                          }
-                          const color = subjectColor[lb.subject] ?? 'bg-slate-50 border-slate-200 text-slate-700'
-                          return (
-                            <div
-                              key={lb.id}
-                              draggable
-                              onDragStart={e => handleDragStart(e, lb.id)}
-                              onDragEnd={handleDragEnd}
-                              className={`rounded-xl p-2 border text-left w-full cursor-grab active:cursor-grabbing transition-all hover:shadow-sm select-none ${color} ${draggingId === lb.id ? 'opacity-40 scale-95' : ''}`}
-                            >
-                              <p className="text-[9px] font-bold leading-tight opacity-60 uppercase">✏️ {lb.subject}</p>
-                              <p className="text-[9px] leading-tight mt-0.5 font-medium line-clamp-2">{lb.title}</p>
-                            </div>
-                          )
-                        })}
-
-                        {/* Empty drop zone hint */}
-                        {!hasContent && (
-                          <div className={`rounded-xl p-2 border border-dashed min-h-[60px] flex items-center justify-center transition-colors ${isDragOver ? 'border-blue-400 bg-blue-50/50' : 'border-slate-200'}`}>
-                            <span className="text-[9px] text-slate-300">{isDragOver ? 'Drop here' : '—'}</span>
-                          </div>
-                        )}
-                        {hasContent && isDragOver && (
-                          <div className="rounded-xl p-1.5 border border-dashed border-blue-300 bg-blue-50/30 text-center">
-                            <span className="text-[9px] text-blue-400">Drop here</span>
-                          </div>
-                        )}
+                        <span className="text-sm opacity-40 shrink-0">⠿</span>
+                        {/* Click body (not drag handle) to open editor */}
+                        <button
+                          onMouseDown={e => e.stopPropagation()}
+                          onClick={e => { e.stopPropagation(); handleEditBlock(lb) }}
+                          className="flex-1 text-left min-w-0"
+                        >
+                          <p className="text-xs font-bold leading-tight truncate">{lb.title}</p>
+                          <p className="text-[9px] opacity-60">{lb.subject} · click to edit</p>
+                        </button>
+                        <button
+                          onMouseDown={e => e.stopPropagation()}
+                          onClick={async e => {
+                            e.stopPropagation()
+                            await deleteBlock(lb.id)
+                            setLectureBlocks(prev => prev.filter(b => b.id !== lb.id))
+                          }}
+                          className="shrink-0 text-current opacity-30 hover:opacity-80 transition-opacity"
+                        >
+                          <X size={11} />
+                        </button>
                       </div>
                     )
                   })}
                 </div>
-
-                <p className="text-[10px] text-slate-300 mt-3 text-center">
-                  {weekNameMap[calendarWeek] ?? `Week ${calendarWeek}`} of {totalWeeks} · Drag blocks to schedule · GC items shown in indigo
-                </p>
-              </div>
-                  )
-                })()}
-
-              {/* ── Add Lecture Editor ───────────────────────────────────────── */}
-              <div className="mt-4">
-                {/* Section header / toggle */}
-                <button
-                  onClick={() => { setShowAddLecture(v => !v); setEditingBlock(null) }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold shadow-sm transition-all"
-                >
-                  <Plus size={14} />
-                  {showAddLecture ? 'Close Editor' : 'Add Lecture / Homework'}
-                </button>
-
-                {showAddLecture && (
-                  <div className={`mt-4 space-y-5 backdrop-blur-xl bg-white/90 border border-white/60 rounded-3xl p-6 shadow-xl ${isFullscreen ? 'fixed inset-0 z-[9999] bg-slate-50 p-10 overflow-y-auto rounded-none' : ''}`}>
-                    <div className="flex items-center justify-between flex-wrap gap-3">
-                      <div className="flex-1 min-w-[200px]">
-                        <h2 className="text-base font-black text-slate-800 tracking-tight mb-1.5">
-                          {editingBlock ? '✏️ Edit Block' : 'Add Lecture'}
-                        </h2>
-                        <input
-                          type="text"
-                          value={editorTitle}
-                          onChange={e => setEditorTitle(e.target.value)}
-                          placeholder="Block title (e.g. Fractions – Day 1)…"
-                          className="w-full text-sm font-semibold border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 ring-blue-400 text-slate-700 placeholder:text-slate-300"
-                        />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {/* Subject Picker */}
-                        <div className="relative">
-                          <button
-                            onClick={() => { setShowSubjectPicker(!showSubjectPicker); setShowDatePicker(false) }}
-                            className="flex items-center gap-2 px-4 py-2 bg-white border-[1.5px] border-slate-200 rounded-full text-xs font-bold text-slate-700 hover:border-blue-500 transition-all shadow-sm"
-                          >
-                            <BookOpen size={13} className="text-blue-500" />
-                            <span>{editorSubject}</span>
-                            <ChevronDown size={12} className="text-slate-400" />
-                          </button>
-                          {showSubjectPicker && (
-                            <div className="absolute top-full right-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] p-2">
-                              <div className="max-h-[200px] overflow-y-auto">
-                                {editorSubjectList.map(s => (
-                                  <button
-                                    key={s}
-                                    onClick={() => { setEditorSubject(s); setShowSubjectPicker(false) }}
-                                    className={`w-full text-left px-3 py-2 text-xs font-bold rounded-xl transition-colors ${editorSubject === s ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
-                                  >
-                                    {s}
-                                  </button>
-                                ))}
-                              </div>
-                              <div className="h-px bg-slate-100 my-1.5" />
-                              {isCreatingSubject ? (
-                                <div className="px-2 pb-1.5">
-                                  <input
-                                    autoFocus
-                                    value={newSubjectValue}
-                                    onChange={e => setNewSubjectValue(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
-                                    placeholder="Type subject..."
-                                    className="w-full text-xs font-bold border border-blue-200 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 ring-blue-400"
-                                  />
-                                  <div className="flex justify-end gap-2 mt-1.5">
-                                    <button onClick={() => setIsCreatingSubject(false)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600">Cancel</button>
-                                    <button onClick={handleAddSubject} className="text-[10px] font-bold text-blue-600 hover:text-blue-700">Add</button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => setIsCreatingSubject(true)}
-                                  className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-black text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
-                                >
-                                  <Plus size={12} /> Add More
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Date Picker */}
-                        <div className="relative">
-                          <button
-                            onClick={() => { setShowDatePicker(!showDatePicker); setShowSubjectPicker(false) }}
-                            className="flex items-center gap-2 px-4 py-2 bg-white border-[1.5px] border-slate-200 rounded-full text-xs font-bold text-slate-700 hover:border-blue-500 transition-all shadow-sm"
-                          >
-                            <Calendar size={13} className="text-blue-500" />
-                            <span>{formatEditorDate(editorDate)}</span>
-                            <ChevronDown size={12} className="text-slate-400" />
-                          </button>
-                          {showDatePicker && (
-                            <div className="absolute top-full right-0 mt-2 w-[260px] bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] p-3">
-                              <div className="flex items-center justify-between mb-3 px-1">
-                                <span className="font-black text-slate-800 text-xs">
-                                  {editorCalMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
-                                </span>
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={() => setEditorCalMonth(new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth() - 1, 1))}
-                                    className="p-1 hover:bg-slate-50 rounded-lg text-slate-400"
-                                  >
-                                    <ChevronLeft size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => setEditorCalMonth(new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth() + 1, 1))}
-                                    className="p-1 hover:bg-slate-50 rounded-lg text-slate-400"
-                                  >
-                                    <ChevronRight size={14} />
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
-                                {['S','M','T','W','T','F','S'].map((d, i) => (
-                                  <span key={i} className="text-[9px] font-bold text-slate-300 uppercase">{d}</span>
-                                ))}
-                              </div>
-                              <div className="grid grid-cols-7 gap-0.5">
-                                {(() => {
-                                  const daysInMonth = new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth() + 1, 0).getDate()
-                                  const firstDay = new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth(), 1).getDay()
-                                  const today = new Date()
-                                  const cells = []
-                                  for (let i = 0; i < firstDay; i++) cells.push(<div key={`e-${i}`} />)
-                                  for (let d = 1; d <= daysInMonth; d++) {
-                                    const isToday = today.getDate() === d && today.getMonth() === editorCalMonth.getMonth() && today.getFullYear() === editorCalMonth.getFullYear()
-                                    const isSelected = editorDate.getDate() === d && editorDate.getMonth() === editorCalMonth.getMonth() && editorDate.getFullYear() === editorCalMonth.getFullYear()
-                                    cells.push(
-                                      <button
-                                        key={d}
-                                        onClick={() => { setEditorDate(new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth(), d)); setShowDatePicker(false) }}
-                                        className={`w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg transition-all relative
-                                          ${isSelected ? 'bg-blue-600 text-white shadow' : 'hover:bg-slate-50 text-slate-600'}`}
-                                      >
-                                        {d}
-                                        {isToday && !isSelected && <div className="absolute inset-0 border border-red-400 rounded-full m-0.5" />}
-                                      </button>
-                                    )
-                                  }
-                                  return cells
-                                })()}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Editor Interface */}
-                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm flex flex-col">
-                      {/* Menu Bar */}
-                      <div className="flex items-center gap-4 px-4 py-1.5 bg-white text-xs font-medium text-slate-700 border-b border-slate-100">
-                        {/* Edit menu */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'edit' ? null : 'edit')}
-                            className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'edit' ? 'bg-slate-100' : ''}`}
-                          >
-                            Edit
-                          </button>
-                          {editorActiveMenu === 'edit' && (
-                            <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
-                              {[
-                                { label: 'Undo', cmd: 'undo', icon: '⤺', shortcut: 'Ctrl+Z' },
-                                { label: 'Redo', cmd: 'redo', icon: '⤻', shortcut: 'Ctrl+Y' },
-                                { label: 'divider' },
-                                { label: 'Cut', cmd: 'cut', icon: '✂', shortcut: 'Ctrl+X' },
-                                { label: 'Copy', cmd: 'copy', icon: '❐', shortcut: 'Ctrl+C' },
-                                { label: 'Select all', cmd: 'selectAll', icon: '⠿', shortcut: 'Ctrl+A' },
-                              ].map((item, i) => item.label === 'divider' ? (
-                                <div key={i} className="h-px bg-slate-100 my-1" />
-                              ) : (
-                                <button
-                                  key={item.label}
-                                  onClick={() => { applyFormat(item.cmd!); setEditorActiveMenu(null) }}
-                                  className="w-full flex items-center justify-between px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="opacity-70">{item.icon}</span>
-                                    <span>{item.label}</span>
-                                  </div>
-                                  <span className="text-[9px] text-slate-400 font-mono">{item.shortcut}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Insert menu */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'insert' ? null : 'insert')}
-                            className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'insert' ? 'bg-slate-100' : ''}`}
-                          >
-                            Insert
-                          </button>
-                          {editorActiveMenu === 'insert' && (
-                            <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
-                              {[
-                                { label: 'Link', icon: '🔗', cmd: 'createLink' },
-                                { label: 'Image', icon: '🖼', cmd: 'insertImage' },
-                                { label: 'divider' },
-                                { label: 'Horizontal line', icon: '—', cmd: 'insertHorizontalRule' },
-                              ].map((item, i) => item.label === 'divider' ? (
-                                <div key={i} className="h-px bg-slate-100 my-1" />
-                              ) : (
-                                <button
-                                  key={item.label}
-                                  onClick={() => {
-                                    if (item.cmd === 'createLink') { const url = prompt('Enter URL:'); if (url) applyFormat(item.cmd, url) }
-                                    else if (item.cmd === 'insertImage') { const url = prompt('Enter Image URL:'); if (url) applyFormat(item.cmd, url) }
-                                    else if (item.cmd) applyFormat(item.cmd)
-                                    setEditorActiveMenu(null)
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
-                                >
-                                  <span className="opacity-70">{item.icon}</span>
-                                  <span>{item.label}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* View menu */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'view' ? null : 'view')}
-                            className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'view' ? 'bg-slate-100' : ''}`}
-                          >
-                            View
-                          </button>
-                          {editorActiveMenu === 'view' && (
-                            <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
-                              <button onClick={() => { setIsFullscreen(true); setEditorActiveMenu(null) }} className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
-                                <span>⤢</span> Full-screen
-                              </button>
-                              <button onClick={() => { setIsFullscreen(false); setEditorActiveMenu(null) }} className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
-                                <span>⤡</span> Exit Fullscreen
-                              </button>
-                              <div className="h-px bg-slate-100 my-1" />
-                              <button onClick={() => { toggleSourceMode(); setEditorActiveMenu(null) }} className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
-                                <span className="font-mono text-[10px]">&lt;/&gt;</span> HTML Editor
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Format menu */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'format' ? null : 'format')}
-                            className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'format' ? 'bg-slate-100' : ''}`}
-                          >
-                            Format
-                          </button>
-                          {editorActiveMenu === 'format' && (
-                            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
-                              {[
-                                { label: 'Bold', cmd: 'bold', icon: 'B', shortcut: 'Ctrl+B', iconClass: 'font-bold' },
-                                { label: 'Italic', cmd: 'italic', icon: 'I', shortcut: 'Ctrl+I', iconClass: 'italic' },
-                                { label: 'Underline', cmd: 'underline', icon: 'U', shortcut: 'Ctrl+U', iconClass: 'underline' },
-                                { label: 'Strikethrough', cmd: 'strikeThrough', icon: 'S̶', shortcut: '' },
-                              ].map(sub => (
-                                <button
-                                  key={sub.label}
-                                  onClick={() => { applyFormat(sub.cmd); setEditorActiveMenu(null) }}
-                                  className="w-full flex items-center justify-between px-3 py-1 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <span className={`w-4 text-center ${sub.iconClass || ''}`}>{sub.icon}</span>
-                                    <span>{sub.label}</span>
-                                  </div>
-                                  {sub.shortcut && <span className="text-[9px] opacity-60 font-mono">{sub.shortcut}</span>}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Toolbar */}
-                      <div className="flex items-center flex-wrap gap-x-4 gap-y-2 px-4 py-2 border-b border-slate-100 bg-white">
-                        {/* Font size */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'font-size' ? null : 'font-size')}
-                            className="flex items-center gap-1 hover:bg-slate-50 px-2 py-1 rounded"
-                          >
-                            <span className="text-xs text-slate-700">{fontSize}</span>
-                            <ChevronDown size={11} className="text-slate-400" />
-                          </button>
-                          {editorActiveMenu === 'font-size' && (
-                            <div className="absolute top-full left-0 mt-1 w-20 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
-                              {[{label:'8pt',val:'1'},{label:'10pt',val:'2'},{label:'12pt',val:'3'},{label:'14pt',val:'4'},{label:'18pt',val:'5'},{label:'24pt',val:'6'},{label:'36pt',val:'7'}].map(s => (
-                                <button key={s.label} onClick={() => { applyFormat('fontSize', s.val); setFontSize(s.label); setEditorActiveMenu(null) }} className="w-full text-left px-3 py-1 text-xs hover:bg-slate-50 text-slate-600">{s.label}</button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="w-px h-4 bg-slate-200" />
-
-                        {/* B I U */}
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => applyFormat('bold')} className="text-xs font-bold text-slate-800 hover:bg-slate-100 w-7 h-7 rounded flex items-center justify-center">B</button>
-                          <button onClick={() => applyFormat('italic')} className="text-xs italic text-slate-800 hover:bg-slate-100 w-7 h-7 rounded flex items-center justify-center font-serif">I</button>
-                          <button onClick={() => applyFormat('underline')} className="text-xs underline text-slate-800 hover:bg-slate-100 w-7 h-7 rounded flex items-center justify-center">U</button>
-                        </div>
-
-                        <div className="w-px h-4 bg-slate-200" />
-
-                        {/* Font color */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'font-color' ? null : 'font-color')}
-                            className="flex flex-col items-center hover:bg-slate-50 rounded px-1"
-                          >
-                            <span className="text-xs font-bold text-slate-800">A</span>
-                            <div className="w-4 h-0.5" style={{ backgroundColor: selectedColor }} />
-                          </button>
-                          {editorActiveMenu === 'font-color' && (
-                            <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 grid grid-cols-4 gap-1.5">
-                              {['#000000','#EF4444','#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#64748B'].map(c => (
-                                <button key={c} onClick={() => { applyFormat('foreColor', c); setSelectedColor(c); setEditorActiveMenu(null) }} style={{ backgroundColor: c }} className="w-5 h-5 rounded border border-slate-100 hover:scale-110 transition-all" />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Highlight color */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'font-highlight' ? null : 'font-highlight')}
-                            className="flex flex-col items-center hover:bg-slate-50 rounded px-1"
-                          >
-                            <Pencil size={11} className="text-slate-800" />
-                            <div className="w-4 h-0.5" style={{ backgroundColor: selectedHighlight }} />
-                          </button>
-                          {editorActiveMenu === 'font-highlight' && (
-                            <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 grid grid-cols-4 gap-1.5">
-                              {['#FCF8E3','#FEF3C7','#DCFCE7','#DBEAFE','#F3E8FF','#FFE4E6','#F1F5F9','#FFFFFF'].map(c => (
-                                <button key={c} onClick={() => { applyFormat('hiliteColor', c); setSelectedHighlight(c); setEditorActiveMenu(null) }} style={{ backgroundColor: c }} className="w-5 h-5 rounded border border-slate-100 hover:scale-110 transition-all" />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Editable Area */}
-                      <div className="relative overflow-hidden bg-white" style={{ zoom: zoomLevel }}>
-                        {isSourceMode ? (
-                          <textarea
-                            value={sourceHtml}
-                            onChange={e => setSourceHtml(e.target.value)}
-                            className="w-full min-h-[240px] p-5 font-mono text-xs bg-slate-50 text-slate-700 focus:outline-none resize-none border-0"
-                            placeholder="Type raw HTML here..."
-                          />
-                        ) : (
-                          <div
-                            ref={editorRef}
-                            onInput={handleEditorInput}
-                            className="min-h-[240px] p-5 text-sm text-slate-800 outline-none focus:ring-0 selection:bg-blue-100 leading-relaxed"
-                            contentEditable
-                            spellCheck={false}
-                            suppressContentEditableWarning
-                          />
-                        )}
-                      </div>
-
-                      {/* Status Bar */}
-                      <div className="flex items-center justify-between px-4 py-1.5 bg-white text-[11px] text-slate-500 border-t border-slate-100">
-                        <span>{wordCount} words</span>
-                        <div className="flex items-center gap-3">
-                          <span onClick={toggleSourceMode} className={`font-mono cursor-pointer transition-colors ${isSourceMode ? 'text-blue-600 font-bold' : 'opacity-60 hover:opacity-100'}`}>&lt;/&gt;</span>
-                          <span onClick={() => handleZoom(0.1)} className="cursor-pointer opacity-60 hover:opacity-100 text-base leading-none">+</span>
-                          <span onClick={() => handleZoom(-0.1)} className="cursor-pointer opacity-60 hover:opacity-100 text-base leading-none">−</span>
-                          <span onClick={() => setIsFullscreen(!isFullscreen)} className="cursor-pointer opacity-60 hover:opacity-100">⤢</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Attached files */}
-                    {attachedFiles.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {attachedFiles.map((file, i) => (
-                          <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg">
-                            <span className="text-xs text-slate-400">📄</span>
-                            <span className="text-xs font-semibold text-slate-700 max-w-[120px] truncate">{file.name}</span>
-                            <span className="text-[9px] text-slate-400">({file.size})</span>
-                            <button onClick={() => removeFile(i)} className="text-slate-300 hover:text-red-500 transition-colors">
-                              <X size={11} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center justify-between pt-2">
-                      <button
-                        onClick={() => setShowAttachModal(true)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 transition-all text-xs font-semibold text-slate-700"
-                      >
-                        <Paperclip size={14} className="text-slate-500" />
-                        Attach
-                      </button>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => { setShowAddLecture(false); setEditingBlock(null) }}
-                          className="px-5 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-all"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSubmitLecture}
-                          disabled={submittingLecture}
-                          className="px-7 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all"
-                        >
-                          {submittingLecture ? (editingBlock ? 'Saving…' : 'Adding…') : (editingBlock ? 'Save Changes' : 'Add to Queue')}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* ── Queue: unscheduled lecture blocks ────────────────────────── */}
-              {lectureBlocks.filter(b => b.week_id === null).length > 0 && (
-                <div className="mt-4 backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-4 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="text-xs font-black text-slate-700">📦 Queue — Unscheduled Blocks</h3>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Drag a block onto a calendar day to schedule it</p>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {lectureBlocks.filter(b => b.week_id === null).length} block{lectureBlocks.filter(b => b.week_id === null).length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {lectureBlocks.filter(b => b.week_id === null).map(lb => {
-                      const qSubjectColor: Record<string,string> = {
-                        Maths: 'bg-blue-50 border-blue-200 text-blue-700',
-                        Science: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-                        English: 'bg-violet-50 border-violet-200 text-violet-700',
-                        HSIE: 'bg-amber-50 border-amber-200 text-amber-700',
-                        'Creative Arts': 'bg-pink-50 border-pink-200 text-pink-700',
-                        PE: 'bg-orange-50 border-orange-200 text-orange-700',
-                      }
-                      const qColor = qSubjectColor[lb.subject] ?? 'bg-slate-50 border-slate-200 text-slate-700'
-                      return (
-                        <div
-                          key={lb.id}
-                          draggable
-                          onDragStart={e => handleDragStart(e, lb.id)}
-                          onDragEnd={handleDragEnd}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-xl border select-none transition-all hover:shadow-md ${qColor} ${draggingId === lb.id ? 'opacity-40 scale-95 cursor-grabbing' : 'cursor-grab'}`}
-                        >
-                          <span className="text-sm opacity-40 shrink-0">⠿</span>
-                          {/* Click body (not drag handle) to open editor */}
-                          <button
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={e => { e.stopPropagation(); handleEditBlock(lb) }}
-                            className="flex-1 text-left min-w-0"
-                          >
-                            <p className="text-xs font-bold leading-tight truncate">{lb.title}</p>
-                            <p className="text-[9px] opacity-60">{lb.subject} · click to edit</p>
-                          </button>
-                          <button
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={async e => {
-                              e.stopPropagation()
-                              await deleteBlock(lb.id)
-                              setLectureBlocks(prev => prev.filter(b => b.id !== lb.id))
-                            }}
-                            className="shrink-0 text-current opacity-30 hover:opacity-80 transition-opacity"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <div
-                    className={`mt-3 rounded-xl border-2 border-dashed p-2 text-center transition-colors ${dragOverCell === 'queue' ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
-                    onDragOver={e => { e.preventDefault(); setDragOverCell('queue') }}
-                    onDragLeave={() => setDragOverCell(null)}
-                    onDrop={e => {
-                      e.preventDefault(); setDragOverCell(null)
-                      if (draggingId) {
-                        setLectureBlocks(prev => prev.map(b => b.id === draggingId ? { ...b, week_id: null, day_of_week: null, sort_order: 0 } : b))
-                        setDraggingId(null)
-                      }
-                    }}
-                  >
-                    <span className="text-[10px] text-slate-300">↩ Drop here to return block to queue</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Drop-to-queue zone when dragging a scheduled block (queue empty) */}
-              {draggingId && lectureBlocks.filter(b => b.week_id === null).length === 0 && (
                 <div
-                  className={`mt-4 rounded-2xl border-2 border-dashed p-4 text-center transition-colors ${dragOverCell === 'queue' ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+                  className={`mt-3 rounded-xl border-2 border-dashed p-2 text-center transition-colors ${dragOverCell === 'queue' ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
                   onDragOver={e => { e.preventDefault(); setDragOverCell('queue') }}
                   onDragLeave={() => setDragOverCell(null)}
                   onDrop={e => {
@@ -2210,18 +2423,37 @@ export default function CurriculumTab({ classId, subject }: Props) {
                     }
                   }}
                 >
-                  <span className="text-[10px] text-slate-400">↩ Drop here to unschedule block</span>
+                  <span className="text-[10px] text-slate-300">↩ Drop here to return block to queue</span>
                 </div>
-              )}
+              </div>
+            )}
 
-            </div>
-          )}
+            {/* Drop-to-queue zone when dragging a scheduled block (queue empty) */}
+            {draggingId && lectureBlocks.filter(b => b.week_id === null).length === 0 && (
+              <div
+                className={`mt-4 rounded-2xl border-2 border-dashed p-4 text-center transition-colors ${dragOverCell === 'queue' ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+                onDragOver={e => { e.preventDefault(); setDragOverCell('queue') }}
+                onDragLeave={() => setDragOverCell(null)}
+                onDrop={e => {
+                  e.preventDefault(); setDragOverCell(null)
+                  if (draggingId) {
+                    setLectureBlocks(prev => prev.map(b => b.id === draggingId ? { ...b, week_id: null, day_of_week: null, sort_order: 0 } : b))
+                    setDraggingId(null)
+                  }
+                }}
+              >
+                <span className="text-[10px] text-slate-400">↩ Drop here to unschedule block</span>
+              </div>
+            )}
+
+          </div>
+        )}
       </>
 
       {/* ── Conflict Modal ──────────────────────────────────────────────────── */}
       {conflictInfo && (() => {
         const dragged = lectureBlocks.find(b => b.id === conflictInfo.draggedId)
-        const target  = lectureBlocks.find(b => b.id === conflictInfo.targetId)
+        const target = lectureBlocks.find(b => b.id === conflictInfo.targetId)
         return (
           <div className="fixed inset-0 z-[10000] flex items-center justify-center px-4">
             <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setConflictInfo(null)} />
@@ -2270,7 +2502,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
                 <div className="absolute inset-0 border-2 border-slate-400 rounded-sm" />
                 <div className="absolute top-0 right-0 w-4 h-4 bg-white border-l-2 border-b-2 border-slate-400" />
                 <div className="absolute inset-x-2 top-6 space-y-1">
-                  {[1,2,3].map(i => <div key={i} className="h-[1px] bg-slate-300 w-full" />)}
+                  {[1, 2, 3].map(i => <div key={i} className="h-[1px] bg-slate-300 w-full" />)}
                 </div>
               </div>
               <h3 className="text-lg font-bold text-slate-700">Drop document here to upload</h3>

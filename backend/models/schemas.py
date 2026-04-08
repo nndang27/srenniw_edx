@@ -51,11 +51,35 @@ class LectureBlockUpdate(BaseModel):
     day_of_week: Optional[int] = None
     sort_order: Optional[int] = None
 
-class LectureBlockPosition(BaseModel):
+class LectureBlockSync(BaseModel):
     id: str
+    title: str
+    subject: str
+    content: Optional[str] = ""
     week_id: Optional[str] = None
     day_of_week: Optional[int] = None
     sort_order: Optional[int] = 0
 
 class LectureBlockSave(BaseModel):
-    blocks: list[LectureBlockPosition]
+    blocks: list[LectureBlockSync]
+
+class TopicAiGenerateInput(BaseModel):
+    subject: str
+    topic: str
+    learningGoal: str
+
+class TiktokRes(BaseModel):
+    title: str
+    creator: str
+    views: str
+
+class BondingRes(BaseModel):
+    name: str
+    description: str
+
+class TopicAiGenerateResult(BaseModel):
+    summary: str
+    deepDive: str
+    tiktoks: list[TiktokRes]
+    suggestions: list[str]
+    bondingLocations: list[BondingRes]
