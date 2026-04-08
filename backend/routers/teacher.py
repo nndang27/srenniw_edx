@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from urllib.parse import quote
 from auth import require_teacher
 from db.supabase import get_supabase
-from models.schemas import ClassCreate, ComposeInput, LectureBlockCreate, LectureBlockSave, LectureBlockUpdate
+from models.schemas import ClassCreate, ComposeInput, LectureBlockCreate, LectureBlockSave, LectureBlockUpdate, TopicAiRegenerateInput, TopicPublish
 from agent.pipeline import run_agent_pipeline
 
 router = APIRouter(prefix="/api/teacher", tags=["teacher"])
@@ -178,6 +178,7 @@ async def get_class_curriculum(class_id: str, user: dict = Depends(require_teach
                     "subject": class_subject,
                     "topic": clean or raw_title,
                     "learningGoal": (item.get("description") or "")[:300],
+                    "class_work": item.get("description") or "",
                 })
         else:
             assignments.append(formatted)
@@ -575,44 +576,203 @@ async def generate_topic_ai(class_id: str, body: dict, user: dict = Depends(requ
     
     subject = body.get("subject", "")
     topic = body.get("topic", "")
-    learning_goal = body.get("learningGoal", "")
-    prompt_base = f"Subject: {subject}\nTopic: {topic}\nLearning Goal: {learning_goal}"
+    class_work = body.get("class_work", "")
+    print("subject: \n", subject)
+    print("topic: \n", topic)
+    print("learning_goal: \n", class_work)
+    print("===================================")
+    prompt_base = f"###Subject: \n{subject}\n###Topic: \n{topic}\n###Lesson plan: \n{class_work}"
     
     try:
         # Run deeper insights agent
         result_dd = await _feature_agents["deepdive"].ainvoke({"messages": [HumanMessage(content=prompt_base)]})
         deepdive_out = result_dd.get("messages", [])[-1].content
+        print("deepdive_out: \n", deepdive_out)
+        print("===================================")
         
+        # Extract keywords from deepdive payload
+        keywords = []
+        try:
+            dd_json = deepdive_out.strip()
+            if dd_json.startswith("```json"): dd_json = dd_json[7:]
+            if dd_json.endswith("```"): dd_json = dd_json[:-3]
+            parsed_dd = json.loads(dd_json.strip())
+            keywords = parsed_dd.get("keywords", [])
+        except Exception as e:
+            print("Failed to parse keywords from deepdive:", e)
+            
+        import asyncio
+        async def fetch_tiktok(kw):
+            tt_prompt = f"Search and download an educational TikTok using this keyword: '{kw}'"
+            try:
+                res_tt = await _feature_agents["tiktokpull"].ainvoke({"messages": [HumanMessage(content=tt_prompt)]})
+                tt_content = res_tt.get("messages", [])[-1].content
+                tt_json = tt_content.strip()
+                if tt_json.startswith("```json"): tt_json = tt_json[7:]
+                if tt_json.endswith("```"): tt_json = tt_json[:-3]
+                parsed_tt = json.loads(tt_json.strip())
+                
+                local_path = parsed_tt.get("video_local_path", "")
+                if not local_path or "failed" in local_path.lower():
+                    return None
+                    
+                meta = parsed_tt.get("video_metadata", {})
+                return {
+                    "title": meta.get("desc", kw)[:60] + "...",
+                    "creator": meta.get("author", "@tiktok"),
+                    "views": str(meta.get("views", "0")),
+                    "url": meta.get("url", "#")
+                }
+            except Exception as e:
+                print(f"Error fetching tiktok for keyword '{kw}': {e}")
+                return None
+                
+        # To get up to 4 videos, we run multiple tasks
+        extended_kw = (keywords * 4)[:8] if keywords else ["educational video"] * 4
+        tt_tasks = [fetch_tiktok(kw) for kw in extended_kw]
+        tt_results = await asyncio.gather(*tt_tasks)
+        
+        tiktok_data = []
+        for t in tt_results:
+            if t is not None:
+                tiktok_data.append(t)
+            if len(tiktok_data) >= 4:
+                break
+        
+        if not tiktok_data:
+            tiktok_data = [
+                {"title": f"{topic} explained easily", "creator": "@edu_star", "views": "1.2M"},
+                {"title": "Fun activity for " + subject, "creator": "@learning_hacks", "views": "830K"}
+            ]
+
         # Summarize for parents
         prompt_sum = f"Topic Info:\n{prompt_base}\n\nDeepdive:\n{deepdive_out}"
         result_sum = await _feature_agents["summarize"].ainvoke({"messages": [HumanMessage(content=prompt_sum)]})
         sum_out = result_sum.get("messages", [])[-1].content
-        
-        # At Home Activities Suggestions
-        result_sug = await _feature_agents["suggestion"].ainvoke({"messages": [HumanMessage(content=prompt_base)]})
-        sug_out = result_sug.get("messages", [])[-1].content
+
+        print("sum_out: \n", sum_out)
+        print("===================================")
+
     except Exception as e:
         print("Agent Mock Fallback due to error:", e)
         # Fallback to smart-mock data if agent errors
         sum_out = f"This week's lesson on '{topic}' builds core fluency. Students will practice via interactive tasks linking written notation to explicit models."
-        deepdive_out = f"**Why it matters:** {learning_goal}\n**Misconceptions:** Common errors occur when generalizing basic concepts initially.\n**Differentiation:** Extending practice to real world abstract scenarios."
-        sug_out = "🎮 Play 'Fraction War' card game.\\n🛒 Find sale items at the supermarket.\\n🍕 Cook a recipe together."
-    
-    suggestions_list = [s.strip() for s in sug_out.split('\n') if s.strip()]
-    if not suggestions_list:
-        suggestions_list = ["Practice 15 mins daily.", "Review class notes."]
+        deepdive_out = f"**Why it matters:** {class_work[:50]}...\n**Misconceptions:** Common errors occur when generalizing basic concepts initially.\n**Differentiation:** Extending practice to real world abstract scenarios."
+        tiktok_data = [
+            {"title": f"{topic} explained easily", "creator": "@edu_star", "views": "1.2M"},
+            {"title": "Fun activity for " + subject, "creator": "@learning_hacks", "views": "830K"},
+            {"title": f"How to master {subject} quickly", "creator": "@subject_master", "views": "2.1M"}
+        ]
         
     return {
         "summary": sum_out,
         "deepDive": deepdive_out,
-        "tiktoks": [
-            {"title": f"{topic} explained easily", "creator": "@edu_star", "views": "1.2M"},
-            {"title": "Fun activity for " + subject, "creator": "@learning_hacks", "views": "830K"},
-            {"title": f"How to master {subject} quickly", "creator": "@subject_master", "views": "2.1M"}
-        ],
-        "suggestions": suggestions_list,
-        "bondingLocations": [
-            {"name": "Local Library Code Club", "description": "Attend a hands-on community learning group."},
-            {"name": "Science / Children's Museum", "description": "Explore exhibits that connect deeply to the current curriculum context."}
-        ]
+        "tiktoks": tiktok_data
     }
+
+@router.post("/classes/{class_id}/topics/ai-regenerate")
+async def generate_topic_ai_regenerate(class_id: str, body: dict, user: dict = Depends(require_teacher)):
+    from langchain_core.messages import HumanMessage
+    from agent.pipeline import _feature_agents
+    
+    section = body.get("section", "")
+    subject = body.get("subject", "")
+    topic = body.get("topic", "")
+    class_work = body.get("class_work", "")
+
+    previous_response = body.get("previous_ai_response", "")
+    user_requirement = body.get("user_requirement", "")
+    
+    prompt_base = f"###Subject:\n {subject}\n###Topic:\n {topic}\n###Lesson plan:\n {class_work}\n\n###Previous AI Response:\n{previous_response}\n\n###User Requirement (Follow this strictly to revise the previous response):\n{user_requirement}"
+    print("prompt_base: \n", prompt_base)
+    print("===================================")
+    try:
+        if section == "summary":
+            result = await _feature_agents["summarize"].ainvoke({"messages": [HumanMessage(content=prompt_base)]})
+            out = result.get("messages", [])[-1].content
+            return {"result": out}
+        elif section == "deepDive":
+            result = await _feature_agents["deepdive"].ainvoke({"messages": [HumanMessage(content=prompt_base)]})
+            out = result.get("messages", [])[-1].content
+            return {"result": out}
+        elif section == "tiktoks":
+            tt_prompt = f"The user wants a new TikTok video for the topic '{topic}'. Requirements: {user_requirement}. Search and download an appropriate video."
+            result = await _feature_agents["tiktokpull"].ainvoke({"messages": [HumanMessage(content=tt_prompt)]})
+            tt_content = result.get("messages", [])[-1].content
+            import json
+            try:
+                tt_json = tt_content.strip()
+                if tt_json.startswith("```json"): tt_json = tt_json[7:]
+                if tt_json.endswith("```"): tt_json = tt_json[:-3]
+                parsed_tt = json.loads(tt_json.strip())
+                meta = parsed_tt.get("video_metadata", {})
+                out_obj = {
+                    "title": meta.get("desc", "Educational Video")[:60] + "...",
+                    "creator": meta.get("author", "@tiktok"),
+                    "views": str(meta.get("views", "0")),
+                    "url": meta.get("url", "#")
+                }
+                out = json.dumps([out_obj])
+            except Exception as e:
+                print("Failed to parse tiktokpull regenerate output:", e)
+                out = json.dumps([{"title": "Error generating new video", "creator": "@system", "views": "0"}])
+            return {"result": out}
+        else:
+            return {"result": "Invalid section specified."}
+    except Exception as e:
+        print("Agent Mock Fallback due to error in regenerate:", e)
+        return {"result": f"Fallback simulated regeneraton: Successfully applied '{user_requirement}' to this block."}
+
+@router.post("/classes/{class_id}/topics/publish")
+async def publish_topic_brief(class_id: str, body: TopicPublish, user: dict = Depends(require_teacher)):
+    from datetime import datetime, timezone
+    db = get_supabase()
+    
+    # Resolve the correct date from the selected week_id
+    week_info = db.table("academic_weeks").select("start_date").eq("id", body.week_id).execute()
+    date_str = week_info.data[0]["start_date"] if week_info.data else datetime.now(timezone.utc).date().isoformat()
+    
+    # Upsert brief
+    existing = db.table("briefs").select("id").eq("class_id", class_id).eq("date", date_str).eq("subject", body.subject).execute()
+    
+    # Process summary string safely
+    processed_en = body.summary
+    if isinstance(body.summary, dict):
+        processed_en = body.summary.get("essence", str(body.summary))
+        
+    brief_data = {
+        "class_id": class_id,
+        "teacher_clerk_id": user["sub"],
+        "week_id": body.week_id,
+        "content_type": body.topic,
+        "date": date_str,
+        "subject": body.subject,
+        "processed_en": processed_en,
+        "raw_input": body.class_work,
+        "summarize_data": body.summary,
+        "deepdive_data": {"content": body.deepDive} if isinstance(body.deepDive, str) else body.deepDive,
+        "tiktok_data": {"content": None, "videos": body.tiktoks} if isinstance(body.tiktoks, list) else body.tiktoks,
+        "status": "published",
+        "published_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    if existing.data:
+        brief_id = existing.data[0]["id"]
+        db.table("briefs").update(brief_data).eq("id", brief_id).execute()
+    else:
+        inserted = db.table("briefs").insert(brief_data).execute()
+        brief_id = inserted.data[0]["id"]
+        
+    # Broadcast Notification to parents
+    parents = db.table("class_parents").select("parent_clerk_id").eq("class_id", class_id).execute()
+    notifs = []
+    for p in parents.data:
+        notifs.append({
+            "parent_clerk_id": p["parent_clerk_id"],
+            "brief_id": brief_id
+        })
+        
+    if notifs:
+        db.table("notifications").insert(notifs).execute()
+        
+    return {"status": "success", "brief_id": brief_id}

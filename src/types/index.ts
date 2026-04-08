@@ -11,6 +11,8 @@ export interface Brief {
   at_home_activities?: Activity[]
   curriculum_notes?: string
   subject?: string
+  date?: string
+  week_id?: string
   year_level?: string
   status: BriefStatus
   created_at: string

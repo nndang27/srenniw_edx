@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import type { Notification, Activity } from '@/types'
 import { formatDate } from '@/lib/utils'
-import { Clock, Reply, ChevronDown, ChevronUp } from 'lucide-react'
+import { Clock, Reply, ChevronDown, ChevronRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 interface Props {
   notification: Notification
@@ -33,10 +34,17 @@ export default function NotificationCard({ notification, onRead, onFeedback }: P
   const [feedbackText, setFeedbackText] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const { brief } = notification
+  const router = useRouter()
 
   const handleOpen = () => {
-    setExpanded(prev => !prev)
     if (!notification.is_read) onRead(notification.notification_id)
+
+    // Deep link to specific day and subject if available
+    if (brief.date && brief.subject) {
+      router.push(`/parent/day/${brief.date}/${brief.subject}`)
+    } else {
+      setExpanded(prev => !prev)
+    }
   }
 
   const handleFeedbackSubmit = () => {
@@ -48,15 +56,14 @@ export default function NotificationCard({ notification, onRead, onFeedback }: P
 
   const activities = brief.at_home_activities || []
   const contentTypeLabel: Record<string, string> = {
-    assignment:    'Assignment',
-    comment:       'Message',
+    assignment: 'Assignment',
+    comment: 'Message',
     weekly_update: 'Weekly Update',
   }
 
   return (
-    <div className={`border rounded-2xl overflow-hidden bg-white transition-all duration-200 ${
-      notification.is_read ? 'border-[#eeeeee]' : 'border-[#c3d3fb] shadow-sm'
-    }`}>
+    <div className={`border rounded-2xl overflow-hidden bg-white transition-all duration-200 ${notification.is_read ? 'border-[#eeeeee]' : 'border-[#c3d3fb] shadow-sm'
+      }`}>
       <button onClick={handleOpen} className="w-full text-left p-5 hover:bg-[#f7f8fc] transition-colors">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -69,7 +76,7 @@ export default function NotificationCard({ notification, onRead, onFeedback }: P
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs text-[#999]">{formatDate(notification.created_at)}</span>
-            {expanded ? <ChevronUp size={14} className="text-[#999]" /> : <ChevronDown size={14} className="text-[#999]" />}
+            {brief.date && brief.subject ? <ChevronRight size={14} className="text-[#999]" /> : (expanded ? <ChevronDown size={14} className="text-[#999] rotate-180" /> : <ChevronDown size={14} className="text-[#999]" />)}
           </div>
         </div>
         <p className="mt-3 text-sm text-[#555] leading-relaxed line-clamp-3">

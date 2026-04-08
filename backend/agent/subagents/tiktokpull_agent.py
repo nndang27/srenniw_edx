@@ -22,7 +22,7 @@ Output format MUST be strictly JSON:
 ```json
 {
     "video_local_path": "...",
-    "video_metadata": { "author": "...", "desc": "...", "likes": 0, "views": 0 }
+    "video_metadata": { "author": "...", "desc": "...", "likes": 0, "views": 0, "url": "..." }
 }
 ```
 """

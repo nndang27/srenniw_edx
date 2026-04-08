@@ -67,19 +67,31 @@ class TopicAiGenerateInput(BaseModel):
     subject: str
     topic: str
     learningGoal: str
+    class_work: Optional[str] = ""
+
+class TopicAiRegenerateInput(BaseModel):
+    section: str
+    subject: str
+    topic: str
+    class_work: str = ""
+    previous_ai_response: str
+    user_requirement: str
+
+class TopicPublish(BaseModel):
+    week_id: str
+    subject: str
+    topic: str
+    summary: dict | str | None = None
+    deepDive: dict | str | None = None
+    tiktoks: list | None = None
+    class_work: str | None = None
 
 class TiktokRes(BaseModel):
     title: str
     creator: str
     views: str
 
-class BondingRes(BaseModel):
-    name: str
-    description: str
-
 class TopicAiGenerateResult(BaseModel):
     summary: str
     deepDive: str
     tiktoks: list[TiktokRes]
-    suggestions: list[str]
-    bondingLocations: list[BondingRes]

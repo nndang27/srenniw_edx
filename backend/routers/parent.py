@@ -37,7 +37,7 @@ async def get_inbox(limit: int = 20, offset: int = 0, user: dict = Depends(requi
 
     # Get notifications with brief data
     notifs = db.table("notifications")\
-        .select("*, briefs(id, content_type, subject, processed_en, at_home_activities, published_at)")\
+        .select("*, briefs(id, content_type, subject, date, week_id, processed_en, at_home_activities, published_at)")\
         .eq("parent_clerk_id", user["sub"])\
         .order("created_at", desc=True)\
         .range(offset, offset + limit - 1).execute()
@@ -62,6 +62,17 @@ async def get_inbox(limit: int = 20, offset: int = 0, user: dict = Depends(requi
             "brief": {**brief, "content": content, "at_home_activities": activities}
         })
     return {"unread_count": unread.count or 0, "items": items}
+
+@router.get("/briefs")
+async def get_parent_brief(date: str, subject: str, user: dict = Depends(require_parent)):
+    db = get_supabase()
+    parents = db.table("class_parents").select("class_id").eq("parent_clerk_id", user["sub"]).execute()
+    class_ids = [p["class_id"] for p in parents.data]
+    if not class_ids:
+        return {"brief": None}
+    
+    briefs = db.table("briefs").select("*").in_("class_id", class_ids).eq("date", date).eq("subject", subject).order("created_at", desc=True).limit(1).execute()
+    return {"brief": briefs.data[0] if briefs.data else None}
 
 @router.patch("/inbox/{notification_id}/read")
 async def mark_read(notification_id: str, user: dict = Depends(require_parent)):

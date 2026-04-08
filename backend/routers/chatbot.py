@@ -29,6 +29,16 @@ async def websocket_chatbot(websocket: WebSocket, parent_id: str, token: str = "
 
     await websocket.accept()
 
+    from agent.context import current_parent_id, current_student_id, current_class_id
+    from db.supabase import get_supabase
+    
+    db_client = get_supabase()
+    profile = db_client.table("class_parents").select("class_id, student_id").eq("parent_clerk_id", parent_id).limit(1).execute()
+    if profile.data:
+        current_parent_id.set(parent_id)
+        current_student_id.set(profile.data[0].get("student_id"))
+        current_class_id.set(profile.data[0].get("class_id"))
+
     try:
         while True:
             data = await websocket.receive_json()

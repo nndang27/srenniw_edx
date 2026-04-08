@@ -22,6 +22,7 @@ import TikTokHookPanel from '@/components/quick-peek/TikTokHookPanel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
+import { useApi } from '@/lib/api'
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -996,6 +997,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   const subject = decodeURIComponent(subjectEncoded)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const api = useApi()
 
   const [schedule, setSchedule] = useState<any[]>([])
   useEffect(() => {
@@ -1005,6 +1007,14 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
       .catch(console.error)
   }, [date])
 
+  const [briefLoad, setBriefLoad] = useState<any>(null)
+
+  useEffect(() => {
+    api.getParentBrief(date, subject)
+      .then((res: any) => setBriefLoad(res.brief))
+      .catch((err: any) => console.error(err))
+  }, [date, subject, api])
+
   const rawEntry = schedule.find((s: any) => s.subject === subject)
   const subjectEntry = rawEntry ?? {
     subject,
@@ -1013,7 +1023,27 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
     topic: subject,
     type: 'before-school' as const,
   }
-  const quickPeek = getQuickPeekForSchedule(subject, subjectEntry.topic)
+  const quickPeekFallback = getQuickPeekForSchedule(subject, subjectEntry.topic)
+
+  let sumObj = briefLoad?.summarize_data?.content || briefLoad?.summarize_data
+  if (typeof sumObj === 'string') { try { sumObj = JSON.parse(sumObj) } catch (e) { } }
+  if (!sumObj && briefLoad?.processed_en) {
+    if (typeof briefLoad.processed_en === 'string' && briefLoad.processed_en.trim().startsWith('{')) {
+      try { sumObj = JSON.parse(briefLoad.processed_en) } catch (e) { }
+    }
+  }
+
+  let ddObj = briefLoad?.deepdive_data?.content || briefLoad?.deepdive_data
+  if (typeof ddObj === 'string') { try { ddObj = JSON.parse(ddObj) } catch (e) { } }
+
+  const quickPeek = {
+    essence_text: sumObj?.essence || (typeof briefLoad?.processed_en === 'string' && !briefLoad.processed_en.trim().startsWith('{') ? briefLoad.processed_en : null) || quickPeekFallback.essence_text,
+    relatable_example: sumObj?.example || quickPeekFallback.relatable_example,
+    core_concept: ddObj?.core_concept || quickPeekFallback.core_concept,
+    key_vocabulary: ddObj?.key_vocabulary || quickPeekFallback.key_vocabulary,
+    why_this_matters: ddObj?.why_this_matters || quickPeekFallback.why_this_matters,
+    videos: briefLoad?.tiktok_data?.videos || quickPeekFallback.videos
+  }
 
   const subjectIndex = schedule.findIndex((s: any) => s.subject === subject)
   const prevSubject = subjectIndex > 0 ? schedule[subjectIndex - 1] : null
@@ -1177,9 +1207,9 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-              <h3 className="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight">
-                ✨ 60s Summary
-              </h3>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight">
+              ✨ 60s Summary
+            </h3>
           </div>
 
           <p className="text-lg sm:text-xl text-slate-600 leading-relaxed font-medium mt-2">
@@ -1811,11 +1841,11 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   /* ─── Layout ── */
 
   const WEEK_DAYS = [
-    { name: 'Monday',    date: '2026-04-06' },
-    { name: 'Tuesday',   date: '2026-04-07' },
+    { name: 'Monday', date: '2026-04-06' },
+    { name: 'Tuesday', date: '2026-04-07' },
     { name: 'Wednesday', date: '2026-04-08' },
-    { name: 'Thursday',  date: '2026-04-09' },
-    { name: 'Friday',    date: '2026-04-10' },
+    { name: 'Thursday', date: '2026-04-09' },
+    { name: 'Friday', date: '2026-04-10' },
   ]
 
   const currentDayName = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })
@@ -1830,7 +1860,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
 
       {/* Main Container for Header and Content */}
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-6 sm:py-10">
-        
+
         {/* Top Navigation Row */}
         <div className="flex flex-wrap sm:flex-nowrap items-center justify-between mb-8 gap-y-6">
           {/* Left: Back Button */}
@@ -1856,33 +1886,33 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
 
                 return (
                   <div key={dayObj.name} className={`flex items-center ${!isLast ? 'flex-1' : ''}`}>
-                    <div 
+                    <div
                       className="relative flex flex-col items-center group cursor-pointer"
                       onClick={() => {
-                          const nextSchedule = getScheduleForDate(dayObj.date)
-                          if (nextSchedule.length > 0) {
-                              router.push(`/parent/day/${dayObj.date}/${encodeURIComponent(nextSchedule[0].subject)}`)
-                          } else {
-                              router.push(`/parent/day/${dayObj.date}`)
-                          }
+                        const nextSchedule = getScheduleForDate(dayObj.date)
+                        if (nextSchedule.length > 0) {
+                          router.push(`/parent/day/${dayObj.date}/${encodeURIComponent(nextSchedule[0].subject)}`)
+                        } else {
+                          router.push(`/parent/day/${dayObj.date}`)
+                        }
                       }}
                     >
-                      <div 
-                         className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs transition-all duration-300 z-10 relative
-                           ${isActive 
-                             ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-100 scale-110' 
-                             : isPast 
-                                ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' 
-                                : 'bg-white text-slate-400 border border-slate-100 hover:border-indigo-300 hover:text-indigo-500'}`}
+                      <div
+                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs transition-all duration-300 z-10 relative
+                           ${isActive
+                            ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-100 scale-110'
+                            : isPast
+                              ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                              : 'bg-white text-slate-400 border border-slate-100 hover:border-indigo-300 hover:text-indigo-500'}`}
                       >
-                         {dayObj.name.slice(0, 3)}
+                        {dayObj.name.slice(0, 3)}
                       </div>
                     </div>
 
                     {/* Connecting Line */}
                     {!isLast && (
                       <div className="flex-1 h-0.5 mx-1 sm:mx-2 rounded-full bg-slate-100 relative overflow-hidden">
-                        <div 
+                        <div
                           className="absolute top-0 left-0 h-full bg-indigo-600 transition-all duration-500"
                           style={{ width: isPast && dayIndex > idx ? '100%' : '0%' }}
                         />
@@ -1893,7 +1923,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
               })}
             </div>
           </div>
-          
+
           {/* Right: Subject Badge */}
           <div className="w-auto sm:w-1/4 flex justify-end order-2 sm:order-3">
             <div
@@ -1910,20 +1940,20 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
         <header className="mb-8 flex flex-col items-center text-center">
           {/* Current Subject Context Info */}
           <div className="space-y-0.5 flex flex-col items-center text-center">
-             <p className="text-slate-400 font-bold text-xs sm:text-sm">
-                {new Date(date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
-             </p>
-             <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-                {subjectEntry.topic}
-             </h2>
-             <div className="flex items-center justify-center gap-2 text-slate-500 font-bold text-[10px] sm:text-xs pt-1">
-                <div className="flex items-center gap-1">
-                    <Clock size={14} />
-                    {subjectEntry.time}
-                </div>
-                <div className="w-1 h-1 bg-slate-200 rounded-full" />
-                <span>{subjectEntry.teacher}</span>
-             </div>
+            <p className="text-slate-400 font-bold text-xs sm:text-sm">
+              {new Date(date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
+              {subjectEntry.topic}
+            </h2>
+            <div className="flex items-center justify-center gap-2 text-slate-500 font-bold text-[10px] sm:text-xs pt-1">
+              <div className="flex items-center gap-1">
+                <Clock size={14} />
+                {subjectEntry.time}
+              </div>
+              <div className="w-1 h-1 bg-slate-200 rounded-full" />
+              <span>{subjectEntry.teacher}</span>
+            </div>
           </div>
         </header>
 
@@ -1948,22 +1978,22 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
 
         {/* Tab content */}
         <div className="flex-1 overflow-auto">
-            <div className={`px-4 py-5 ${activeTab === 'journal' ? 'max-w-2xl mx-auto' : activeTab === 'activity' ? 'max-w-4xl mx-auto' : ''}`}>
-              {activeTab === 'journey' && renderJourney()}
-              {activeTab === 'activity' && renderActivity()}
-              {activeTab === 'journal' && (
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <NotebookPen size={15} style={{ color }} />
-                    <h2 className="text-sm font-bold text-slate-700">Journal — {subject}</h2>
-                  </div>
-                  {renderJournal()}
+          <div className={`px-4 py-5 ${activeTab === 'journal' ? 'max-w-2xl mx-auto' : activeTab === 'activity' ? 'max-w-4xl mx-auto' : ''}`}>
+            {activeTab === 'journey' && renderJourney()}
+            {activeTab === 'activity' && renderActivity()}
+            {activeTab === 'journal' && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <NotebookPen size={15} style={{ color }} />
+                  <h2 className="text-sm font-bold text-slate-700">Journal — {subject}</h2>
                 </div>
-              )}
+                {renderJournal()}
+              </div>
+            )}
 
-              {/* Subject navigation arrows (for non-journey tabs) */}
-              {activeTab !== 'journey' && renderNavigation()}
-            </div>
+            {/* Subject navigation arrows (for non-journey tabs) */}
+            {activeTab !== 'journey' && renderNavigation()}
+          </div>
         </div>
       </div>
 

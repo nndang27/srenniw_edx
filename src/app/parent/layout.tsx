@@ -7,14 +7,17 @@ import { Poppins } from 'next/font/google'
 import Link from 'next/link'
 import CommunicationHub from '@/components/shared/CommunicationHub'
 import SettingsModal from '@/components/shared/SettingsModal'
+import { useApi } from '@/lib/api'
+import { createBrowserClient } from '@/lib/supabase'
+import { useUser } from '@clerk/nextjs'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['800'] })
 
 const navItems = [
-  { id: 'calendar',  label: 'Calendar',  icon: CalendarDays },
-  { id: 'progress',  label: 'Progress',  icon: TrendingUp },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'progress', label: 'Progress', icon: TrendingUp },
   { id: 'transcript', label: 'Transcript', icon: TrendingUp },
-  { id: 'insights',  label: 'Insights',  icon: Lightbulb },
+  { id: 'insights', label: 'Insights', icon: Lightbulb },
 ] as const
 
 type SectionId = typeof navItems[number]['id']
@@ -22,8 +25,8 @@ type SectionId = typeof navItems[number]['id']
 const sectionColors: Record<SectionId, { active: string; ring: string }> = {
   calendar: { active: 'bg-blue-500 text-white shadow-blue-200', ring: 'ring-2 ring-blue-300/40' },
   transcript: { active: 'bg-indigo-500 text-white shadow-indigo-200', ring: 'ring-2 ring-indigo-300/40' },
-  progress:  { active: 'bg-violet-500 text-white shadow-violet-200', ring: 'ring-2 ring-violet-300/40' },
-  insights:  { active: 'bg-emerald-500 text-white shadow-emerald-200', ring: 'ring-2 ring-emerald-300/40' },
+  progress: { active: 'bg-violet-500 text-white shadow-violet-200', ring: 'ring-2 ring-violet-300/40' },
+  insights: { active: 'bg-emerald-500 text-white shadow-emerald-200', ring: 'ring-2 ring-emerald-300/40' },
 }
 
 interface ParentNotification {
@@ -64,15 +67,47 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
     }
   }, [])
 
-  const [notifications, setNotifications] = useState(PARENT_NOTIFICATIONS)
+  const api = useApi()
+  const { user } = useUser()
+  const [notifications, setNotifications] = useState<any[]>([])
+
+  const fetchInbox = () => {
+    api.getInbox()
+      .then(({ items }) => {
+        setNotifications(items)
+      })
+      .catch(console.error)
+  }
+
+  useEffect(() => {
+    if (user?.id) fetchInbox()
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!user?.id) return
+    const supabase = createBrowserClient()
+    const channel = supabase.channel('parent-notifications-layout')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
+        const notif = payload.new as any
+        if (notif.parent_clerk_id === user.id) fetchInbox()
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id])
+
   const [activeSection, setActiveSection] = useState<SectionId | null>(null)
   const [navVisible, setNavVisible] = useState(true)
   const lastScrollY = useRef(0)
   const bellRef = useRef<HTMLDivElement>(null)
   const isHome = pathname === '/parent'
 
-  const unreadCount = notifications.filter(n => !n.read).length
-  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  const unreadCount = notifications.filter(n => !n.is_read).length
+  const markAllRead = () => {
+    // Optimistic UI state
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+    // If we wanted, we could also loop through and `api.markRead(n.notification_id)` 
+    // but typically parents read them one by one. Or you can leave as optimistic.
+  }
 
   // Click-outside to close bell dropdown
   useEffect(() => {
@@ -174,59 +209,73 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
                   </div>
                 </div>
                 <div className="max-h-72 overflow-y-auto [&::-webkit-scrollbar]:hidden">
-                  {notifications.map(n => (
-                    <button
-                      key={n.id}
-                      onClick={() => {
-                        setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item))
-                        setBellOpen(false)
-                        const title = n.title.toLowerCase()
-                        if (title.includes('summary') || title.includes('digest') || title.includes('activity')) {
-                          const isActivity = title.includes('activity')
-                          const today = new Date()
-                          const yyyy = today.getFullYear()
-                          const mm = String(today.getMonth() + 1).padStart(2, '0')
-                          const dd = String(today.getDate()).padStart(2, '0')
-                          const dateStr = `${yyyy}-${mm}-${dd}`
-                          
-                          import('@/lib/mockTimetable').then(({ getScheduleForDate, getSchoolDays }) => {
-                            let targetDate = dateStr
-                            let schedule = getScheduleForDate(targetDate)
-                            
-                            // If today has no schedule (weekend or outside mock data), use first available date
-                            if (schedule.length === 0) {
-                              const schoolDays = getSchoolDays()
-                              if (schoolDays.length > 0) {
-                                targetDate = schoolDays[0]
-                                schedule = getScheduleForDate(targetDate)
+                  {notifications.map(n => {
+                    const brief = n.brief || {}
+                    const title = brief.subject ? `New lesson for ${brief.subject}` : brief.content_type
+                    const body = brief.processed_en || brief.content || "Click to see details"
+                    const time = new Date(n.created_at).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    const icon = brief.subject ? '📚' : '💬'
+                    return (
+                      <button
+                        key={n.notification_id}
+                        onClick={() => {
+                          api.markRead(n.notification_id).catch(() => { })
+                          setNotifications(prev => prev.map(item => item.notification_id === n.notification_id ? { ...item, is_read: true } : item))
+                          setBellOpen(false)
+                          const titleLower = (title || '').toLowerCase()
+
+                          if (brief.date && brief.subject) {
+                            router.push(`/parent/day/${brief.date}/${encodeURIComponent(brief.subject)}`)
+                            return
+                          }
+
+                          if (titleLower.includes('summary') || titleLower.includes('digest') || titleLower.includes('activity')) {
+                            const isActivity = titleLower.includes('activity')
+                            const today = new Date()
+                            const yyyy = today.getFullYear()
+                            const mm = String(today.getMonth() + 1).padStart(2, '0')
+                            const dd = String(today.getDate()).padStart(2, '0')
+                            const dateStr = `${yyyy}-${mm}-${dd}`
+
+                            import('@/lib/mockTimetable').then(({ getScheduleForDate, getSchoolDays }) => {
+                              let targetDate = dateStr
+                              let schedule = getScheduleForDate(targetDate)
+
+                              // If today has no schedule (weekend or outside mock data), use first available date
+                              if (schedule.length === 0) {
+                                const schoolDays = getSchoolDays()
+                                if (schoolDays.length > 0) {
+                                  targetDate = schoolDays[0]
+                                  schedule = getScheduleForDate(targetDate)
+                                }
                               }
-                            }
-                            
-                            if (schedule && schedule.length > 0) {
-                              const baseRoute = `/parent/day/${targetDate}/${encodeURIComponent(schedule[0].subject)}`
-                              router.push(isActivity ? `${baseRoute}?tab=activity` : baseRoute)
-                            } else {
+
+                              if (schedule && schedule.length > 0) {
+                                const baseRoute = `/parent/day/${targetDate}/${encodeURIComponent(schedule[0].subject)}`
+                                router.push(isActivity ? `${baseRoute}?tab=activity` : baseRoute)
+                              } else {
+                                if (pathname !== '/parent') router.push('/parent')
+                                setTimeout(() => document.getElementById(`section-calendar`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+                              }
+                            }).catch(() => {
                               if (pathname !== '/parent') router.push('/parent')
-                              setTimeout(() => document.getElementById(`section-calendar`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
-                            }
-                          }).catch(() => {
-                            if (pathname !== '/parent') router.push('/parent')
-                          })
-                        } else if (title.includes('message')) {
-                          window.dispatchEvent(new CustomEvent('open-communication-hub', { detail: { tab: 'teacher' } }))
-                        }
-                      }}
-                      className={`w-full flex items-start gap-3 px-4 py-3 border-b border-slate-50 text-left hover:bg-slate-50 transition-colors ${!n.read ? 'bg-blue-50/40' : ''}`}
-                    >
-                      <span className="text-lg shrink-0">{n.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold ${!n.read ? 'text-slate-800' : 'text-slate-600'}`}>{n.title}</p>
-                        <p className="text-xs text-slate-400 mt-0.5 leading-snug">{n.body}</p>
-                        <p className="text-[10px] text-slate-300 mt-1">{n.time}</p>
-                      </div>
-                      {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0" />}
-                    </button>
-                  ))}
+                            })
+                          } else if (titleLower.includes('message')) {
+                            window.dispatchEvent(new CustomEvent('open-communication-hub', { detail: { tab: 'teacher' } }))
+                          }
+                        }}
+                        className={`w-full flex items-start gap-3 px-4 py-3 border-b border-slate-50 text-left hover:bg-slate-50 transition-colors ${!n.is_read ? 'bg-blue-50/40' : ''}`}
+                      >
+                        <span className="text-lg shrink-0">{icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-semibold ${!n.is_read ? 'text-slate-800' : 'text-slate-600'}`}>{title}</p>
+                          <p className="text-xs text-slate-400 mt-0.5 leading-snug line-clamp-2">{body}</p>
+                          <p className="text-[10px] text-slate-300 mt-1">{time}</p>
+                        </div>
+                        {!n.is_read && <span className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0" />}
+                      </button>
+                    )
+                  })}
                 </div>
                 {notifications.length === 0 && (
                   <p className="text-center text-sm text-slate-400 py-8">All caught up! 🎉</p>
@@ -249,9 +298,8 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
       {/* Pill nav — only on /parent home */}
       {isHome && (
         <div
-          className={`sticky top-[57px] z-40 transition-all duration-300 ease-in-out ${
-            navVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1 pointer-events-none'
-          }`}
+          className={`sticky top-[57px] z-40 transition-all duration-300 ease-in-out ${navVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1 pointer-events-none'
+            }`}
         >
           <nav className="flex items-center justify-center gap-2 px-4 py-2.5">
             {navItems.map(({ id, label, icon: Icon }) => {

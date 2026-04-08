@@ -5,7 +5,7 @@ Responsible for creating the parent-friendly "Essence" and "Example" summaries.
 """
 from agent.subagents.base_subagent import SubAgent
 from agent.tools.summarize import summarize_fetch_material_from_cloud
-from agent.tools.curricullm_tools import curricullm_generate
+# from agent.tools.curricullm_tools import curricullm_generate
 
 DEFAULT_MODEL = "anthropic:claude-sonnet-4-6"
 
@@ -33,7 +33,7 @@ You MUST wrap your final output strictly in valid JSON format like this:
 
 def get_tools():
     return [
-        curricullm_generate,
+        # curricullm_generate,
         summarize_fetch_material_from_cloud,
     ]
 

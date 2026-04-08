@@ -35,6 +35,12 @@ def _load_insights() -> dict:
     except Exception as e:
         return {"_error": str(e)}
 
+def _validate_date(date_str: str):
+    """Ensure the date string is safely formatted for Supabase as YYYY-MM-DD."""
+    import re
+    if not date_str or not isinstance(date_str, (str, bytes)): return None
+    match = re.search(r"(\d{4}-\d{2}-\d{2})", str(date_str))
+    return match.group(1) if match else None
 
 # ── Homework context (weekly assignments) ─────────────────────────────────────
 
@@ -127,34 +133,55 @@ def get_homework_context_text() -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TOOL 0 — Time Context
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@tool
+def get_current_time() -> str:
+    """Always use this tool first to get the current system date and time before calculating any relative time frames."""
+    from datetime import datetime
+    return f"Current date and time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # TOOL 1 — Homework & Study Help
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @tool
-def get_current_homework(subject: str = "") -> str:
+def get_current_homework(start_date: str = "", end_date: str = "", subjects: list[str] = None) -> str:
     """
-    Get this week's homework assignments and key concepts taught in class.
-
+    Get homework assignments and activities for a specific date range.
     Args:
-        subject: Optional filter e.g. 'Maths', 'English'. Empty = all subjects.
-    Returns:
-        Homework tasks, concepts, due dates, and difficulty level.
+        start_date: YYYY-MM-DD
+        end_date: YYYY-MM-DD
+        subjects: list of subjects to filter by, e.g. ["Maths", "English"]
     """
-    ctx = SAMPLE_HOMEWORK_CONTEXT
-    assignments = (
-        [a for a in ctx["assignments"] if subject.lower() in a["subject"].lower()]
-        if subject else ctx["assignments"]
-    )
-    if not assignments:
-        return f"No homework found for '{subject}' this week."
+    try:
+        from db.supabase import get_supabase
+        from agent.context import current_class_id
+        db = get_supabase()
+        
+        start_date = _validate_date(start_date)
+        end_date = _validate_date(end_date)
+        
+        query = db.table("briefs").select("subject, date, processed_en, at_home_activities").eq("status", "published")
+        if start_date: query = query.gte("date", start_date)
+        if end_date: query = query.lte("date", end_date)
+        if subjects: query = query.in_("subject", subjects)
+        
+        class_id = current_class_id.get()
+        if class_id:
+            query = query.eq("class_id", class_id)
+        
+        briefs = query.order("date", desc=True).limit(50).execute()
+        if not briefs.data: return f"No homework found from {start_date} to {end_date}."
+            
+        lines = [f"=== HOMEWORK ACTIVITIES ({start_date} to {end_date}) ==="]
+        for b in briefs.data:
+            lines.append(f"[{b['date']}] {b['subject']} Homework: {b.get('at_home_activities') or 'No specific activities recorded.'}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Database error: {e}"
 
-    lines = [f"Homework — {ctx['week']}, {ctx['year_level']}:"]
-    for a in assignments:
-        lines.append(f"\n{a['subject']} — {a['topic']} (Due: {a['due']}, Difficulty: {a['difficulty']})")
-        lines.append(f"Task: {a['description']}")
-        for c in a["concepts"]:
-            lines.append(f"  • {c}")
-    return "\n".join(lines)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -162,12 +189,40 @@ def get_current_homework(subject: str = "") -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @tool
-def get_wellbeing_summary() -> str:
+def get_wellbeing_summary(start_date: str = "", end_date: str = "") -> str:
     """
-    Get the child's emotional wellbeing profile from recent journal data.
-    Includes: PERMA scores, positivity ratio, emotional trend, and any alerts.
-    Use when parent asks about child's mood, happiness, stress, or anxiety.
+    Get the child's emotional wellbeing and diary entries in a specific date range.
+    If dates are provided, exact diaries are fetched. Otherwise, a general summary is provided.
+    Args:
+        start_date: YYYY-MM-DD
+        end_date: YYYY-MM-DD
     """
+    try:
+        if start_date or end_date:
+            from db.supabase import get_supabase
+            from agent.context import current_student_id
+            db = get_supabase()
+            
+            start_date = _validate_date(start_date)
+            end_date = _validate_date(end_date)
+            
+            query = db.table("student_diaries").select("date, subject, emotion, cognitive_level, parent_note")
+            if start_date: query = query.gte("date", start_date)
+            if end_date: query = query.lte("date", end_date)
+            
+            student_id = current_student_id.get()
+            if student_id:
+                query = query.eq("student_id", student_id)
+                
+            res = query.order("date", desc=True).limit(50).execute()
+            if not res.data: return f"No wellbeing logs found from {start_date} to {end_date}."
+            lines = [f"=== WELLBEING & DIARY ({start_date} to {end_date}) ==="]
+            for d in res.data:
+                lines.append(f"[{d['date']}] Emotion: {d['emotion']} | Subject: {d['subject']} | CogLevel: {d['cognitive_level']} | Note: {d.get('parent_note','')}")
+            return "\n".join(lines)
+    except Exception as e:
+        pass
+
     data = _load_insights()
     if "_error" in data:
         return "Wellbeing data unavailable. Using general guidance."
@@ -180,13 +235,14 @@ def get_wellbeing_summary() -> str:
     alert = e.get("alert")
     trend_week = e.get("chart_data_week", [])
 
-    lines = [
-        "=== CHILD WELLBEING PROFILE ===",
+    lines = ["=== CHILD WELLBEING PROFILE ==="]
+        
+    lines.extend([
         f"Overall status: {status} (positivity ratio: {round(ratio * 100)}%)",
         f"Latest emotion: {today.get('emotion', 'N/A')} — {today.get('message', '')}",
         "",
         "PERMA Scores (0-100):",
-    ]
+    ])
     for k, v in perma.items():
         bar = "█" * (v // 10) + "░" * (10 - v // 10)
         lines.append(f"  {k:15s} {bar} {v}")
@@ -480,11 +536,58 @@ def get_health_tips(topic: str = "") -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TOOL 8 — Curriculum Database Search
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@tool
+def search_curriculum_database(start_date: str = "", end_date: str = "", subjects: list[str] = None) -> str:
+    """
+    Search the database for what the child learned in a specific date range.
+    
+    Args:
+        start_date: YYYY-MM-DD
+        end_date: YYYY-MM-DD
+        subjects: Optional list of subjects to filter by, e.g. ["Maths", "English"].
+    """
+    try:
+        from db.supabase import get_supabase
+        from agent.context import current_class_id
+        db = get_supabase()
+        
+        start_date = _validate_date(start_date)
+        end_date = _validate_date(end_date)
+        
+        query = db.table("briefs").select("subject, date, processed_en, summarize_data").eq("status", "published")
+        if start_date: query = query.gte("date", start_date)
+        if end_date: query = query.lte("date", end_date)
+        if subjects: query = query.in_("subject", subjects)
+        
+        class_id = current_class_id.get()
+        if class_id:
+            query = query.eq("class_id", class_id)
+            
+        briefs = query.order("date", desc=True).limit(50).execute()
+        
+        if not briefs.data:
+            return f"No curriculum database entries found from {start_date} to {end_date}."
+            
+        lines = [f"=== DATABASE SEARCH RESULTS ({start_date} to {end_date}) ==="]
+        for b in briefs.data:
+            sum_data = b.get("summarize_data") or {}
+            essence = sum_data.get("essence", b.get("processed_en", "No summary available"))
+            lines.append(f"[{b['date']}] Subject: {b['subject']}\nContent: {essence}\n")
+            
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error connecting to curriculum database: {e}"
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # EXPORTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def get_tools():
     return [
+        get_current_time,
         get_current_homework,
         get_wellbeing_summary,
         get_learning_profile,
@@ -492,4 +595,5 @@ def get_tools():
         get_personality_profile,
         get_schedule_context,
         get_health_tips,
+        search_curriculum_database,
     ]

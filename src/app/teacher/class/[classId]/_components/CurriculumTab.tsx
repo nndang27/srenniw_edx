@@ -4,7 +4,7 @@ import { useAuth } from '@clerk/nextjs'
 import {
   ChevronDown, ChevronLeft, ChevronRight, Pencil, Calendar, List,
   CheckCircle, X, Save, Sparkles, Wifi, RefreshCw, BookOpen,
-  ClipboardList, Users, Zap, Send, MessageSquare, Plus, Paperclip, Trash2,
+  ClipboardList, Users, Zap, Send, MessageSquare, Plus, Paperclip, Trash2, Target,
 } from 'lucide-react'
 import { SUBJECTS } from '@/lib/mockTeacherData'
 import type { ClassroomCourseData, ClassroomItem, ClassroomWeeklyTopic } from '@/lib/api'
@@ -43,14 +43,12 @@ const AI_GOALS: Record<string, string> = {
 
 const TIME_SLOTS = ['9:00–10:00', '10:30–11:30', '13:00–14:00', '14:15–15:00']
 
-interface WeekItem { subject: string; topic: string; learningGoal: string }
+interface WeekItem { subject: string; topic: string; learningGoal: string; class_work?: string }
 interface SavedEntry { topic: string; learningGoal: string }
 interface AIResult {
   summary: string
   deepDive: string
-  tiktoks: { title: string; creator: string; views: string }[]
-  suggestions: string[]
-  bondingLocations: { name: string; description: string }[]
+  tiktoks: { title: string; creator: string; views: string; url?: string }[]
 }
 type AIStatus = 'idle' | 'processing' | 'done'
 
@@ -182,8 +180,6 @@ function generateAIResult(subject: string, topic: string): AIResult {
     summary: summaries[s],
     deepDive: deepDives[s],
     tiktoks: tiktoks[s] ?? tiktoks.Maths,
-    suggestions: suggestions[s] ?? suggestions.Maths,
-    bondingLocations: bonding[s] ?? bonding.Maths,
   }
 }
 
@@ -193,47 +189,105 @@ interface HitlProps {
   item: WeekItem
   result: AIResult
   gcData: ClassroomCourseData | null
+  classId: string
+  weekId: string
   onClose: () => void
   onResultUpdate: (updated: AIResult) => void
 }
 
-function HitlPopup({ item, result, gcData, onClose, onResultUpdate }: HitlProps) {
+const parseSafeJSON = (str: string) => {
+  try {
+    const cleaned = str.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    return JSON.parse(cleaned)
+  } catch {
+    return null
+  }
+}
+
+function HitlPopup({ item, result, gcData, classId, weekId, onClose, onResultUpdate }: HitlProps) {
   const [activeChat, setActiveChat] = useState<string | null>(null)
   const [chatInput, setChatInput] = useState<Record<string, string>>({})
   const [regenLoading, setRegenLoading] = useState<string | null>(null)
+  const { getToken } = useAuth()
   const [localResult, setLocalResult] = useState<AIResult>(result)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishSuccess, setPublishSuccess] = useState(false)
 
-  const relatedMaterials = gcData?.materials.filter(m =>
-    m.title.toLowerCase().includes(item.subject.toLowerCase()) ||
-    m.description?.toLowerCase().includes(item.topic.toLowerCase())
-  ) ?? []
-  const relatedAssignments = gcData?.assignments.filter(a =>
-    a.title.toLowerCase().includes(item.subject.toLowerCase())
-  ) ?? []
+  const relatedMaterials = gcData?.materials.filter(m => m.week_id === weekId) ?? []
+  const relatedAssignments = gcData?.assignments.filter(a => a.week_id === weekId) ?? []
 
-  const regen = (section: string, prompt: string) => {
-    setRegenLoading(section)
-    setActiveChat(null)
-    const fresh = generateAIResult(item.subject, item.topic)
-    // Simulate streaming by replacing after delay
-    setTimeout(() => {
-      setLocalResult(prev => {
-        const next = { ...prev }
-        if (section === 'summary') next.summary = fresh.summary
-        if (section === 'deepDive') next.deepDive = fresh.deepDive
-        if (section === 'tiktoks') next.tiktoks = fresh.tiktoks
-        if (section === 'suggestions') next.suggestions = fresh.suggestions
-        if (section === 'bonding') next.bondingLocations = fresh.bondingLocations
-        return next
+  const handlePublish = async () => {
+    setIsPublishing(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/topics/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          week_id: weekId,
+          subject: item.subject,
+          topic: item.topic,
+          summary: localResult.summary,
+          deepDive: localResult.deepDive,
+          tiktoks: localResult.tiktoks,
+          class_work: item.class_work || ""
+        })
       })
-      setRegenLoading(null)
-      onResultUpdate(localResult)
-    }, 2200)
+      if (!res.ok) throw new Error("Failed to publish")
+      setPublishSuccess(true)
+      setTimeout(() => onClose(), 2000)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setIsPublishing(false)
+    }
   }
 
-  const SectionCard = ({
-    id, title, icon, children,
-  }: { id: string; title: string; icon: string; children: React.ReactNode }) => {
+  const regen = async (section: string, prompt: string) => {
+    setRegenLoading(section)
+    setActiveChat(null)
+
+    try {
+      const token = await getToken()
+      // Mapping previous AI response cleanly depending on the section
+      const previous_ai_response = typeof localResult[section as keyof AIResult] === 'string'
+        ? localResult[section as keyof AIResult]
+        : JSON.stringify(localResult[section as keyof AIResult])
+
+      const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/topics/ai-regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          section,
+          subject: item.subject,
+          topic: item.topic,
+          class_work: item.class_work || "",
+          previous_ai_response,
+          user_requirement: prompt
+        })
+      })
+      const data = await res.json()
+
+      setLocalResult(prev => {
+        const next = { ...prev }
+        // Update ONLY the specified section mapping with the new result
+        if (section === 'summary') next.summary = data.result
+        if (section === 'deepDive') next.deepDive = data.result
+        if (section === 'tiktoks') next.tiktoks = data.result
+        return next
+      })
+      // Flush new state upward
+      onResultUpdate({ ...localResult, [section as keyof AIResult]: data.result })
+    } catch (e) {
+      console.error("Agent Regeneration Error", e)
+    } finally {
+      setRegenLoading(null)
+    }
+  }
+
+  const renderSectionCard = (
+    id: string, title: string, icon: string, children: React.ReactNode
+  ) => {
     const isActive = activeChat === id
     const isLoading = regenLoading === id
     return (
@@ -311,74 +365,65 @@ function HitlPopup({ item, result, gcData, onClose, onResultUpdate }: HitlProps)
 
           {/* LEFT — Teacher's curriculum */}
           <div className="w-2/5 shrink-0 overflow-y-auto px-6 py-5 space-y-4">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">📋 Lesson Plan & Homework</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">📋 Curriculum Context</p>
 
-            {/* Learning goal */}
-            <div className="rounded-2xl bg-blue-50/80 border border-blue-100 p-4">
-              <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wide mb-1.5">Learning Goal</p>
-              <p className="text-xs text-slate-700 leading-relaxed">{item.learningGoal}</p>
+            {/* Topic section */}
+            <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100 p-5 space-y-4">
+              <div className="space-y-1.5 text-center">
+                <p className="text-sm font-bold text-slate-800">{item.topic}</p>
+                {item.learningGoal && (
+                  <div className="bg-white/60 p-3 rounded-xl border border-indigo-100/50 text-left">
+                    <p className="text-[9px] font-bold text-blue-400 uppercase mb-1">Learning Goal</p>
+                    <p className="text-xs text-slate-700 leading-relaxed italic">{item.learningGoal}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-indigo-100/30">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Lesson Details</p>
+                <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  {item.class_work || (relatedMaterials.length > 0 ? relatedMaterials[0].description : "No manual lesson plan details provided in Google Classroom.")}
+                </div>
+              </div>
+
+              {relatedMaterials.length > 1 && (
+                <div className="pt-3 border-t border-indigo-100/30">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase mb-1.5">Additional Materials</p>
+                  <div className="space-y-1.5">
+                    {relatedMaterials.slice(1).map(m => (
+                      <div key={m.id} className="text-[10px] font-medium text-slate-500 bg-white/40 px-2 py-1.5 rounded-lg border border-indigo-50/50">
+                        📎 {m.title}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Materials */}
-            {relatedMaterials.length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                  <BookOpen size={10} /> Lesson Materials
-                </p>
-                {relatedMaterials.map(m => (
-                  <div key={m.id} className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-3 py-2.5">
-                    <p className="text-xs font-semibold text-slate-800">{m.title}</p>
-                    {m.description && <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">{m.description}</p>}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 space-y-2">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                  <BookOpen size={10} /> Lesson Plan
-                </p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  <strong>Topic:</strong> {item.topic}
-                </p>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Hands-on investigation with guided practice. Students work in pairs to explore key concepts, then share findings with the class. Formative assessment through observation and exit tickets.
-                </p>
-              </div>
-            )}
+            {/* Assignments section */}
+            <div className="rounded-2xl bg-amber-50/50 border border-amber-100 p-5 space-y-4">
+              <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
+                <ClipboardList size={10} /> Homework
+              </p>
 
-            {/* Assignments */}
-            {relatedAssignments.length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                  <ClipboardList size={10} /> Homework / Assignments
-                </p>
-                {relatedAssignments.map(a => (
-                  <div key={a.id} className="rounded-xl border border-amber-100 bg-amber-50/50 px-3 py-2.5">
-                    <p className="text-xs font-semibold text-slate-800">{a.title}</p>
-                    {a.due_date && (
-                      <p className="text-[10px] text-amber-600 mt-0.5">
-                        Due: {new Date(a.due_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
-                        {a.max_points && ` · ${a.max_points} pts`}
-                      </p>
-                    )}
-                    {a.submission_summary && (
-                      <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                        <Users size={9} /> {a.submission_summary.turned_in}/{a.submission_summary.total} submitted
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl bg-amber-50/60 border border-amber-100 p-4">
-                <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wide flex items-center gap-1 mb-2">
-                  <ClipboardList size={10} /> Homework
-                </p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Complete 5 practice problems from the worksheet. Read pages 24–26 and answer comprehension questions. Due next lesson.
-                </p>
-              </div>
-            )}
+              {relatedAssignments.length > 0 ? (
+                <div className="space-y-3">
+                  {relatedAssignments.map(a => (
+                    <div key={a.id} className="space-y-1.5">
+                      <p className="text-xs font-bold text-slate-800">{a.title}</p>
+                      {a.description && <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-wrap">{a.description}</p>}
+                      {a.due_date && (
+                        <p className="text-[9px] font-semibold text-amber-600 bg-amber-100/40 px-2 py-0.5 rounded-full inline-block">
+                          Due: {new Date(a.due_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic">No specific homework assignments found for this topic.</p>
+              )}
+            </div>
           </div>
 
           {/* RIGHT — AI results */}
@@ -388,26 +433,72 @@ function HitlPopup({ item, result, gcData, onClose, onResultUpdate }: HitlProps)
             </p>
 
             {/* Summary */}
-            <SectionCard id="summary" title="Summary for Parents" icon="📝">
-              <p className="text-xs text-slate-600 leading-relaxed">{localResult.summary}</p>
-            </SectionCard>
+            {renderSectionCard("summary", "Summary for Parents", "📝", (
+              (() => {
+                const parsed = parseSafeJSON(localResult.summary)
+                if (parsed && (parsed.essence || parsed.example)) {
+                  return (
+                    <div className="space-y-2.5">
+                      {parsed.essence && <p className="text-xs text-slate-800 font-semibold leading-relaxed">{parsed.essence}</p>}
+                      {parsed.example && <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-100 p-2.5 rounded-xl italic">💡 <strong>Example:</strong> {parsed.example}</p>}
+                    </div>
+                  )
+                }
+                return <p className="text-xs text-slate-600 leading-relaxed">{localResult.summary}</p>
+              })()
+            ))}
 
             {/* Deep Dive */}
-            <SectionCard id="deepDive" title="Deep Dive" icon="🔍">
-              <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-line space-y-1">
-                {localResult.deepDive.split('\n').map((line, i) => (
-                  <p key={i} className={line.startsWith('**') ? 'font-semibold text-slate-800' : ''}>
-                    {line.replace(/\*\*/g, '')}
-                  </p>
-                ))}
-              </div>
-            </SectionCard>
+            {renderSectionCard("deepDive", "Deep Dive", "🔍", (
+              (() => {
+                const parsed = parseSafeJSON(localResult.deepDive)
+                if (parsed && (parsed.core_concept || parsed.key_vocabulary || parsed.why_this_matters)) {
+                  return (
+                    <div className="space-y-4">
+                      {parsed.core_concept && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><Sparkles size={10} className="text-violet-400" /> Core Concept</p>
+                          <p className="text-xs text-slate-700 leading-relaxed">{parsed.core_concept}</p>
+                        </div>
+                      )}
+                      {parsed.key_vocabulary && parsed.key_vocabulary.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><BookOpen size={10} className="text-violet-400" /> Key Vocabulary</p>
+                          <ul className="space-y-1.5">
+                            {parsed.key_vocabulary.map((v: any, i: number) => (
+                              <li key={i} className="text-xs text-slate-700 leading-snug"><span className="font-semibold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded mr-1">{v.term}</span> {v.definition}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {parsed.why_this_matters && (
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1"><Target size={10} className="text-violet-400" /> Why This Matters</p>
+                          <p className="text-xs text-slate-700 leading-relaxed italic bg-slate-50 p-2 rounded-lg border border-slate-100">{parsed.why_this_matters}</p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+                return (
+                  <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-line space-y-1">
+                    {localResult.deepDive.split('\n').map((line, i) => (
+                      <p key={i} className={line.startsWith('**') ? 'font-semibold text-slate-800' : ''}>
+                        {line.replace(/\*\*/g, '')}
+                      </p>
+                    ))}
+                  </div>
+                )
+              })()
+            ))}
 
             {/* TikTok Videos */}
-            <SectionCard id="tiktoks" title="TikTok Videos Found" icon="🎬">
+            {renderSectionCard("tiktoks", "TikTok Videos Found", "🎬", (
               <div className="space-y-2">
                 {localResult.tiktoks.map((t, i) => (
-                  <div key={i} className="flex items-start gap-2.5 bg-slate-50 rounded-xl px-3 py-2">
+                  <div key={i}
+                    onClick={() => t.url && t.url !== '#' && window.open(t.url, '_blank')}
+                    className="flex items-start gap-2.5 bg-slate-50 rounded-xl px-3 py-2 cursor-pointer hover:bg-slate-100 transition-colors">
                     <div className="w-7 h-7 rounded-lg bg-black flex items-center justify-center shrink-0 mt-0.5">
                       <span className="text-white text-[10px] font-black">TT</span>
                     </div>
@@ -418,30 +509,31 @@ function HitlPopup({ item, result, gcData, onClose, onResultUpdate }: HitlProps)
                   </div>
                 ))}
               </div>
-            </SectionCard>
-
-            {/* At-Home Suggestions */}
-            <SectionCard id="suggestions" title="At-Home Activity Suggestions" icon="🏠">
-              <ul className="space-y-1.5">
-                {localResult.suggestions.map((s, i) => (
-                  <li key={i} className="text-xs text-slate-600 leading-snug">{s}</li>
-                ))}
-              </ul>
-            </SectionCard>
-
-            {/* Bonding Locations */}
-            <SectionCard id="bonding" title="Family Bonding Locations" icon="📍">
-              <div className="space-y-2">
-                {localResult.bondingLocations.map((b, i) => (
-                  <div key={i} className="rounded-xl bg-emerald-50/70 border border-emerald-100 px-3 py-2">
-                    <p className="text-xs font-semibold text-emerald-800">{b.name}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{b.description}</p>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
+            ))}
           </div>
         </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end px-6 py-4 border-t border-slate-100 shrink-0 gap-3">
+          <button onClick={onClose} disabled={isPublishing} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={handlePublish}
+            disabled={isPublishing || publishSuccess}
+            className={`px-6 py-2 rounded-xl text-white text-sm font-semibold shadow-md transition-all flex items-center gap-2
+              ${publishSuccess ? 'bg-emerald-500' : 'bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 disabled:opacity-60'}`}
+          >
+            {publishSuccess ? (
+              <><CheckCircle size={15} /> Published!</>
+            ) : isPublishing ? (
+              <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Publishing…</>
+            ) : (
+              <><Send size={15} /> Approve & Publish to Parents</>
+            )}
+          </button>
+        </div>
+
       </div>
     </div>
   )
@@ -552,7 +644,7 @@ function WeekEditor({
   week: number; items: WeekItem[]; classId: string
   onSaved: (subj: string, topic: string, goal: string) => void
   aiStatus?: Record<string, AIStatus>
-  onSubjectClick?: (item: WeekItem) => void
+  onSubjectClick?: (item: WeekItem, weekNum: number) => void
 }) {
   const [editSubj, setEditSubj] = useState<string | null>(null)
   const [topicVal, setTopicVal] = useState('')
@@ -594,7 +686,7 @@ function WeekEditor({
 
   return (
     <div className="px-5 pb-4 space-y-3 border-t border-slate-100">
-      {items.map(({ subject: subj, topic, learningGoal }) => {
+      {items.map(({ subject: subj, topic, learningGoal, class_work }) => {
         const isEditing = editSubj === subj
         const justSaved = savedSubj === subj
         const status: AIStatus = aiStatus?.[`${week}_${subj}`] ?? 'idle'
@@ -653,13 +745,13 @@ function WeekEditor({
                         )}
                         {isDone && (
                           <button
-                            onClick={() => onSubjectClick?.({ subject: subj, topic, learningGoal })}
+                            onClick={() => onSubjectClick?.({ subject: subj, topic, learningGoal, class_work }, week)}
                             className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full hover:bg-emerald-100 transition-colors"
                           >
                             <CheckCircle size={10} /> Review
                           </button>
                         )}
-                        <button onClick={() => startEdit({ subject: subj, topic, learningGoal })}
+                        <button onClick={() => startEdit({ subject: subj, topic, learningGoal, class_work })}
                           className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
                           <Pencil size={12} />
                         </button>
@@ -1226,7 +1318,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const [aiRunning, setAiRunning] = useState(false)
   const [aiSubjectStatus, setAiSubjectStatus] = useState<Record<string, AIStatus>>({})
   const [aiResults, setAiResults] = useState<Record<string, AIResult>>({})
-  const [hitlItem, setHitlItem] = useState<{ item: WeekItem; result: AIResult } | null>(null)
+  const [hitlItem, setHitlItem] = useState<{ item: WeekItem; result: AIResult; weekId: string } | null>(null)
 
   const fetchCurriculumData = async () => {
     setGcLoading(true)
@@ -1309,6 +1401,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
       subject: wt.subject,
       topic: override?.topic ?? wt.topic,
       learningGoal: override?.learningGoal ?? wt.learningGoal,
+      class_work: wt.class_work,
     })
   })
   const weeks = Object.keys(weekMap).map(Number).sort((a, b) => a - b)
@@ -1374,6 +1467,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
             subject: item.subject,
             topic: item.topic,
             learningGoal: item.learningGoal,
+            class_work: item.class_work,
           })
         })
         const result = await res.json()
@@ -1381,7 +1475,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
       } catch (err) {
         console.error('Failed to generate AI data for', item.subject, err)
         // Fallback struct so it doesn't crash the UI component
-        const fb = { summary: 'Error generating', deepDive: 'Please try again manually.', tiktoks: [], suggestions: [], bondingLocations: [] }
+        const fb = { summary: 'Error generating', deepDive: 'Please try again manually.', tiktoks: [] }
         setAiResults(prev => ({ ...prev, [key]: fb }))
       }
       setAiSubjectStatus(prev => ({ ...prev, [key]: 'done' }))
@@ -1390,10 +1484,11 @@ export default function CurriculumTab({ classId, subject }: Props) {
     showToast('✅ AI analysis complete for this week!')
   }
 
-  const handleSubjectClick = (item: WeekItem) => {
-    const key = `${currentWeekNum}_${item.subject}`
+  const handleSubjectClick = (item: WeekItem, weekNum: number) => {
+    const key = `${weekNum}_${item.subject}`
     const result = aiResults[key]
-    if (result) setHitlItem({ item, result })
+    const weekId = dbWeeklyTopics.find(wt => wt.week === weekNum)?.week_id || todayWeekId
+    if (result) setHitlItem({ item, result, weekId })
   }
 
   return (
@@ -1626,7 +1721,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
                         )}
                         {aiSubjectStatus[`${displayWeek}_${subj}`] === 'done' && (
                           <button
-                            onClick={() => handleSubjectClick({ subject: subj, topic: cleanMaterialTitle, learningGoal: topicInfo?.learningGoal ?? '' })}
+                            onClick={() => handleSubjectClick({ subject: subj, topic: cleanMaterialTitle, learningGoal: topicInfo?.learningGoal ?? '', class_work: topicInfo?.class_work }, displayWeek)}
                             className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full hover:bg-emerald-100 transition-colors shadow-sm"
                           >
                             <CheckCircle size={10} /> Review
@@ -2538,10 +2633,12 @@ export default function CurriculumTab({ classId, subject }: Props) {
           item={hitlItem.item}
           result={hitlItem.result}
           gcData={gcData}
+          classId={classId}
+          weekId={hitlItem.weekId}
           onClose={() => setHitlItem(null)}
           onResultUpdate={updated => setAiResults(prev => ({
             ...prev,
-            [`${currentWeekNum}_${hitlItem.item.subject}`]: updated,
+            [`${hitlItem.weekId.split('-W')[1] ? parseInt(hitlItem.weekId.split('-W')[1]) : currentWeekNum}_${hitlItem.item.subject}`]: updated,
           }))}
         />
       )}

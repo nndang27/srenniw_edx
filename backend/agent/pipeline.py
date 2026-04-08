@@ -40,7 +40,7 @@ _shared_tools = get_shared_curricullm_tools() + get_shared_supabase_tools()
 
 
 model = ChatOpenAI(
-    model= "minimax-m2.5:cloud",
+    model= "gpt-oss:20b-cloud", #"minimax-m2.5:cloud",
     base_url="http://localhost:11434/v1",
     api_key="ollama",
     temperature=0.7,
@@ -156,6 +156,9 @@ async def run_agent_pipeline(brief_id: str, body):
         # Notify DB
         db.table("briefs").update({
             "processed_en": sum_out,
+            "deepdive_data": {"content": deepdive_out},
+            "tiktok_data": {"content": tiktok_out},
+            "summarize_data": {"content": sum_out},
             "status": "done",
             "published_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", brief_id).execute()
@@ -196,11 +199,16 @@ async def stream_chatbot_response(
             {"messages": [HumanMessage(content=full_message)]},
             stream_mode="messages",
         ):
-            # LangGraph stream_mode="messages" → (AIMessageChunk, metadata) tuple
             msg = chunk[0] if isinstance(chunk, tuple) else chunk
+            
+            # Only stream the Assistant's messages, ignoring ToolMessageChunks or standard HumanMessageChunks
+            if msg.__class__.__name__ != "AIMessageChunk":
+                continue
+
             content = getattr(msg, "content", "")
             if not content:
                 continue
+                
             if isinstance(content, str):
                 yield content
             elif isinstance(content, list):

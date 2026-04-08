@@ -127,6 +127,12 @@ export function useApi() {
     return res.json()
   }
 
+  const getParentBrief = async (date: string, subject: string) => {
+    const res = await fetch(`${BASE_URL}/api/parent/briefs?date=${date}&subject=${encodeURIComponent(subject)}`, { headers: await headers() })
+    if (!res.ok) throw await res.json()
+    return res.json()
+  }
+
   // ---- Google Classroom ----
   const getClassroomCourses = async (): Promise<{ id: string; name: string; section: string; state: string }[]> => {
     const res = await fetch(`${BASE_URL}/api/teacher/classroom/courses`)
@@ -140,7 +146,7 @@ export function useApi() {
     return res.json()
   }
 
-  return { getClasses, createClass, submitCompose, getTeacherBriefs, getBriefFeedback, getInbox, markRead, submitFeedback, updateLanguage, getProfile, getChatRooms, getClassStudents, getClassCurriculum, getClassInsights, getParentDiary, getParentInsights, getParentWeeklyDigest, getClassroomCourses, getClassroomItems }
+  return { getClasses, createClass, submitCompose, getTeacherBriefs, getBriefFeedback, getInbox, markRead, submitFeedback, updateLanguage, getProfile, getChatRooms, getClassStudents, getClassCurriculum, getClassInsights, getParentDiary, getParentInsights, getParentWeeklyDigest, getClassroomCourses, getClassroomItems, getParentBrief }
 }
 
 // ── Google Classroom types ────────────────────────────────────────────────────
@@ -183,6 +189,7 @@ export interface ClassroomWeeklyTopic {
   subject: string
   topic: string
   learningGoal: string
+  class_work?: string
 }
 
 export interface ClassroomCourseData {
