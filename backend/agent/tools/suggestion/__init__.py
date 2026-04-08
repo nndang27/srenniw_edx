@@ -278,6 +278,23 @@ MOCK_SYDNEY_EVENTS: list[dict[str, Any]] = [
         "religious_venue": True,
         "religion": "muslim",
     },
+    {
+        "title": "Auburn Botanic Gardens — Nature Discovery",
+        "venue": "Auburn Botanic Gardens",
+        "suburb": "Auburn",
+        "date_range": "Daily, 9am – 5pm",
+        "age_min": 0,
+        "cost": "free",
+        "category": "biology",
+        "concepts": ["biology", "habitats", "plants", "nature"],
+        "description": (
+            "Explore native gardens, a rainforest, and see peacocks and kangaroos. "
+            "Perfect for learning about living things in their natural habitats."
+        ),
+        "url": "https://www.cumberland.nsw.gov.au/auburn-botanic-gardens",
+        "religious_venue": False,
+        "religion": None,
+    },
 ]
 
 
@@ -352,7 +369,7 @@ def _score_event(
     # Concept overlap (strongest signal).
     for concept in event.get("concepts", []):
         if concept.lower() in keywords:
-            score += 3
+            score += 10 # Drastically boost relevance to ensure educational alignment
             matched.append(concept)
 
     # Category overlap.
@@ -365,13 +382,13 @@ def _score_event(
     if event.get("category", "").lower() in interests:
         score += 1
 
-    # Suburb proximity (only matters when transport is limited).
+    # Suburb proximity (CRUCIAL when transport is limited).
     if family.get("transport") == "limited":
         family_suburb = (family.get("suburb") or "").lower().strip()
         if family_suburb and family_suburb in event.get("suburb", "").lower():
-            score += 2
+            score += 20  # Massively boost local matches to override model bias
         elif family_suburb:
-            score -= 1  # outside the area, penalty for limited-transport family
+            score -= 5   # Penalty for out-of-suburb destinations
 
     # Budget alignment.
     budget = family.get("budget_level", "medium")
@@ -386,6 +403,8 @@ def _score_event(
 
     if matched:
         reason = f"links to {', '.join(matched[:3])}"
+        if family.get("transport") == "limited" and family.get("suburb") and family.get("suburb").lower() in event.get("suburb", "").lower():
+            reason = f"[LOCAL MATCH] {reason}"
     else:
         reason = "general family fit"
     return score, reason
