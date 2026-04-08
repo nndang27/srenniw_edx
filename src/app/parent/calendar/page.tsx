@@ -8,6 +8,9 @@ import {
   type SubjectName,
 } from '@/lib/mockTimetable'
 import { useJournalEntries } from '@/hooks/useJournalEntries'
+import { Poppins } from 'next/font/google'
+
+const poppins = Poppins({ subsets: ['latin'], weight: ['800', '900'] })
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 function getWeekStart(date: Date): Date {
@@ -88,63 +91,27 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-full min-h-[calc(100vh-89px)]">
-      {/* Subject Sidebar */}
-      <aside className="md:w-44 shrink-0 bg-white/50 backdrop-blur-xl border-b md:border-b-0 md:border-r border-white/40 p-4">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Subjects</p>
-        <div className="flex flex-row md:flex-col gap-2 flex-wrap">
-          {/* All button */}
-          <button
-            onClick={() => setActiveFilter(null)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-200 text-xs font-semibold
-              ${activeFilter === null
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
-          >
-            All
-          </button>
-          {subjects.map(sub => {
-            const isActive = activeFilter === sub
-            return (
-              <button
-                key={sub}
-                onClick={() => handleFilterClick(sub)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-200 text-left
-                  ${isActive ? 'shadow-sm scale-[1.03]' : 'hover:bg-white/60'}`}
-                style={isActive ? { background: `${SUBJECT_COLORS[sub]}18`, outline: `1.5px solid ${SUBJECT_COLORS[sub]}40` } : {}}
-              >
-                <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0"
-                  style={{ background: SUBJECT_COLORS[sub] }}
-                />
-                <span className="text-xs font-medium text-slate-600">{sub}</span>
-              </button>
-            )
-          })}
+    <div className="flex flex-col h-full min-h-[calc(100vh-89px)]">
+      {/* Hero Header Section */}
+      <div className="text-center pt-32 pb-8 px-6 backdrop-blur-xl bg-white/40 border-b border-white/40">
+        <div className="relative inline-block">
+          <h1 className={`${poppins.className} text-6xl md:text-8xl font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent tracking-tight pb-4 px-4`}>
+            LearnBridge
+          </h1>
+          <span className="hidden md:inline-block absolute left-full top-[10%] ml-4 whitespace-nowrap text-xs font-bold text-slate-400 tracking-[0.3em] uppercase">
+            by Srenniw
+          </span>
+          <span className="block md:hidden text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase mt-2">
+            by Srenniw
+          </span>
         </div>
-      </aside>
+        <p className="mt-4 text-slate-500 font-medium text-sm md:text-base max-w-xl mx-auto leading-relaxed">
+          The window into your child's daily learning adventure.
+        </p>
+      </div>
 
       {/* Main calendar */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Calendar header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white/60 backdrop-blur-xl border-b border-white/40 gap-2">
-          <div className="flex items-center gap-2">
-            <button onClick={prevWeek} className="p-1.5 rounded-lg hover:bg-white/80 text-slate-600 transition-colors">
-              <ChevronLeft size={18} />
-            </button>
-            <button onClick={nextWeek} className="p-1.5 rounded-lg hover:bg-white/80 text-slate-600 transition-colors">
-              <ChevronRight size={18} />
-            </button>
-            <span className="text-sm font-semibold text-slate-800">{weekLabel}</span>
-          </div>
-          <button
-            onClick={goToday}
-            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/80 backdrop-blur-sm text-slate-600 hover:bg-white transition-colors shadow-sm border border-white/50"
-          >
-            Today
-          </button>
-        </div>
-
         {/* Day headers */}
         <div className="grid grid-cols-7 border-b border-white/40 bg-white/40 backdrop-blur-sm">
           {weekDays.map((day, i) => {
@@ -178,8 +145,7 @@ export default function CalendarPage() {
             return (
               <div
                 key={dateStr}
-                onClick={() => router.push(`/parent/day/${dateStr}`)}
-                className={`min-h-32 p-1.5 flex flex-col gap-1 cursor-pointer transition-colors
+                className={`min-h-32 p-1.5 flex flex-col gap-1 transition-colors
                   ${isWeekend ? 'bg-slate-50/60' : 'bg-white/30 hover:bg-slate-50/50'}
                   ${isToday ? 'bg-blue-50/50' : ''}
                   ${isPast && !isToday ? 'opacity-80' : ''}`}
@@ -209,6 +175,72 @@ export default function CalendarPage() {
               </div>
             )
           })}
+        </div>
+
+        {/* Unified Control Bar: Navigation + Filters */}
+        <div className="bg-white/60 backdrop-blur-xl p-3 px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            {/* Left: Week Navigation */}
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-1 bg-white/40 border border-white/60 rounded-xl p-0.5">
+                <button 
+                  onClick={prevWeek} 
+                  className="p-1.5 hover:bg-white rounded-lg transition-colors text-slate-500"
+                  aria-label="Previous week"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button 
+                  onClick={nextWeek} 
+                  className="p-1.5 hover:bg-white rounded-lg transition-colors text-slate-500"
+                  aria-label="Next week"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <span className="text-xs font-bold text-slate-700 whitespace-nowrap">{weekLabel}</span>
+            </div>
+
+            {/* Center: Subject Filters */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide flex-1 md:justify-center px-4">
+              <button
+                onClick={() => setActiveFilter(null)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-200 text-xs font-semibold shrink-0
+                  ${activeFilter === null
+                    ? 'bg-slate-800 text-white shadow-sm'
+                    : 'bg-white/40 text-slate-500 border border-white/60 hover:bg-white/80 hover:text-slate-700'}`}
+              >
+                All
+              </button>
+              {subjects.map(sub => {
+                const isActive = activeFilter === sub
+                return (
+                  <button
+                    key={sub}
+                    onClick={() => handleFilterClick(sub)}
+                    className={`flex items-center gap-2 px-4 py-1.5 rounded-full transition-all duration-200 text-left shrink-0
+                      ${isActive ? 'shadow-sm scale-[1.03]' : 'bg-white/40 border border-white/60 hover:bg-white/80'}`}
+                    style={isActive ? { background: `${SUBJECT_COLORS[sub]}18`, outline: `1.5px solid ${SUBJECT_COLORS[sub]}40` } : {}}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ background: SUBJECT_COLORS[sub] }}
+                    />
+                    <span className="text-xs font-semibold text-slate-600">{sub}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Right: Today Button */}
+            <button
+              onClick={goToday}
+              className="px-4 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-full shadow-sm hover:bg-slate-50 transition-all active:scale-95 shrink-0"
+            >
+              Today
+            </button>
+          </div>
         </div>
 
         {/* Weekly summary */}

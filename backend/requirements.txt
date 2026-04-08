@@ -22,3 +22,6 @@ langgraph>=0.2.0
 google-api-python-client 
 google-auth-httplib2 
 google-auth-oauthlib
+wcmatch
+yt_dlp
+apify_client

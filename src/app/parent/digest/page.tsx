@@ -45,7 +45,7 @@ export default function SmartDigestPage() {
       <div className="flex-1 flex flex-col">
         <header className="mb-8 mt-2">
           <p className="text-indigo-500 font-bold tracking-widest uppercase text-sm mb-3">Learning Journey</p>
-          <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">This Week&apos;s Learning</h1>
+          <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">Next Week&apos;s Adventure</h1>
         </header>
 
         {/* Horizontal 5-Day Calendar (Line of Circles) */}

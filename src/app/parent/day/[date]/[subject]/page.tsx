@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import {
+  getScheduleForDate,
   getQuickPeekForSchedule,
   SUBJECT_COLORS,
   SUBJECT_BG_COLORS,
@@ -1176,11 +1177,9 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-3">
               <h3 className="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight">
-                ✨ The 60-Second Summary
+                ✨ 60s Summary
               </h3>
-            </div>
           </div>
 
           <p className="text-lg sm:text-xl text-slate-600 leading-relaxed font-medium mt-2">
@@ -1197,7 +1196,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
         {/* The Deep Dive */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 shrink-0">
           <h3 className="text-lg sm:text-xl font-bold text-slate-700 mb-6 flex items-center gap-3">
-            🚀 Dive Deeper
+            🚀 Deep Dive
           </h3>
           <Accordion type="single" collapsible className="w-full space-y-4">
 
@@ -1860,7 +1859,12 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
                     <div 
                       className="relative flex flex-col items-center group cursor-pointer"
                       onClick={() => {
-                          router.push(`/parent/day/${dayObj.date}`)
+                          const nextSchedule = getScheduleForDate(dayObj.date)
+                          if (nextSchedule.length > 0) {
+                              router.push(`/parent/day/${dayObj.date}/${encodeURIComponent(nextSchedule[0].subject)}`)
+                          } else {
+                              router.push(`/parent/day/${dayObj.date}`)
+                          }
                       }}
                     >
                       <div 

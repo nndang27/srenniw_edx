@@ -318,11 +318,16 @@ async def upsert_diary_note(body: DiaryNoteUpdate, user: dict = Depends(require_
 
 @router.get("/chat-rooms")
 async def get_chat_rooms(user: dict = Depends(require_parent)):
-    db = get_supabase()
-    rooms = db.table("chat_rooms").select("*").eq("parent_clerk_id", user["sub"]).execute()
-    result = []
-    for room in rooms.data:
-        last = db.table("chat_messages").select("content,created_at")\
-            .eq("room_id", room["id"]).order("created_at", desc=True).limit(1).execute()
-        result.append({**room, "last_message": last.data[0]["content"] if last.data else None})
-    return result
+    try:
+        db = get_supabase()
+        rooms = db.table("chat_rooms").select("*").eq("parent_clerk_id", user["sub"]).execute()
+        result = []
+        for room in rooms.data:
+            last = db.table("chat_messages").select("content,created_at")\
+                .eq("room_id", room["id"]).order("created_at", desc=True).limit(1).execute()
+            result.append({**room, "last_message": last.data[0]["content"] if last.data else None})
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Supabase Error: {str(e)}")
