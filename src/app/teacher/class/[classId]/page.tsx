@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, LayoutDashboard, BookOpen, BarChart2, MessageSquare } from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, BookOpen, BarChart2, MessageSquare, Table } from 'lucide-react'
 import { SUBJECTS } from '@/lib/mockTeacherData'
 import type { TeacherClass } from '@/lib/mockTeacherData'
 import { useApi } from '@/lib/api'
@@ -9,6 +9,7 @@ import OverviewTab from './_components/OverviewTab'
 import CurriculumTab from './_components/CurriculumTab'
 import InsightsTab from './_components/InsightsTab'
 import CommunicationTab from './_components/CommunicationTab'
+import TranscriptTab from './_components/TranscriptTab'
 
 const SUBJECT_COLORS: Record<string, string> = {
   Maths: 'bg-blue-100 text-blue-700 ring-blue-200',
@@ -24,6 +25,7 @@ const TABS = [
   { id: 'curriculum', label: 'Curriculum', icon: BookOpen },
   { id: 'insights', label: 'Insights', icon: BarChart2 },
   { id: 'communication', label: 'Communication', icon: MessageSquare },
+  { id: 'transcript', label: 'Transcript', icon: Table },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -121,6 +123,7 @@ export default function ClassDashboardPage() {
               {activeTab === 'curriculum' && 'Weekly topics, learning goals, and curriculum upload'}
               {activeTab === 'insights' && 'Deep-dive analytics — class and individual views'}
               {activeTab === 'communication' && 'Compose and send messages to parents'}
+              {activeTab === 'transcript' && 'Weekly assignment grades for all students'}
             </p>
           </div>
 
@@ -156,6 +159,7 @@ export default function ClassDashboardPage() {
         {activeTab === 'curriculum' && <CurriculumTab classId={classId} subject={subject} />}
         {activeTab === 'insights' && <InsightsTab cls={cls} subject={subject} />}
         {activeTab === 'communication' && <CommunicationTab cls={cls} />}
+        {activeTab === 'transcript' && <TranscriptTab classId={classId} />}
       </main>
     </div>
   )

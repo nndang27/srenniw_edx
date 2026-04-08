@@ -23,6 +23,12 @@ from agent.core.graph import create_deep_agent         # ← core/graph.py
 from agent.subagents.summarize_agent import SYSTEM_PROMPT, get_tools
 
 # ── Model: dùng Ollama minimax-m2.5:cloud (thay bằng provider khác nếu muốn) ──
+model = ChatOpenAI(
+    model="minimax-m2.5:cloud",
+    base_url=os.environ.get("CURRICULLM_BASE_URL"),
+    api_key=os.environ.get("CURRICULLM_API_KEY"),
+    temperature=0.2,
+)
 
 # ── Agent: tạo bằng create_deep_agent từ core/graph.py ──────────────────────
 agent = create_deep_agent(

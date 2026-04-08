@@ -37,3 +37,25 @@ class DiaryNoteUpdate(BaseModel):
     cognitive_level: Optional[int] = None
     emotion: Optional[str] = None
     time_spent: Optional[int] = None
+
+class LectureBlockCreate(BaseModel):
+    title: str
+    subject: str
+    content: Optional[str] = ""
+
+class LectureBlockUpdate(BaseModel):
+    title: Optional[str] = None
+    subject: Optional[str] = None
+    content: Optional[str] = None
+    week_id: Optional[str] = None
+    day_of_week: Optional[int] = None
+    sort_order: Optional[int] = None
+
+class LectureBlockPosition(BaseModel):
+    id: str
+    week_id: Optional[str] = None
+    day_of_week: Optional[int] = None
+    sort_order: Optional[int] = 0
+
+class LectureBlockSave(BaseModel):
+    blocks: list[LectureBlockPosition]

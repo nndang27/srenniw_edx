@@ -1,8 +1,9 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from urllib.parse import quote
 from auth import require_teacher
 from db.supabase import get_supabase
-from models.schemas import ClassCreate, ComposeInput
+from models.schemas import ClassCreate, ComposeInput, LectureBlockCreate, LectureBlockSave, LectureBlockUpdate
 from agent.pipeline import run_agent_pipeline
 
 router = APIRouter(prefix="/api/teacher", tags=["teacher"])
@@ -110,11 +111,11 @@ async def get_class_curriculum(class_id: str, user: dict = Depends(require_teach
 
     items_raw = db.table("course_items").select("*").eq("class_id", class_id).order("week_id").execute()
 
-    def week_id_to_num(week_id: str) -> int:
-        try:
-            return int(week_id.split("-")[0][1:])
-        except Exception:
-            return 1
+    # Build sequential week number from academic_weeks sorted by start_date
+    weeks_raw = db.table("academic_weeks").select("id, start_date, week_name").order("start_date").execute()
+    sorted_weeks = sorted(weeks_raw.data or [], key=lambda w: w["start_date"])
+    week_num_map = {w["id"]: (i + 1) for i, w in enumerate(sorted_weeks)}
+    week_name_map = {w["id"]: w["week_name"] for w in sorted_weeks}
 
     materials, assignments, all_items = [], [], []
     weekly_topics: list[dict] = []
@@ -124,7 +125,7 @@ async def get_class_curriculum(class_id: str, user: dict = Depends(require_teach
         subs, submission_summary = [], None
         if item["type"] == "assignment":
             subs_raw = db.table("student_submissions").select(
-                "item_id, student_id, state, late, assigned_grade, draft_grade"
+                "item_id, student_id, state, late, assigned_grade, draft_grade, submitted_at"
             ).eq("item_id", item["id"]).execute()
             subs = [{
                 "student_id": s["student_id"],
@@ -133,9 +134,9 @@ async def get_class_curriculum(class_id: str, user: dict = Depends(require_teach
                 "late": s.get("late", False),
                 "assigned_grade": s.get("assigned_grade"),
                 "draft_grade": s.get("draft_grade"),
-                "submitted_at": None,
+                "submitted_at": s.get("submitted_at"),
             } for s in subs_raw.data]
-            turned_in = sum(1 for s in subs if s["state"] == "TURNED_IN")
+            turned_in = sum(1 for s in subs if s["state"] in ("TURNED_IN", "RETURNED"))
             grades = [s["assigned_grade"] for s in subs if s["assigned_grade"] is not None]
             submission_summary = {
                 "total": len(subs),
@@ -143,34 +144,45 @@ async def get_class_curriculum(class_id: str, user: dict = Depends(require_teach
                 "graded": len(grades),
                 "avg_grade": round(sum(grades) / len(grades), 1) if grades else None,
             }
+        week_id = item.get("week_id", "")
         formatted = {
             "id": item["id"],
             "type": item["type"],
             "title": item["title"],
             "description": item.get("description", ""),
             "state": item.get("state", "PUBLISHED"),
-            "created_time": None,
-            "update_time": None,
+            "created_time": str(item["created_time"]) if item.get("created_time") else None,
+            "update_time": str(item["update_time"]) if item.get("update_time") else None,
             "due_date": str(item["due_date"]) if item.get("due_date") else None,
             "max_points": item.get("max_points"),
-            "attachments": [],
+            "attachments": item.get("attachments") or [],
             "students": subs,
             "submission_summary": submission_summary,
+            "week_id": week_id,
         }
         all_items.append(formatted)
         if item["type"] == "material":
             materials.append(formatted)
-            week_num = week_id_to_num(item.get("week_id", "W1"))
-            if week_num not in seen_weeks:
-                seen_weeks.add(week_num)
+            week_num = week_num_map.get(week_id, 1)
+            if week_id not in seen_weeks:
+                seen_weeks.add(week_id)
+                import re as _re
+                raw_title = item["title"]
+                clean = _re.sub(r'^\[\d{4}-W\d{2}\]\s*', '', raw_title)
+                clean = _re.sub(r'^Week\s+\d+:\s*', '', clean)
+                clean = _re.sub(r'\s*—\s*(Lesson Plan|Homework)$', '', clean).strip()
                 weekly_topics.append({
                     "week": week_num,
+                    "week_id": week_id,
+                    "week_name": week_name_map.get(week_id, week_id),
                     "subject": class_subject,
-                    "topic": item["title"],
-                    "learningGoal": (item.get("description") or "")[:200],
+                    "topic": clean or raw_title,
+                    "learningGoal": (item.get("description") or "")[:300],
                 })
         else:
             assignments.append(formatted)
+
+    weekly_topics.sort(key=lambda x: x["week"])
 
     return {
         "course_id": course_id,
@@ -334,6 +346,176 @@ async def get_student_insights(student_id: str, user: dict = Depends(require_tea
     result["meta"]["student_id"] = student_id
     result["meta"]["student_name"] = student.data[0].get("name", "")
     return result
+
+
+@router.get("/classes/{class_id}/transcript")
+async def get_class_transcript(class_id: str, user: dict = Depends(require_teacher)):
+    """
+    Return a transcript table: students × assignment-weeks with numeric grades.
+    Columns = weeks that have assignments; cells = assigned_grade / max_points.
+    """
+    db = get_supabase()
+
+    cls = db.table("classes").select("id").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
+    if not cls.data:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    # Students
+    students_raw = db.table("students").select("id, name, email").eq("class_id", class_id).execute()
+
+    # Academic weeks for sequential numbering
+    weeks_raw = db.table("academic_weeks").select("id, start_date, week_name").order("start_date").execute()
+    sorted_weeks = sorted(weeks_raw.data or [], key=lambda w: w["start_date"])
+    week_num_map = {w["id"]: (i + 1) for i, w in enumerate(sorted_weeks)}
+    week_name_map = {w["id"]: w["week_name"] for w in sorted_weeks}
+
+    # Assignments for this class
+    assignments_raw = db.table("course_items").select(
+        "id, week_id, title, max_points"
+    ).eq("class_id", class_id).eq("type", "assignment").execute()
+
+    # Deduplicate by week_id (take first assignment per week)
+    seen_weeks: dict[str, dict] = {}
+    for a in sorted(assignments_raw.data or [], key=lambda x: week_num_map.get(x.get("week_id", ""), 999)):
+        wid = a.get("week_id", "")
+        if wid and wid not in seen_weeks:
+            clean = re.sub(r'^\[\d{4}-W\d{2}\]\s*', '', a["title"])
+            clean = re.sub(r'^Week\s+\d+:\s*', '', clean)
+            clean = re.sub(r'\s*—\s*(Lesson Plan|Homework)$', '', clean).strip()
+            seen_weeks[wid] = {
+                "week_id": wid,
+                "week_num": week_num_map.get(wid, 0),
+                "week_name": week_name_map.get(wid, wid),
+                "topic": clean or a["title"],
+                "assignment_id": a["id"],
+                "max_points": a.get("max_points"),
+            }
+
+    weeks_info = sorted(seen_weeks.values(), key=lambda w: w["week_num"])
+    assignment_ids = [w["assignment_id"] for w in weeks_info]
+
+    # All submissions for these assignments
+    subs_by_student: dict[str, dict[str, dict]] = {}  # student_id → assignment_id → sub
+    if assignment_ids:
+        subs_raw = db.table("student_submissions").select(
+            "item_id, student_id, state, assigned_grade, draft_grade"
+        ).in_("item_id", assignment_ids).execute()
+        for s in (subs_raw.data or []):
+            subs_by_student.setdefault(s["student_id"], {})[s["item_id"]] = s
+
+    # Build student rows
+    student_list = []
+    for st in (students_raw.data or []):
+        st_subs = subs_by_student.get(st["id"], {})
+        grades: dict[str, dict] = {}
+        total_earned, total_possible, graded_count = 0, 0, 0
+        for w in weeks_info:
+            sub = st_subs.get(w["assignment_id"])
+            g = sub.get("assigned_grade") if sub else None
+            d = sub.get("draft_grade") if sub else None
+            mp = w["max_points"]
+            grades[w["week_id"]] = {
+                "state": sub["state"] if sub else None,
+                "assigned_grade": g,
+                "draft_grade": d,
+                "max_points": mp,
+                "pct": round(g / mp * 100) if (g is not None and mp) else None,
+            }
+            if g is not None and mp:
+                total_earned += g
+                total_possible += mp
+                graded_count += 1
+
+        avg_pct = round(total_earned / total_possible * 100) if total_possible else None
+        student_list.append({
+            "id": st["id"],
+            "name": st["name"],
+            "email": st["email"],
+            "avatar": f"https://api.dicebear.com/7.x/personas/svg?seed={quote(st['name'])}&backgroundColor=dbeafe",
+            "grades": grades,
+            "avg_pct": avg_pct,
+            "graded_count": graded_count,
+        })
+
+    # Sort students by name
+    student_list.sort(key=lambda s: s["name"])
+
+    return {"weeks": weeks_info, "students": student_list}
+
+
+# ── Lecture Blocks (drag-and-drop calendar) ────────────────────────────────────
+
+@router.get("/classes/{class_id}/lecture-blocks")
+async def get_lecture_blocks(class_id: str, user: dict = Depends(require_teacher)):
+    db = get_supabase()
+    cls = db.table("classes").select("id").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
+    if not cls.data:
+        raise HTTPException(status_code=404, detail="Class not found")
+    blocks = db.table("lecture_blocks").select("*").eq("class_id", class_id).order("sort_order").execute()
+    return blocks.data or []
+
+
+@router.post("/classes/{class_id}/lecture-blocks", status_code=201)
+async def create_lecture_block(class_id: str, body: LectureBlockCreate, user: dict = Depends(require_teacher)):
+    db = get_supabase()
+    cls = db.table("classes").select("id").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
+    if not cls.data:
+        raise HTTPException(status_code=404, detail="Class not found")
+    block = db.table("lecture_blocks").insert({
+        "class_id": class_id,
+        "title": body.title,
+        "subject": body.subject,
+        "content": body.content or "",
+        "week_id": None,
+        "day_of_week": None,
+        "sort_order": 0,
+    }).execute()
+    return block.data[0]
+
+
+@router.put("/classes/{class_id}/lecture-blocks/{block_id}")
+async def update_lecture_block(class_id: str, block_id: str, body: LectureBlockUpdate, user: dict = Depends(require_teacher)):
+    db = get_supabase()
+    cls = db.table("classes").select("id").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
+    if not cls.data:
+        raise HTTPException(status_code=404, detail="Class not found")
+    # Build update dict — include only explicitly provided fields
+    # Use model_fields_set to catch fields set to None intentionally
+    updates = {}
+    data = body.model_dump()
+    for k, v in data.items():
+        if k in body.model_fields_set:
+            updates[k] = v
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    result = db.table("lecture_blocks").update(updates).eq("id", block_id).eq("class_id", class_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Block not found")
+    return result.data[0]
+
+
+@router.post("/classes/{class_id}/lecture-blocks/save")
+async def save_lecture_blocks(class_id: str, body: LectureBlockSave, user: dict = Depends(require_teacher)):
+    db = get_supabase()
+    cls = db.table("classes").select("id").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
+    if not cls.data:
+        raise HTTPException(status_code=404, detail="Class not found")
+    for b in body.blocks:
+        db.table("lecture_blocks").update({
+            "week_id": b.week_id,
+            "day_of_week": b.day_of_week,
+            "sort_order": b.sort_order or 0,
+        }).eq("id", b.id).eq("class_id", class_id).execute()
+    return {"saved": len(body.blocks)}
+
+
+@router.delete("/classes/{class_id}/lecture-blocks/{block_id}", status_code=204)
+async def delete_lecture_block(class_id: str, block_id: str, user: dict = Depends(require_teacher)):
+    db = get_supabase()
+    cls = db.table("classes").select("id").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
+    if not cls.data:
+        raise HTTPException(status_code=404, detail="Class not found")
+    db.table("lecture_blocks").delete().eq("id", block_id).eq("class_id", class_id).execute()
 
 
 @router.get("/chat-rooms")

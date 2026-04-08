@@ -173,10 +173,13 @@ export interface ClassroomItem {
     graded: number
     avg_grade: number | null
   } | null
+  week_id?: string
 }
 
 export interface ClassroomWeeklyTopic {
   week: number
+  week_id: string
+  week_name: string
   subject: string
   topic: string
   learningGoal: string

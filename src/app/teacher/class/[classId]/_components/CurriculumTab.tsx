@@ -1,9 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useAuth } from '@clerk/nextjs'
 import {
   ChevronDown, ChevronLeft, ChevronRight, Pencil, Calendar, List,
   CheckCircle, X, Save, Sparkles, Wifi, RefreshCw, BookOpen,
-  ClipboardList, Users, Zap, Send, MessageSquare,
+  ClipboardList, Users, Zap, Send, MessageSquare, Plus, Paperclip,
 } from 'lucide-react'
 import { SUBJECTS } from '@/lib/mockTeacherData'
 import type { ClassroomCourseData, ClassroomItem, ClassroomWeeklyTopic } from '@/lib/api'
@@ -682,21 +683,54 @@ function WeekEditor({
 
 // ── LmsModal ─────────────────────────────────────────────────────────────────
 
-const LMS_PROVIDERS = ['Canvas', 'Google Classroom', 'Compass', 'Schoology', 'Microsoft Teams', 'Other']
-const LMS_STEPS = ['Connecting to LMS…', 'Syncing curriculum data…', 'Finalising import…']
+const LMS_PROVIDERS = ['Google Classroom', 'Canvas', 'Compass', 'Schoology', 'Microsoft Teams', 'Other']
+const LMS_STEPS = ['Connecting to Google Classroom…', 'Fetching materials & assignments…', 'Saving to database…']
 
-function LmsModal({ onClose, onConnected }: { onClose: () => void; onConnected: () => void }) {
-  const [provider, setProvider] = useState('')
+function LmsModal({ onClose, onConnected, classId }: { onClose: () => void; onConnected: () => void; classId: string }) {
+  const [provider, setProvider] = useState('Google Classroom')
   const [url, setUrl] = useState('')
   const [key, setKey] = useState('')
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleConnect = () => {
-    if (!provider || !url.trim() || !key.trim()) return
+  const isGoogleClassroom = provider === 'Google Classroom'
+
+  const handleConnect = async () => {
+    if (!provider) return
+    if (!isGoogleClassroom && (!url.trim() || !key.trim())) return
+    setError(null)
     setStep(1)
-    setTimeout(() => setStep(2), 1400)
-    setTimeout(() => setStep(3), 2800)
-    setTimeout(() => { setStep(4); onConnected() }, 4200)
+
+    try {
+      // Step 1 → 2: start request
+      await new Promise(r => setTimeout(r, 600))
+      setStep(2)
+
+      const res = await fetch(`${BASE_URL}/api/teacher/classroom/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          class_id: classId,
+          provider,
+          token: key.trim(),
+        }),
+      })
+
+      setStep(3)
+      await new Promise(r => setTimeout(r, 400))
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Connection failed' }))
+        throw new Error(err.detail || 'Connection failed')
+      }
+
+      await res.json() // discard — UI will re-fetch from DB
+      setStep(4)
+      onConnected()
+    } catch (e: any) {
+      setStep(0)
+      setError(e.message || 'Connection failed. Please try again.')
+    }
   }
 
   return (
@@ -720,7 +754,7 @@ function LmsModal({ onClose, onConnected }: { onClose: () => void; onConnected: 
               <CheckCircle size={28} className="text-emerald-500" />
             </div>
             <p className="font-bold text-slate-800">Connected to {provider}!</p>
-            <p className="text-xs text-slate-500">Curriculum data has been synced. Your timetable and topics are now up to date.</p>
+            <p className="text-xs text-slate-500">Curriculum data has been synced. Your weekly topics are now up to date.</p>
             <button onClick={onClose} className="w-full py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors">
               Done
             </button>
@@ -764,18 +798,35 @@ function LmsModal({ onClose, onConnected }: { onClose: () => void; onConnected: 
               </div>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 block">School LMS URL</label>
-              <input value={url} onChange={e => setUrl(e.target.value)} placeholder="e.g. school.instructure.com"
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 block">
+                School LMS URL
+                {isGoogleClassroom && <span className="ml-1 text-slate-300 normal-case font-normal">(optional for Google Classroom)</span>}
+              </label>
+              <input value={url} onChange={e => setUrl(e.target.value)}
+                placeholder={isGoogleClassroom ? 'classroom.google.com (auto-detected)' : 'e.g. school.instructure.com'}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-300" />
             </div>
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 block">API Key / Access Token</label>
-              <input type="password" value={key} onChange={e => setKey(e.target.value)} placeholder="Paste your API key here"
+              <input type="password" value={key} onChange={e => setKey(e.target.value)}
+                placeholder={isGoogleClassroom ? 'ya29.… (leave blank to use stored credentials)' : 'Paste your API key here'}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-300" />
+              {isGoogleClassroom && (
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Leave blank to use the pre-configured Google credentials on the server.
+                </p>
+              )}
             </div>
+            {error && (
+              <div className="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600">
+                {error}
+              </div>
+            )}
             <div className="flex gap-3 pt-1">
               <button onClick={onClose} className="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
-              <button onClick={handleConnect} disabled={!provider || !url.trim() || !key.trim()}
+              <button
+                onClick={handleConnect}
+                disabled={!provider || (!isGoogleClassroom && (!url.trim() || !key.trim()))}
                 className="flex-1 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-1.5">
                 <Wifi size={14} /> Connect
               </button>
@@ -863,6 +914,7 @@ function GcItem({ item, expanded, onToggle }: { item: ClassroomItem; expanded: b
 // ── Main Export ──────────────────────────────────────────────────────────────
 
 export default function CurriculumTab({ classId, subject }: Props) {
+  const { getToken } = useAuth()
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([CURRENT_WEEK]))
   const [toast, setToast] = useState<string | null>(null)
@@ -871,6 +923,13 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const [lmsConnected, setLmsConnected] = useState(false)
   const [calendarWeek, setCalendarWeek] = useState(CURRENT_WEEK)
   const [expandedCalDay, setExpandedCalDay] = useState<string | null>(null)
+  // null = show currentWeekNum; set by calendar click to navigate to a specific week
+  const [listWeek, setListWeek] = useState<number | null>(null)
+  // Tracks which lesson/homework items are expanded in list view (key = "lesson-{weekId}-{subj}" or "hw-{id}")
+  const [expandedListItems, setExpandedListItems] = useState<Set<string>>(new Set())
+  const toggleListItem = (key: string) => setExpandedListItems(prev => {
+    const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n
+  })
   const [savedOverrides, setSavedOverrides] = useState<Record<string, Record<string, SavedEntry>>>({})
 
   // Timetable
@@ -882,6 +941,227 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
   const [dbWeeklyTopics, setDbWeeklyTopics] = useState<ClassroomWeeklyTopic[]>([])
 
+  // ── Add Lecture editor state ────────────────────────────────────────────────
+  const editorRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [wordCount, setWordCount] = useState(0)
+  const [editorActiveMenu, setEditorActiveMenu] = useState<string | null>(null)
+  const [fontSize, setFontSize] = useState('12pt')
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const [isSourceMode, setIsSourceMode] = useState(false)
+  const [sourceHtml, setSourceHtml] = useState('')
+  const [selectedColor, setSelectedColor] = useState('#000000')
+  const [selectedHighlight, setSelectedHighlight] = useState('#FEF3C7')
+  const [showAttachModal, setShowAttachModal] = useState(false)
+  const [attachedFiles, setAttachedFiles] = useState<{ name: string; size: string }[]>([])
+  const [editorDate, setEditorDate] = useState(new Date())
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [editorCalMonth, setEditorCalMonth] = useState(new Date())
+  const [editorSubject, setEditorSubject] = useState(subject === 'All' ? 'Maths' : subject)
+  const [editorSubjectList, setEditorSubjectList] = useState(['Maths', 'Science', 'English', 'HSIE', 'Creative Arts', 'PE'])
+  const [showSubjectPicker, setShowSubjectPicker] = useState(false)
+  const [isCreatingSubject, setIsCreatingSubject] = useState(false)
+  const [newSubjectValue, setNewSubjectValue] = useState('')
+  const [showAddLecture, setShowAddLecture] = useState(false)
+  const [editorTitle, setEditorTitle] = useState('')
+  const [submittingLecture, setSubmittingLecture] = useState(false)
+  const [editingBlock, setEditingBlock] = useState<LectureBlock | null>(null)
+
+  // ── Lecture blocks (drag-and-drop calendar) ────────────────────────────────
+  interface LectureBlock {
+    id: string; class_id: string; title: string; subject: string
+    content: string; week_id: string | null; day_of_week: number | null; sort_order: number
+  }
+  interface ConflictInfo {
+    draggedId: string; targetId: string; targetWeekId: string; targetDayIdx: number
+  }
+  const [lectureBlocks, setLectureBlocks] = useState<LectureBlock[]>([])
+  const [savingCalendar, setSavingCalendar] = useState(false)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null)
+  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null)
+
+  const formatEditorDate = (d: Date) => {
+    const m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    return `${d.getDate()} ${m[d.getMonth()]} ${d.getFullYear()}`
+  }
+  const handleAddSubject = () => {
+    const v = newSubjectValue.trim()
+    if (v && !editorSubjectList.includes(v)) setEditorSubjectList(prev => [...prev, v])
+    if (v) setEditorSubject(v)
+    setNewSubjectValue(''); setIsCreatingSubject(false); setShowSubjectPicker(false)
+  }
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files).map(f => ({ name: f.name, size: (f.size/1024/1024).toFixed(1)+' MB' }))
+      setAttachedFiles(prev => [...prev, ...files])
+      setShowAttachModal(false)
+    }
+  }
+  const removeFile = (i: number) => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))
+  const toggleSourceMode = () => {
+    if (isSourceMode) { if (editorRef.current) editorRef.current.innerHTML = sourceHtml; setIsSourceMode(false) }
+    else { setSourceHtml(editorRef.current?.innerHTML || ''); setIsSourceMode(true) }
+  }
+  const handleZoom = (delta: number) => setZoomLevel(prev => Math.min(Math.max(prev + delta, 0.5), 2))
+  const applyFormat = (command: string, value = '') => {
+    document.execCommand(command, false, value)
+    editorRef.current?.focus()
+  }
+  const handleEditorInput = () => {
+    const text = editorRef.current?.innerText || ''
+    setWordCount(text.trim() ? text.trim().split(/\s+/).length : 0)
+  }
+
+  // ── Lecture block API helpers ────────────────────────────────────────────────
+  const fetchLectureBlocks = async () => {
+    try {
+      const token = await getToken()
+      const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/lecture-blocks`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (res.ok) setLectureBlocks(await res.json())
+    } catch { /* silent */ }
+  }
+
+  const handleEditBlock = (lb: LectureBlock) => {
+    setEditingBlock(lb)
+    setEditorTitle(lb.title)
+    setEditorSubject(lb.subject)
+    setShowAddLecture(true)
+    // populate editor content after it renders
+    setTimeout(() => {
+      if (editorRef.current) {
+        editorRef.current.innerHTML = lb.content || ''
+        handleEditorInput()
+      }
+    }, 50)
+  }
+
+  const handleSubmitLecture = async () => {
+    const title = editorTitle.trim() || `${editorSubject} Lecture`
+    const content = editorRef.current?.innerHTML || ''
+    setSubmittingLecture(true)
+    try {
+      const token = await getToken()
+      if (editingBlock) {
+        // UPDATE existing block
+        const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/lecture-blocks/${editingBlock.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ title, subject: editorSubject, content }),
+        })
+        if (!res.ok) throw new Error()
+        const updated = await res.json()
+        setLectureBlocks(prev => prev.map(b => b.id === updated.id ? updated : b))
+        showToast('✅ Block updated!')
+      } else {
+        // CREATE new block → goes to queue
+        const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/lecture-blocks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ title, subject: editorSubject, content }),
+        })
+        if (!res.ok) throw new Error()
+        const block = await res.json()
+        setLectureBlocks(prev => [...prev, block])
+        showToast('✅ Block added to queue!')
+      }
+      setEditorTitle('')
+      setEditingBlock(null)
+      if (editorRef.current) editorRef.current.innerHTML = ''
+      setWordCount(0)
+      setShowAddLecture(false)
+    } catch { showToast('❌ Failed to save block') }
+    finally { setSubmittingLecture(false) }
+  }
+
+  const handleDragStart = (e: React.DragEvent, blockId: string) => {
+    setDraggingId(blockId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+  const handleDragEnd = () => { setDraggingId(null); setDragOverCell(null) }
+
+  const putBlockPosition = async (blockId: string, weekId: string | null, dayIdx: number | null, sortOrder = 0) => {
+    try {
+      const token = await getToken()
+      await fetch(`${BASE_URL}/api/teacher/classes/${classId}/lecture-blocks/${blockId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ week_id: weekId, day_of_week: dayIdx, sort_order: sortOrder }),
+      })
+    } catch { /* silent — local state already updated */ }
+  }
+
+  const deleteBlock = async (blockId: string) => {
+    try {
+      const token = await getToken()
+      await fetch(`${BASE_URL}/api/teacher/classes/${classId}/lecture-blocks/${blockId}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+    } catch { /* silent */ }
+  }
+
+  const handleDropOnCell = (e: React.DragEvent, weekId: string, dayIdx: number) => {
+    e.preventDefault(); setDragOverCell(null)
+    if (!draggingId) return
+    const cellBlocks = lectureBlocks.filter(b => b.week_id === weekId && b.day_of_week === dayIdx && b.id !== draggingId)
+    if (cellBlocks.length > 0) {
+      // Show Replace/Cancel modal
+      setConflictInfo({ draggedId: draggingId, targetId: cellBlocks[0].id, targetWeekId: weekId, targetDayIdx: dayIdx })
+    } else {
+      // Empty slot — place immediately and save to DB
+      setLectureBlocks(prev => prev.map(b =>
+        b.id === draggingId ? { ...b, week_id: weekId, day_of_week: dayIdx, sort_order: 0 } : b
+      ))
+      putBlockPosition(draggingId, weekId, dayIdx, 0)
+    }
+    setDraggingId(null)
+  }
+
+  const resolveConflict = async (mode: 'replace' | 'stack') => {
+    if (!conflictInfo) return
+    const { draggedId, targetId, targetWeekId, targetDayIdx } = conflictInfo
+    setConflictInfo(null)
+    if (mode === 'replace') {
+      // DELETE old block from DB, schedule new one
+      await deleteBlock(targetId)
+      setLectureBlocks(prev => {
+        const next = prev.filter(b => b.id !== targetId)
+        return next.map(b => b.id === draggedId ? { ...b, week_id: targetWeekId, day_of_week: targetDayIdx, sort_order: 0 } : b)
+      })
+      await putBlockPosition(draggedId, targetWeekId, targetDayIdx, 0)
+      showToast('✅ Block replaced and saved!')
+    } else {
+      // Stack — both share slot, new goes on top
+      setLectureBlocks(prev => prev.map(b => {
+        if (b.id === draggedId) return { ...b, week_id: targetWeekId, day_of_week: targetDayIdx, sort_order: 0 }
+        if (b.id === targetId) return { ...b, week_id: targetWeekId, day_of_week: targetDayIdx, sort_order: 1 }
+        return b
+      }))
+      await putBlockPosition(draggedId, targetWeekId, targetDayIdx, 0)
+      await putBlockPosition(targetId, targetWeekId, targetDayIdx, 1)
+      showToast('✅ Blocks stacked and saved!')
+    }
+  }
+
+  const saveCalendar = async () => {
+    setSavingCalendar(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/lecture-blocks/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ blocks: lectureBlocks.map(b => ({ id: b.id, week_id: b.week_id, day_of_week: b.day_of_week, sort_order: b.sort_order })) }),
+      })
+      if (!res.ok) throw new Error()
+      showToast('✅ Calendar saved!')
+    } catch { showToast('❌ Save failed') }
+    finally { setSavingCalendar(false) }
+  }
+
   // AI Agent state
   const [aiRunning, setAiRunning] = useState(false)
   const [aiSubjectStatus, setAiSubjectStatus] = useState<Record<string, AIStatus>>({})
@@ -891,25 +1171,47 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const fetchCurriculumData = async () => {
     setGcLoading(true)
     try {
-      const token = (window as any).__clerk_token
+      const token = await getToken()
       const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/curriculum`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (!res.ok) throw new Error('Failed to load')
       const data: ClassroomCourseData = await res.json()
       setGcData(data)
-      if (data.weekly_topics) setDbWeeklyTopics(data.weekly_topics)
+      if (data.weekly_topics) {
+        setDbWeeklyTopics(data.weekly_topics)
+        // Jump calendar to current week
+        const todayId = (() => {
+          const d = new Date()
+          const year = d.getFullYear()
+          const jan1 = new Date(year, 0, 1)
+          const weekNum = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7)
+          return `${year}-W${String(weekNum).padStart(2, '0')}`
+        })()
+        const sorted = [...data.weekly_topics].sort((a, b) => a.week - b.week)
+        let cur = sorted[0]?.week ?? CURRENT_WEEK
+        for (const wt of sorted) {
+          if (wt.week_id && wt.week_id <= todayId) cur = wt.week
+        }
+        setCalendarWeek(cur)
+      }
     } catch { /* silent */ } finally { setGcLoading(false) }
+  }
+
+  const handleLmsConnected = () => {
+    // Sync done — re-fetch fresh data from DB (source of truth)
+    fetchCurriculumData()
   }
 
   useEffect(() => {
     fetch('/api/timetable').then(r => r.json()).then(setTimetable).catch(console.error)
   }, [])
 
-  // Only fetch curriculum when LMS is connected
+  // Auto-load curriculum + lecture blocks from DB on mount
   useEffect(() => {
-    if (lmsConnected) fetchCurriculumData()
-  }, [lmsConnected, classId])
+    fetchCurriculumData()
+    fetchLectureBlocks()
+  }, [classId])
 
   useEffect(() => {
     const overrides: Record<string, Record<string, SavedEntry>> = {}
@@ -934,10 +1236,12 @@ export default function CurriculumTab({ classId, subject }: Props) {
     showToast('Saved ✓')
   }
 
-  // Build week → subjects map
+  // Build week → subjects map + week name map
   const weekMap: Record<number, WeekItem[]> = {}
+  const weekNameMap: Record<number, string> = {}
   const topicsToRender = dbWeeklyTopics.length > 0 ? dbWeeklyTopics : []
   topicsToRender.forEach(wt => {
+    if (wt.week_name) weekNameMap[wt.week] = wt.week_name
     if (subject !== 'All' && wt.subject !== subject) return
     if (!weekMap[wt.week]) weekMap[wt.week] = []
     const override = savedOverrides[String(wt.week)]?.[wt.subject]
@@ -949,16 +1253,56 @@ export default function CurriculumTab({ classId, subject }: Props) {
   })
   const weeks = Object.keys(weekMap).map(Number).sort((a, b) => a - b)
 
+  // Compute current week from today's ISO week vs week_ids (format "YYYY-WXX")
+  const todayWeekId = (() => {
+    const d = new Date()
+    const year = d.getFullYear()
+    const jan1 = new Date(year, 0, 1)
+    const weekNum = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7)
+    return `${year}-W${String(weekNum).padStart(2, '0')}`
+  })()
+  const currentWeekNum = (() => {
+    const sorted = dbWeeklyTopics.slice().sort((a, b) => a.week - b.week)
+    if (!sorted.length) return CURRENT_WEEK
+    // Find last topic whose week_id <= today's week
+    let found = sorted[0].week
+    for (const wt of sorted) {
+      if (wt.week_id && wt.week_id <= todayWeekId) found = wt.week
+    }
+    return found
+  })()
+
+  // Compute total week count and start-date map from DB topics
+  const totalWeeks = weeks.length > 0 ? Math.max(...weeks) : TERM_WEEKS
+
+  // Build weekNum → Monday Date map using ISO week_id ("YYYY-WXX")
+  const weekStartDateMap: Record<number, Date> = {}
+  dbWeeklyTopics.forEach(wt => {
+    if (wt.week_id && !weekStartDateMap[wt.week]) {
+      const [yearStr, weekStr] = wt.week_id.split('-W')
+      const year = parseInt(yearStr, 10)
+      const week = parseInt(weekStr, 10)
+      // ISO week rule: Jan 4th is always in week 1
+      const jan4 = new Date(year, 0, 4)
+      const jan4Day = jan4.getDay() || 7 // Mon=1..Sun=7
+      const week1Mon = new Date(jan4)
+      week1Mon.setDate(jan4.getDate() - jan4Day + 1)
+      const monday = new Date(week1Mon)
+      monday.setDate(week1Mon.getDate() + (week - 1) * 7)
+      weekStartDateMap[wt.week] = monday
+    }
+  })
+
   // ── AI Agent run ────────────────────────────────────────────────────────────
   const runAiAgent = async () => {
-    const currentWeekItems = weekMap[CURRENT_WEEK] ?? []
+    const currentWeekItems = weekMap[currentWeekNum] ?? []
     if (!currentWeekItems.length) return
     setAiRunning(true)
     // Expand current week
-    setExpandedWeeks(prev => new Set([...prev, CURRENT_WEEK]))
+    setExpandedWeeks(prev => new Set([...prev, currentWeekNum]))
 
     for (const item of currentWeekItems) {
-      const key = `${CURRENT_WEEK}_${item.subject}`
+      const key = `${currentWeekNum}_${item.subject}`
       setAiSubjectStatus(prev => ({ ...prev, [key]: 'processing' }))
       await new Promise(r => setTimeout(r, 2000 + Math.random() * 1500))
       const result = generateAIResult(item.subject, item.topic)
@@ -970,7 +1314,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
   }
 
   const handleSubjectClick = (item: WeekItem) => {
-    const key = `${CURRENT_WEEK}_${item.subject}`
+    const key = `${currentWeekNum}_${item.subject}`
     const result = aiResults[key]
     if (result) setHitlItem({ item, result })
   }
@@ -978,31 +1322,12 @@ export default function CurriculumTab({ classId, subject }: Props) {
   return (
     <div className="space-y-4">
 
-      {/* ── LMS connection gate ─────────────────────────────────────────────── */}
-      {!lmsConnected ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-5">
-          <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center">
-            <Wifi size={28} className="text-blue-400" />
-          </div>
-          <div className="text-center">
-            <p className="font-bold text-slate-800 text-base mb-1">Connect your School LMS</p>
-            <p className="text-sm text-slate-400 max-w-xs">
-              Timetable, lesson plans, and homework will appear after connecting to your school&apos;s learning management system.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowLmsModal(true)}
-            className="flex items-center gap-2 px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-full shadow-sm transition-colors"
-          >
-            <Wifi size={15} /> Connect to School LMS
-          </button>
-        </div>
-      ) : (
-        <>
+      {/* ── Main content — always visible ──────────────────────────────────── */}
+      <>
           {/* ── Actions row ──────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2">
-              <button onClick={() => setView('list')}
+              <button onClick={() => { setView('list'); setListWeek(null) }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
                   ${view === 'list' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}>
                 <List size={13} /> List View
@@ -1017,7 +1342,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
               {/* AI Agent button */}
               <button
                 onClick={runAiAgent}
-                disabled={aiRunning || (weekMap[CURRENT_WEEK] ?? []).length === 0}
+                disabled={aiRunning || (weekMap[currentWeekNum] ?? []).length === 0}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold shadow-sm transition-all
                   ${aiRunning
                     ? 'bg-violet-100 text-violet-500 border border-violet-200 cursor-not-allowed'
@@ -1035,10 +1360,10 @@ export default function CurriculumTab({ classId, subject }: Props) {
                   </>
                 )}
               </button>
-              {/* LMS re-sync */}
+              {/* LMS sync */}
               <button onClick={() => setShowLmsModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-xs font-semibold rounded-full border border-emerald-200 transition-colors">
-                <CheckCircle size={12} /> Synced · Re-sync
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold rounded-full border border-blue-200 transition-colors">
+                <Wifi size={12} /> Sync LMS
               </button>
             </div>
           </div>
@@ -1060,62 +1385,171 @@ export default function CurriculumTab({ classId, subject }: Props) {
           {/* ── Loading indicator ─────────────────────────────────────────────── */}
           {gcLoading && (
             <div className="flex items-center justify-center py-8 text-sm text-slate-400">
-              <RefreshCw size={14} className="animate-spin mr-2" /> Fetching curriculum from LMS…
+              <RefreshCw size={14} className="animate-spin mr-2" /> Loading curriculum…
             </div>
           )}
 
-          {/* ── List View ─────────────────────────────────────────────────────── */}
-          {!gcLoading && view === 'list' && (
+          {/* ── List View ─────────────────────────────────────────────────── */}
+          {!gcLoading && view === 'list' && (() => {
+            const displayWeek = listWeek ?? currentWeekNum
+            const isCurrentWeek = displayWeek === currentWeekNum
+            const weekId = dbWeeklyTopics.find(wt => wt.week === displayWeek)?.week_id ?? ''
+            // Group by subject: each subject gets its material + assignment
+            const weekTopics = weekMap[displayWeek] ?? []
+            const weekMaterials = gcData?.materials?.filter(m => m.week_id === weekId) ?? []
+            const weekAssignments = gcData?.assignments?.filter(a => a.week_id === weekId) ?? []
+
+            const hasData = weekTopics.length > 0 || weekMaterials.length > 0
+
+            // Build per-subject map
+            const subjects = [...new Set([
+              ...weekTopics.map(t => t.subject),
+              ...weekMaterials.map(() => 'Maths'),
+            ])]
+
+            return (
             <div className="space-y-3">
-              {weeks.length === 0 ? (
-                <div className="text-center py-12 text-sm text-slate-400">
-                  No curriculum data found. Try re-syncing your LMS.
+              {/* Header row */}
+              <div className="flex items-center gap-3">
+                {!isCurrentWeek && (
+                  <button onClick={() => setListWeek(null)}
+                    className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 font-semibold">
+                    <ChevronLeft size={13} /> Current week
+                  </button>
+                )}
+                <div className="flex items-center gap-2">
+                  {isCurrentWeek
+                    ? <span className="text-[10px] font-bold uppercase tracking-wide bg-blue-500 text-white px-2 py-0.5 rounded-full">This Week</span>
+                    : <span className="text-[10px] font-bold uppercase tracking-wide bg-slate-400 text-white px-2 py-0.5 rounded-full">Week {displayWeek}</span>
+                  }
+                  <span className="font-semibold text-sm text-slate-800">{weekNameMap[displayWeek] ?? `Week ${displayWeek}`}</span>
                 </div>
-              ) : weeks.map(week => {
-                const isCurrentWeek = week === CURRENT_WEEK
-                const isExpanded = expandedWeeks.has(week)
-                const items = weekMap[week] ?? []
+              </div>
+
+              {!hasData ? (
+                <div className="text-center py-12 text-sm text-slate-400">
+                  No curriculum data found. Try syncing your LMS.
+                </div>
+              ) : subjects.map(subj => {
+                const material = weekMaterials[0] ?? null // 1 material per week
+                const assignment = weekAssignments[0] ?? null // 1 assignment per week
+                const topicInfo = weekTopics.find(t => t.subject === subj)
+                const subjectColor = SUBJECT_COLORS[subj] ?? 'bg-slate-100 text-slate-600 border-slate-200'
+
+                const lessonKey = `lesson-${weekId}-${subj}`
+                const hwKey = `hw-${weekId}-${subj}`
+                const lessonExpanded = expandedListItems.has(lessonKey)
+                const hwExpanded = expandedListItems.has(hwKey)
+
+                const cleanMaterialTitle = material?.title
+                  .replace(/^\[\d{4}-W\d{2}\]\s*/, '')
+                  .replace(/^Week\s+\d+:\s*/, '')
+                  .replace(/\s*—\s*(Lesson Plan|Homework)$/, '')
+                  .trim() ?? topicInfo?.topic ?? ''
+
+                const cleanHwTitle = assignment?.title
+                  .replace(/^\[\d{4}-W\d{2}\]\s*/, '')
+                  .replace(/^Week\s+\d+:\s*/, '')
+                  .replace(/\s*—\s*(Lesson Plan|Homework)$/, '')
+                  .trim() ?? ''
+
                 return (
-                  <div key={week}
-                    className={`backdrop-blur-xl border rounded-2xl overflow-hidden transition-all shadow-sm
-                      ${isCurrentWeek ? 'bg-blue-50/80 border-blue-200' : 'bg-white/70 border-white/60'}`}>
-                    <button onClick={() => toggleWeek(week)} className="w-full flex items-center justify-between px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        {isCurrentWeek && (
-                          <span className="text-[10px] font-bold uppercase tracking-wide bg-blue-500 text-white px-2 py-0.5 rounded-full">This Week</span>
+                  <div key={subj} className="backdrop-blur-xl bg-white/80 border border-white/60 rounded-2xl overflow-hidden shadow-sm">
+                    {/* Subject header */}
+                    <div className={`flex items-center gap-2 px-5 py-3 border-b border-slate-100`}>
+                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${subjectColor}`}>{subj}</span>
+                      <span className="text-xs text-slate-400">{cleanMaterialTitle}</span>
+                    </div>
+
+                    {/* Lesson row */}
+                    {(material || topicInfo) && (
+                      <div className="border-b border-slate-100">
+                        <button
+                          onClick={() => toggleListItem(lessonKey)}
+                          className="w-full flex items-center justify-between gap-3 px-5 py-3.5 text-left hover:bg-indigo-50/40 transition-colors">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-500 shrink-0">📖 Lesson</span>
+                            <span className="text-sm font-semibold text-slate-800 truncate">{cleanMaterialTitle}</span>
+                          </div>
+                          <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${lessonExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                        {!lessonExpanded && material?.description && (
+                          <p className="px-5 pb-3 text-xs text-slate-400 leading-relaxed line-clamp-2 -mt-1">
+                            {material.description.split('\n').filter(Boolean)[0]}
+                          </p>
                         )}
-                        <span className="font-semibold text-sm text-slate-800">Week {week}</span>
-                        <span className="text-xs text-slate-400">{items.length} topic{items.length !== 1 ? 's' : ''}</span>
-                        {/* Progress badges for current week */}
-                        {isCurrentWeek && (() => {
-                          const doneCount = items.filter(i => aiSubjectStatus[`${week}_${i.subject}`] === 'done').length
-                          const processingCount = items.filter(i => aiSubjectStatus[`${week}_${i.subject}`] === 'processing').length
-                          if (!doneCount && !processingCount) return null
-                          return (
-                            <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
-                              {processingCount > 0 && <span className="text-red-500 font-semibold">{processingCount} running</span>}
-                              {doneCount > 0 && <span className="text-emerald-600 font-semibold">{doneCount}/{items.length} done</span>}
-                            </span>
-                          )
-                        })()}
+                        {lessonExpanded && (
+                          <div className="px-5 pb-4 space-y-3">
+                            {topicInfo?.learningGoal && (
+                              <div className="flex items-start gap-1.5">
+                                <CheckCircle size={12} className="text-emerald-500 mt-0.5 shrink-0" />
+                                <p className="text-xs text-slate-600 font-medium">{topicInfo.learningGoal}</p>
+                              </div>
+                            )}
+                            {material?.description && (
+                              <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-slate-50 rounded-xl p-3 max-h-80 overflow-y-auto">
+                                {material.description}
+                              </pre>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-                    {isExpanded && (
-                      <WeekEditor
-                        week={week}
-                        items={items}
-                        classId={classId}
-                        onSaved={(subj, topic, goal) => handleItemSaved(week, subj, topic, goal)}
-                        aiStatus={aiSubjectStatus}
-                        onSubjectClick={isCurrentWeek ? handleSubjectClick : undefined}
-                      />
+                    )}
+
+                    {/* Homework row */}
+                    {assignment && (
+                      <div>
+                        <button
+                          onClick={() => toggleListItem(hwKey)}
+                          className="w-full flex items-center justify-between gap-3 px-5 py-3.5 text-left hover:bg-amber-50/40 transition-colors">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-amber-600 shrink-0">📝 Homework</span>
+                            <span className="text-sm font-semibold text-slate-800 truncate">{cleanHwTitle}</span>
+                            {assignment.due_date && (
+                              <span className="text-[10px] text-slate-400 shrink-0 hidden sm:inline">
+                                Due {new Date(assignment.due_date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {assignment.submission_summary && (
+                              <span className="text-[10px] text-amber-600 font-semibold hidden sm:inline">
+                                {assignment.submission_summary.turned_in}/{assignment.submission_summary.total} submitted
+                              </span>
+                            )}
+                            <ChevronDown size={14} className={`text-slate-400 transition-transform ${hwExpanded ? 'rotate-180' : ''}`} />
+                          </div>
+                        </button>
+                        {hwExpanded && (
+                          <div className="px-5 pb-4 space-y-3">
+                            {assignment.due_date && (
+                              <p className="text-xs text-slate-400">
+                                Due: {new Date(assignment.due_date).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                              </p>
+                            )}
+                            {assignment.description && (
+                              <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed bg-amber-50/60 rounded-xl p-3 max-h-80 overflow-y-auto">
+                                {assignment.description}
+                              </pre>
+                            )}
+                            {assignment.submission_summary && (
+                              <div className="flex items-center gap-4 text-xs">
+                                <span className="text-amber-600 font-semibold">{assignment.submission_summary.turned_in}/{assignment.submission_summary.total} submitted</span>
+                                {assignment.submission_summary.avg_grade !== null && (
+                                  <span className="text-emerald-600 font-semibold">Avg {assignment.submission_summary.avg_grade}/{assignment.max_points}pts</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )
               })}
             </div>
-          )}
+            )
+          })()}
 
           {/* ── Calendar View ─────────────────────────────────────────────────── */}
           {!gcLoading && view === 'calendar' && (
@@ -1127,65 +1561,130 @@ export default function CurriculumTab({ classId, subject }: Props) {
                   <ChevronLeft size={13} /> Prev
                 </button>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-800">Week {calendarWeek}</span>
-                  {calendarWeek === CURRENT_WEEK && (
+                  <span className="text-sm font-bold text-slate-800">{weekNameMap[calendarWeek] ?? `Week ${calendarWeek}`}</span>
+                  {calendarWeek === currentWeekNum && (
                     <span className="text-[10px] font-bold uppercase tracking-wide bg-blue-500 text-white px-2 py-0.5 rounded-full">This Week</span>
                   )}
                 </div>
-                <button onClick={() => { setCalendarWeek(w => Math.min(TERM_WEEKS, w + 1)); setExpandedCalDay(null) }}
-                  disabled={calendarWeek >= TERM_WEEKS}
+                <button onClick={() => { setCalendarWeek(w => Math.min(totalWeeks, w + 1)); setExpandedCalDay(null) }}
+                  disabled={calendarWeek >= totalWeeks}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-slate-200 bg-white/70 text-xs font-semibold text-slate-600 hover:bg-white disabled:opacity-30 transition-colors">
                   Next <ChevronRight size={13} />
                 </button>
               </div>
 
-              <div className="flex gap-1 px-1">
-                {Array.from({ length: TERM_WEEKS }, (_, i) => i + 1).map(w => (
+              <div className="flex gap-1 px-1 overflow-x-auto">
+                {Array.from({ length: totalWeeks }, (_, i) => i + 1).map(w => (
                   <button key={w} onClick={() => { setCalendarWeek(w); setExpandedCalDay(null) }}
-                    className={`flex-1 h-1.5 rounded-full transition-colors ${
-                      w === calendarWeek ? 'bg-blue-500' : w === CURRENT_WEEK ? 'bg-blue-200' : 'bg-slate-200 hover:bg-slate-300'
-                    }`} title={`Week ${w}`} />
+                    className={`flex-1 min-w-[6px] h-1.5 rounded-full transition-colors ${
+                      w === calendarWeek ? 'bg-blue-500' : w === currentWeekNum ? 'bg-blue-200' : 'bg-slate-200 hover:bg-slate-300'
+                    }`} title={weekNameMap[w] ?? `Week ${w}`} />
                 ))}
               </div>
 
+              {(() => {
+                  // Calendar shows GC materials (lessons) + teacher lecture blocks
+                  const weekMonday = weekStartDateMap[calendarWeek]
+                  const calWeekId = dbWeeklyTopics.find(wt => wt.week === calendarWeek)?.week_id
+                  const calWeekMaterials = gcData?.materials?.filter(it => it.week_id === calWeekId) ?? []
+                  const dayGcItems: Record<number, ClassroomItem[]> = { 0: [], 1: [], 2: [], 3: [], 4: [] }
+                  for (const it of calWeekMaterials) { dayGcItems[0].push(it) }
+
+                  return (
               <div className="backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-4 shadow-sm">
-                <div className="grid grid-cols-5 gap-2 mb-2">
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, dayIdx) => {
-                    const hdrDate = new Date('2026-02-16')
-                    hdrDate.setDate(hdrDate.getDate() + ((calendarWeek - 1) * 7) + dayIdx)
-                    return (
-                      <div key={day} className="text-center text-[10px] font-bold text-slate-400 pb-1.5 border-b border-slate-100">
-                        <div>{day.slice(0, 3).toUpperCase()}</div>
-                        <div className="text-[9px] font-normal text-slate-300">{hdrDate.getDate()}</div>
-                      </div>
-                    )
-                  })}
+                {/* Calendar header with Save button */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="grid grid-cols-5 gap-2 flex-1 mr-2">
+                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, dayIdx) => {
+                      const hdrDate = weekMonday ? new Date(weekMonday) : null
+                      if (hdrDate) hdrDate.setDate(hdrDate.getDate() + dayIdx)
+                      return (
+                        <div key={day} className="text-center text-[10px] font-bold text-slate-400 pb-1.5 border-b border-slate-100">
+                          <div>{day.slice(0, 3).toUpperCase()}</div>
+                          <div className="text-[9px] font-normal text-slate-300">{hdrDate ? `${hdrDate.getDate()}/${hdrDate.getMonth() + 1}` : ''}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <button
+                    onClick={saveCalendar}
+                    disabled={savingCalendar}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-[10px] font-bold shadow-sm transition-all"
+                  >
+                    <Save size={11} />
+                    {savingCalendar ? 'Saving…' : 'Save'}
+                  </button>
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, dayIdx) => {
-                    const calKey = `${calendarWeek}-${day}`
-                    const isExpanded = expandedCalDay === calKey
-                    const baseDate = new Date('2026-02-16')
-                    baseDate.setDate(baseDate.getDate() + ((calendarWeek - 1) * 7) + dayIdx)
-                    const dateStr = baseDate.toISOString().split('T')[0]
-                    let rawClasses = timetable[dateStr] || []
-                    if (subject !== 'All') rawClasses = rawClasses.filter((c: any) => c.subject === subject)
+                    const cellKey = `${calWeekId ?? calendarWeek}-${dayIdx}`
+                    const isDragOver = dragOverCell === cellKey
+                    const gcItems = dayGcItems[dayIdx] ?? []
+                    const lblocks = calWeekId
+                      ? lectureBlocks.filter(b => b.week_id === calWeekId && b.day_of_week === dayIdx).sort((a,b) => a.sort_order - b.sort_order)
+                      : []
+                    const hasContent = gcItems.length > 0 || lblocks.length > 0
                     return (
-                      <div key={day} className="flex flex-col gap-1">
-                        {rawClasses.length > 0 ? rawClasses.map((item: any, slotIdx: number) => {
-                          const colClass = SUBJECT_COLORS[item.subject] ?? 'bg-slate-50 border-slate-100 text-slate-600'
+                      <div
+                        key={day}
+                        className={`flex flex-col gap-1 min-h-[72px] rounded-xl transition-all ${
+                          isDragOver ? 'bg-blue-50 ring-2 ring-blue-400 ring-dashed p-1' : 'p-0'
+                        }`}
+                        onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey) }}
+                        onDragLeave={() => setDragOverCell(null)}
+                        onDrop={e => calWeekId ? handleDropOnCell(e, calWeekId, dayIdx) : undefined}
+                      >
+                        {/* GC lesson items (not draggable) */}
+                        {gcItems.map(it => {
+                          const cleanTitle = it.title
+                            .replace(/^\[\d{4}-W\d{2}\]\s*/, '')
+                            .replace(/^Week\s+\d+:\s*/, '')
+                            .replace(/\s*—\s*(Lesson Plan|Homework)$/, '')
+                            .trim()
                           return (
-                            <button key={item.subject + slotIdx}
-                              onClick={() => setExpandedCalDay(isExpanded ? null : calKey)}
-                              className={`rounded-xl p-2 border text-left w-full transition-all hover:scale-[1.02] ${colClass}`}>
-                              <p className="text-[10px] font-bold leading-tight">{item.subject}</p>
-                              {item.time && <p className="text-[8px] leading-tight mt-0.5 opacity-60 font-medium">{item.time}</p>}
-                              {!isExpanded && <p className="text-[9px] leading-tight mt-0.5 opacity-75 line-clamp-2">{item.topic}</p>}
+                            <button key={it.id}
+                              onClick={() => { setListWeek(calendarWeek); setView('list') }}
+                              className="rounded-xl p-2 border text-left w-full transition-all hover:scale-[1.02] hover:shadow-sm bg-indigo-50 border-indigo-200 text-indigo-700">
+                              <p className="text-[9px] font-bold leading-tight opacity-60 uppercase">📖 Lesson</p>
+                              <p className="text-[9px] leading-tight mt-0.5 font-medium line-clamp-2">{cleanTitle}</p>
                             </button>
                           )
-                        }) : (
-                          <div className="rounded-xl p-2 border border-dashed border-slate-200 min-h-[60px] flex items-center justify-center">
-                            <span className="text-[9px] text-slate-300">—</span>
+                        })}
+
+                        {/* Teacher lecture blocks (draggable) */}
+                        {lblocks.map(lb => {
+                          const subjectColor: Record<string,string> = {
+                            Maths: 'bg-blue-50 border-blue-200 text-blue-700',
+                            Science: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+                            English: 'bg-violet-50 border-violet-200 text-violet-700',
+                            HSIE: 'bg-amber-50 border-amber-200 text-amber-700',
+                            'Creative Arts': 'bg-pink-50 border-pink-200 text-pink-700',
+                            PE: 'bg-orange-50 border-orange-200 text-orange-700',
+                          }
+                          const color = subjectColor[lb.subject] ?? 'bg-slate-50 border-slate-200 text-slate-700'
+                          return (
+                            <div
+                              key={lb.id}
+                              draggable
+                              onDragStart={e => handleDragStart(e, lb.id)}
+                              onDragEnd={handleDragEnd}
+                              className={`rounded-xl p-2 border text-left w-full cursor-grab active:cursor-grabbing transition-all hover:shadow-sm select-none ${color} ${draggingId === lb.id ? 'opacity-40 scale-95' : ''}`}
+                            >
+                              <p className="text-[9px] font-bold leading-tight opacity-60 uppercase">✏️ {lb.subject}</p>
+                              <p className="text-[9px] leading-tight mt-0.5 font-medium line-clamp-2">{lb.title}</p>
+                            </div>
+                          )
+                        })}
+
+                        {/* Empty drop zone hint */}
+                        {!hasContent && (
+                          <div className={`rounded-xl p-2 border border-dashed min-h-[60px] flex items-center justify-center transition-colors ${isDragOver ? 'border-blue-400 bg-blue-50/50' : 'border-slate-200'}`}>
+                            <span className="text-[9px] text-slate-300">{isDragOver ? 'Drop here' : '—'}</span>
+                          </div>
+                        )}
+                        {hasContent && isDragOver && (
+                          <div className="rounded-xl p-1.5 border border-dashed border-blue-300 bg-blue-50/30 text-center">
+                            <span className="text-[9px] text-blue-400">Drop here</span>
                           </div>
                         )}
                       </div>
@@ -1193,45 +1692,614 @@ export default function CurriculumTab({ classId, subject }: Props) {
                   })}
                 </div>
 
-                {expandedCalDay && expandedCalDay.startsWith(`${calendarWeek}-`) && (() => {
-                  const expandedDay = expandedCalDay.split('-').slice(1).join('-')
-                  const dayIdx = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].indexOf(expandedDay)
-                  const baseDate = new Date('2026-02-16')
-                  baseDate.setDate(baseDate.getDate() + ((calendarWeek - 1) * 7) + dayIdx)
-                  const dateStr = baseDate.toISOString().split('T')[0]
-                  let rawClasses = timetable[dateStr] || []
-                  if (subject !== 'All') rawClasses = rawClasses.filter((c: any) => c.subject === subject)
-                  if (!rawClasses.length) return null
-                  return (
-                    <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
-                      <p className="text-xs font-bold text-slate-600">{expandedDay} — Week {calendarWeek} Details</p>
-                      {rawClasses.map((item: any, idx: number) => (
-                        <div key={item.subject + idx} className={`rounded-xl p-3 border ${SUBJECT_COLORS[item.subject] ?? 'bg-slate-50 border-slate-100'}`}>
-                          <p className="text-xs font-bold">{item.subject}: {item.topic}</p>
-                          <p className="text-[10px] mt-1 opacity-75 flex items-start gap-1">
-                            <CheckCircle size={10} className="mt-0.5 shrink-0" />
-                            {AI_GOALS[item.subject] || 'Students will understand and apply core concepts in this lesson.'}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                })()}
                 <p className="text-[10px] text-slate-300 mt-3 text-center">
-                  Term · Week {calendarWeek} of {TERM_WEEKS} · Tap a subject to expand
+                  {weekNameMap[calendarWeek] ?? `Week ${calendarWeek}`} of {totalWeeks} · Drag blocks to schedule · GC items shown in indigo
                 </p>
               </div>
+                  )
+                })()}
+
+              {/* ── Add Lecture Editor ───────────────────────────────────────── */}
+              <div className="mt-4">
+                {/* Section header / toggle */}
+                <button
+                  onClick={() => { setShowAddLecture(v => !v); setEditingBlock(null) }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold shadow-sm transition-all"
+                >
+                  <Plus size={14} />
+                  {showAddLecture ? 'Close Editor' : 'Add Lecture / Homework'}
+                </button>
+
+                {showAddLecture && (
+                  <div className={`mt-4 space-y-5 backdrop-blur-xl bg-white/90 border border-white/60 rounded-3xl p-6 shadow-xl ${isFullscreen ? 'fixed inset-0 z-[9999] bg-slate-50 p-10 overflow-y-auto rounded-none' : ''}`}>
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div className="flex-1 min-w-[200px]">
+                        <h2 className="text-base font-black text-slate-800 tracking-tight mb-1.5">
+                          {editingBlock ? '✏️ Edit Block' : 'Add Lecture'}
+                        </h2>
+                        <input
+                          type="text"
+                          value={editorTitle}
+                          onChange={e => setEditorTitle(e.target.value)}
+                          placeholder="Block title (e.g. Fractions – Day 1)…"
+                          className="w-full text-sm font-semibold border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 ring-blue-400 text-slate-700 placeholder:text-slate-300"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {/* Subject Picker */}
+                        <div className="relative">
+                          <button
+                            onClick={() => { setShowSubjectPicker(!showSubjectPicker); setShowDatePicker(false) }}
+                            className="flex items-center gap-2 px-4 py-2 bg-white border-[1.5px] border-slate-200 rounded-full text-xs font-bold text-slate-700 hover:border-blue-500 transition-all shadow-sm"
+                          >
+                            <BookOpen size={13} className="text-blue-500" />
+                            <span>{editorSubject}</span>
+                            <ChevronDown size={12} className="text-slate-400" />
+                          </button>
+                          {showSubjectPicker && (
+                            <div className="absolute top-full right-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] p-2">
+                              <div className="max-h-[200px] overflow-y-auto">
+                                {editorSubjectList.map(s => (
+                                  <button
+                                    key={s}
+                                    onClick={() => { setEditorSubject(s); setShowSubjectPicker(false) }}
+                                    className={`w-full text-left px-3 py-2 text-xs font-bold rounded-xl transition-colors ${editorSubject === s ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                                  >
+                                    {s}
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="h-px bg-slate-100 my-1.5" />
+                              {isCreatingSubject ? (
+                                <div className="px-2 pb-1.5">
+                                  <input
+                                    autoFocus
+                                    value={newSubjectValue}
+                                    onChange={e => setNewSubjectValue(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
+                                    placeholder="Type subject..."
+                                    className="w-full text-xs font-bold border border-blue-200 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 ring-blue-400"
+                                  />
+                                  <div className="flex justify-end gap-2 mt-1.5">
+                                    <button onClick={() => setIsCreatingSubject(false)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+                                    <button onClick={handleAddSubject} className="text-[10px] font-bold text-blue-600 hover:text-blue-700">Add</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setIsCreatingSubject(true)}
+                                  className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-black text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                                >
+                                  <Plus size={12} /> Add More
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Date Picker */}
+                        <div className="relative">
+                          <button
+                            onClick={() => { setShowDatePicker(!showDatePicker); setShowSubjectPicker(false) }}
+                            className="flex items-center gap-2 px-4 py-2 bg-white border-[1.5px] border-slate-200 rounded-full text-xs font-bold text-slate-700 hover:border-blue-500 transition-all shadow-sm"
+                          >
+                            <Calendar size={13} className="text-blue-500" />
+                            <span>{formatEditorDate(editorDate)}</span>
+                            <ChevronDown size={12} className="text-slate-400" />
+                          </button>
+                          {showDatePicker && (
+                            <div className="absolute top-full right-0 mt-2 w-[260px] bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] p-3">
+                              <div className="flex items-center justify-between mb-3 px-1">
+                                <span className="font-black text-slate-800 text-xs">
+                                  {editorCalMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                                </span>
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => setEditorCalMonth(new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth() - 1, 1))}
+                                    className="p-1 hover:bg-slate-50 rounded-lg text-slate-400"
+                                  >
+                                    <ChevronLeft size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => setEditorCalMonth(new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth() + 1, 1))}
+                                    className="p-1 hover:bg-slate-50 rounded-lg text-slate-400"
+                                  >
+                                    <ChevronRight size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
+                                {['S','M','T','W','T','F','S'].map((d, i) => (
+                                  <span key={i} className="text-[9px] font-bold text-slate-300 uppercase">{d}</span>
+                                ))}
+                              </div>
+                              <div className="grid grid-cols-7 gap-0.5">
+                                {(() => {
+                                  const daysInMonth = new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth() + 1, 0).getDate()
+                                  const firstDay = new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth(), 1).getDay()
+                                  const today = new Date()
+                                  const cells = []
+                                  for (let i = 0; i < firstDay; i++) cells.push(<div key={`e-${i}`} />)
+                                  for (let d = 1; d <= daysInMonth; d++) {
+                                    const isToday = today.getDate() === d && today.getMonth() === editorCalMonth.getMonth() && today.getFullYear() === editorCalMonth.getFullYear()
+                                    const isSelected = editorDate.getDate() === d && editorDate.getMonth() === editorCalMonth.getMonth() && editorDate.getFullYear() === editorCalMonth.getFullYear()
+                                    cells.push(
+                                      <button
+                                        key={d}
+                                        onClick={() => { setEditorDate(new Date(editorCalMonth.getFullYear(), editorCalMonth.getMonth(), d)); setShowDatePicker(false) }}
+                                        className={`w-7 h-7 flex items-center justify-center text-xs font-bold rounded-lg transition-all relative
+                                          ${isSelected ? 'bg-blue-600 text-white shadow' : 'hover:bg-slate-50 text-slate-600'}`}
+                                      >
+                                        {d}
+                                        {isToday && !isSelected && <div className="absolute inset-0 border border-red-400 rounded-full m-0.5" />}
+                                      </button>
+                                    )
+                                  }
+                                  return cells
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Editor Interface */}
+                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm flex flex-col">
+                      {/* Menu Bar */}
+                      <div className="flex items-center gap-4 px-4 py-1.5 bg-white text-xs font-medium text-slate-700 border-b border-slate-100">
+                        {/* Edit menu */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'edit' ? null : 'edit')}
+                            className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'edit' ? 'bg-slate-100' : ''}`}
+                          >
+                            Edit
+                          </button>
+                          {editorActiveMenu === 'edit' && (
+                            <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                              {[
+                                { label: 'Undo', cmd: 'undo', icon: '⤺', shortcut: 'Ctrl+Z' },
+                                { label: 'Redo', cmd: 'redo', icon: '⤻', shortcut: 'Ctrl+Y' },
+                                { label: 'divider' },
+                                { label: 'Cut', cmd: 'cut', icon: '✂', shortcut: 'Ctrl+X' },
+                                { label: 'Copy', cmd: 'copy', icon: '❐', shortcut: 'Ctrl+C' },
+                                { label: 'Select all', cmd: 'selectAll', icon: '⠿', shortcut: 'Ctrl+A' },
+                              ].map((item, i) => item.label === 'divider' ? (
+                                <div key={i} className="h-px bg-slate-100 my-1" />
+                              ) : (
+                                <button
+                                  key={item.label}
+                                  onClick={() => { applyFormat(item.cmd!); setEditorActiveMenu(null) }}
+                                  className="w-full flex items-center justify-between px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="opacity-70">{item.icon}</span>
+                                    <span>{item.label}</span>
+                                  </div>
+                                  <span className="text-[9px] text-slate-400 font-mono">{item.shortcut}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Insert menu */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'insert' ? null : 'insert')}
+                            className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'insert' ? 'bg-slate-100' : ''}`}
+                          >
+                            Insert
+                          </button>
+                          {editorActiveMenu === 'insert' && (
+                            <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                              {[
+                                { label: 'Link', icon: '🔗', cmd: 'createLink' },
+                                { label: 'Image', icon: '🖼', cmd: 'insertImage' },
+                                { label: 'divider' },
+                                { label: 'Horizontal line', icon: '—', cmd: 'insertHorizontalRule' },
+                              ].map((item, i) => item.label === 'divider' ? (
+                                <div key={i} className="h-px bg-slate-100 my-1" />
+                              ) : (
+                                <button
+                                  key={item.label}
+                                  onClick={() => {
+                                    if (item.cmd === 'createLink') { const url = prompt('Enter URL:'); if (url) applyFormat(item.cmd, url) }
+                                    else if (item.cmd === 'insertImage') { const url = prompt('Enter Image URL:'); if (url) applyFormat(item.cmd, url) }
+                                    else if (item.cmd) applyFormat(item.cmd)
+                                    setEditorActiveMenu(null)
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                                >
+                                  <span className="opacity-70">{item.icon}</span>
+                                  <span>{item.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* View menu */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'view' ? null : 'view')}
+                            className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'view' ? 'bg-slate-100' : ''}`}
+                          >
+                            View
+                          </button>
+                          {editorActiveMenu === 'view' && (
+                            <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                              <button onClick={() => { setIsFullscreen(true); setEditorActiveMenu(null) }} className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                                <span>⤢</span> Full-screen
+                              </button>
+                              <button onClick={() => { setIsFullscreen(false); setEditorActiveMenu(null) }} className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                                <span>⤡</span> Exit Fullscreen
+                              </button>
+                              <div className="h-px bg-slate-100 my-1" />
+                              <button onClick={() => { toggleSourceMode(); setEditorActiveMenu(null) }} className="w-full flex items-center gap-2 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                                <span className="font-mono text-[10px]">&lt;/&gt;</span> HTML Editor
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Format menu */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'format' ? null : 'format')}
+                            className={`hover:bg-slate-100 px-2 py-0.5 rounded transition-colors ${editorActiveMenu === 'format' ? 'bg-slate-100' : ''}`}
+                          >
+                            Format
+                          </button>
+                          {editorActiveMenu === 'format' && (
+                            <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                              {[
+                                { label: 'Bold', cmd: 'bold', icon: 'B', shortcut: 'Ctrl+B', iconClass: 'font-bold' },
+                                { label: 'Italic', cmd: 'italic', icon: 'I', shortcut: 'Ctrl+I', iconClass: 'italic' },
+                                { label: 'Underline', cmd: 'underline', icon: 'U', shortcut: 'Ctrl+U', iconClass: 'underline' },
+                                { label: 'Strikethrough', cmd: 'strikeThrough', icon: 'S̶', shortcut: '' },
+                              ].map(sub => (
+                                <button
+                                  key={sub.label}
+                                  onClick={() => { applyFormat(sub.cmd); setEditorActiveMenu(null) }}
+                                  className="w-full flex items-center justify-between px-3 py-1 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className={`w-4 text-center ${sub.iconClass || ''}`}>{sub.icon}</span>
+                                    <span>{sub.label}</span>
+                                  </div>
+                                  {sub.shortcut && <span className="text-[9px] opacity-60 font-mono">{sub.shortcut}</span>}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Toolbar */}
+                      <div className="flex items-center flex-wrap gap-x-4 gap-y-2 px-4 py-2 border-b border-slate-100 bg-white">
+                        {/* Font size */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'font-size' ? null : 'font-size')}
+                            className="flex items-center gap-1 hover:bg-slate-50 px-2 py-1 rounded"
+                          >
+                            <span className="text-xs text-slate-700">{fontSize}</span>
+                            <ChevronDown size={11} className="text-slate-400" />
+                          </button>
+                          {editorActiveMenu === 'font-size' && (
+                            <div className="absolute top-full left-0 mt-1 w-20 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1">
+                              {[{label:'8pt',val:'1'},{label:'10pt',val:'2'},{label:'12pt',val:'3'},{label:'14pt',val:'4'},{label:'18pt',val:'5'},{label:'24pt',val:'6'},{label:'36pt',val:'7'}].map(s => (
+                                <button key={s.label} onClick={() => { applyFormat('fontSize', s.val); setFontSize(s.label); setEditorActiveMenu(null) }} className="w-full text-left px-3 py-1 text-xs hover:bg-slate-50 text-slate-600">{s.label}</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="w-px h-4 bg-slate-200" />
+
+                        {/* B I U */}
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => applyFormat('bold')} className="text-xs font-bold text-slate-800 hover:bg-slate-100 w-7 h-7 rounded flex items-center justify-center">B</button>
+                          <button onClick={() => applyFormat('italic')} className="text-xs italic text-slate-800 hover:bg-slate-100 w-7 h-7 rounded flex items-center justify-center font-serif">I</button>
+                          <button onClick={() => applyFormat('underline')} className="text-xs underline text-slate-800 hover:bg-slate-100 w-7 h-7 rounded flex items-center justify-center">U</button>
+                        </div>
+
+                        <div className="w-px h-4 bg-slate-200" />
+
+                        {/* Font color */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'font-color' ? null : 'font-color')}
+                            className="flex flex-col items-center hover:bg-slate-50 rounded px-1"
+                          >
+                            <span className="text-xs font-bold text-slate-800">A</span>
+                            <div className="w-4 h-0.5" style={{ backgroundColor: selectedColor }} />
+                          </button>
+                          {editorActiveMenu === 'font-color' && (
+                            <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 grid grid-cols-4 gap-1.5">
+                              {['#000000','#EF4444','#3B82F6','#10B981','#F59E0B','#8B5CF6','#EC4899','#64748B'].map(c => (
+                                <button key={c} onClick={() => { applyFormat('foreColor', c); setSelectedColor(c); setEditorActiveMenu(null) }} style={{ backgroundColor: c }} className="w-5 h-5 rounded border border-slate-100 hover:scale-110 transition-all" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Highlight color */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setEditorActiveMenu(editorActiveMenu === 'font-highlight' ? null : 'font-highlight')}
+                            className="flex flex-col items-center hover:bg-slate-50 rounded px-1"
+                          >
+                            <Pencil size={11} className="text-slate-800" />
+                            <div className="w-4 h-0.5" style={{ backgroundColor: selectedHighlight }} />
+                          </button>
+                          {editorActiveMenu === 'font-highlight' && (
+                            <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 grid grid-cols-4 gap-1.5">
+                              {['#FCF8E3','#FEF3C7','#DCFCE7','#DBEAFE','#F3E8FF','#FFE4E6','#F1F5F9','#FFFFFF'].map(c => (
+                                <button key={c} onClick={() => { applyFormat('hiliteColor', c); setSelectedHighlight(c); setEditorActiveMenu(null) }} style={{ backgroundColor: c }} className="w-5 h-5 rounded border border-slate-100 hover:scale-110 transition-all" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Editable Area */}
+                      <div className="relative overflow-hidden bg-white" style={{ zoom: zoomLevel }}>
+                        {isSourceMode ? (
+                          <textarea
+                            value={sourceHtml}
+                            onChange={e => setSourceHtml(e.target.value)}
+                            className="w-full min-h-[240px] p-5 font-mono text-xs bg-slate-50 text-slate-700 focus:outline-none resize-none border-0"
+                            placeholder="Type raw HTML here..."
+                          />
+                        ) : (
+                          <div
+                            ref={editorRef}
+                            onInput={handleEditorInput}
+                            className="min-h-[240px] p-5 text-sm text-slate-800 outline-none focus:ring-0 selection:bg-blue-100 leading-relaxed"
+                            contentEditable
+                            spellCheck={false}
+                            suppressContentEditableWarning
+                          />
+                        )}
+                      </div>
+
+                      {/* Status Bar */}
+                      <div className="flex items-center justify-between px-4 py-1.5 bg-white text-[11px] text-slate-500 border-t border-slate-100">
+                        <span>{wordCount} words</span>
+                        <div className="flex items-center gap-3">
+                          <span onClick={toggleSourceMode} className={`font-mono cursor-pointer transition-colors ${isSourceMode ? 'text-blue-600 font-bold' : 'opacity-60 hover:opacity-100'}`}>&lt;/&gt;</span>
+                          <span onClick={() => handleZoom(0.1)} className="cursor-pointer opacity-60 hover:opacity-100 text-base leading-none">+</span>
+                          <span onClick={() => handleZoom(-0.1)} className="cursor-pointer opacity-60 hover:opacity-100 text-base leading-none">−</span>
+                          <span onClick={() => setIsFullscreen(!isFullscreen)} className="cursor-pointer opacity-60 hover:opacity-100">⤢</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Attached files */}
+                    {attachedFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {attachedFiles.map((file, i) => (
+                          <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg">
+                            <span className="text-xs text-slate-400">📄</span>
+                            <span className="text-xs font-semibold text-slate-700 max-w-[120px] truncate">{file.name}</span>
+                            <span className="text-[9px] text-slate-400">({file.size})</span>
+                            <button onClick={() => removeFile(i)} className="text-slate-300 hover:text-red-500 transition-colors">
+                              <X size={11} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-between pt-2">
+                      <button
+                        onClick={() => setShowAttachModal(true)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 transition-all text-xs font-semibold text-slate-700"
+                      >
+                        <Paperclip size={14} className="text-slate-500" />
+                        Attach
+                      </button>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => { setShowAddLecture(false); setEditingBlock(null) }}
+                          className="px-5 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSubmitLecture}
+                          disabled={submittingLecture}
+                          className="px-7 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all"
+                        >
+                          {submittingLecture ? (editingBlock ? 'Saving…' : 'Adding…') : (editingBlock ? 'Save Changes' : 'Add to Queue')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Queue: unscheduled lecture blocks ────────────────────────── */}
+              {lectureBlocks.filter(b => b.week_id === null).length > 0 && (
+                <div className="mt-4 backdrop-blur-xl bg-white/70 border border-white/60 rounded-3xl p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="text-xs font-black text-slate-700">📦 Queue — Unscheduled Blocks</h3>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Drag a block onto a calendar day to schedule it</p>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {lectureBlocks.filter(b => b.week_id === null).length} block{lectureBlocks.filter(b => b.week_id === null).length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {lectureBlocks.filter(b => b.week_id === null).map(lb => {
+                      const qSubjectColor: Record<string,string> = {
+                        Maths: 'bg-blue-50 border-blue-200 text-blue-700',
+                        Science: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+                        English: 'bg-violet-50 border-violet-200 text-violet-700',
+                        HSIE: 'bg-amber-50 border-amber-200 text-amber-700',
+                        'Creative Arts': 'bg-pink-50 border-pink-200 text-pink-700',
+                        PE: 'bg-orange-50 border-orange-200 text-orange-700',
+                      }
+                      const qColor = qSubjectColor[lb.subject] ?? 'bg-slate-50 border-slate-200 text-slate-700'
+                      return (
+                        <div
+                          key={lb.id}
+                          draggable
+                          onDragStart={e => handleDragStart(e, lb.id)}
+                          onDragEnd={handleDragEnd}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl border select-none transition-all hover:shadow-md ${qColor} ${draggingId === lb.id ? 'opacity-40 scale-95 cursor-grabbing' : 'cursor-grab'}`}
+                        >
+                          <span className="text-sm opacity-40 shrink-0">⠿</span>
+                          {/* Click body (not drag handle) to open editor */}
+                          <button
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={e => { e.stopPropagation(); handleEditBlock(lb) }}
+                            className="flex-1 text-left min-w-0"
+                          >
+                            <p className="text-xs font-bold leading-tight truncate">{lb.title}</p>
+                            <p className="text-[9px] opacity-60">{lb.subject} · click to edit</p>
+                          </button>
+                          <button
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={async e => {
+                              e.stopPropagation()
+                              await deleteBlock(lb.id)
+                              setLectureBlocks(prev => prev.filter(b => b.id !== lb.id))
+                            }}
+                            className="shrink-0 text-current opacity-30 hover:opacity-80 transition-opacity"
+                          >
+                            <X size={11} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div
+                    className={`mt-3 rounded-xl border-2 border-dashed p-2 text-center transition-colors ${dragOverCell === 'queue' ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+                    onDragOver={e => { e.preventDefault(); setDragOverCell('queue') }}
+                    onDragLeave={() => setDragOverCell(null)}
+                    onDrop={e => {
+                      e.preventDefault(); setDragOverCell(null)
+                      if (draggingId) {
+                        setLectureBlocks(prev => prev.map(b => b.id === draggingId ? { ...b, week_id: null, day_of_week: null, sort_order: 0 } : b))
+                        setDraggingId(null)
+                      }
+                    }}
+                  >
+                    <span className="text-[10px] text-slate-300">↩ Drop here to return block to queue</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Drop-to-queue zone when dragging a scheduled block (queue empty) */}
+              {draggingId && lectureBlocks.filter(b => b.week_id === null).length === 0 && (
+                <div
+                  className={`mt-4 rounded-2xl border-2 border-dashed p-4 text-center transition-colors ${dragOverCell === 'queue' ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+                  onDragOver={e => { e.preventDefault(); setDragOverCell('queue') }}
+                  onDragLeave={() => setDragOverCell(null)}
+                  onDrop={e => {
+                    e.preventDefault(); setDragOverCell(null)
+                    if (draggingId) {
+                      setLectureBlocks(prev => prev.map(b => b.id === draggingId ? { ...b, week_id: null, day_of_week: null, sort_order: 0 } : b))
+                      setDraggingId(null)
+                    }
+                  }}
+                >
+                  <span className="text-[10px] text-slate-400">↩ Drop here to unschedule block</span>
+                </div>
+              )}
+
             </div>
           )}
-        </>
-      )}
+      </>
+
+      {/* ── Conflict Modal ──────────────────────────────────────────────────── */}
+      {conflictInfo && (() => {
+        const dragged = lectureBlocks.find(b => b.id === conflictInfo.draggedId)
+        const target  = lectureBlocks.find(b => b.id === conflictInfo.targetId)
+        return (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center px-4">
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setConflictInfo(null)} />
+            <div className="relative bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+              <h3 className="text-sm font-black text-slate-800 mb-1">Slot already occupied</h3>
+              <p className="text-xs text-slate-500 mb-4">
+                <span className="font-bold text-slate-700">&ldquo;{target?.title}&rdquo;</span> is already here. Choose how to proceed:
+              </p>
+              <div className="space-y-2">
+                <button onClick={() => resolveConflict('replace')}
+                  className="w-full text-left px-4 py-3 rounded-2xl border border-red-100 bg-red-50 hover:bg-red-100 transition-colors">
+                  <p className="text-xs font-black text-red-700">🔄 Replace</p>
+                  <p className="text-[10px] text-red-500 mt-0.5">Delete existing block from DB — schedule this one in its place</p>
+                </button>
+                <button onClick={() => resolveConflict('stack')}
+                  className="w-full text-left px-4 py-3 rounded-2xl border border-blue-100 bg-blue-50 hover:bg-blue-100 transition-colors">
+                  <p className="text-xs font-black text-blue-700">📚 Stack</p>
+                  <p className="text-[10px] text-blue-500 mt-0.5">Keep both blocks in the same slot — new block goes on top</p>
+                </button>
+                <button onClick={() => setConflictInfo(null)}
+                  className="w-full text-left px-4 py-3 rounded-2xl border border-slate-100 bg-slate-50 hover:bg-slate-100 transition-colors">
+                  <p className="text-xs font-black text-slate-500">✕ Cancel</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Do nothing — keep both blocks where they are</p>
+                </button>
+              </div>
+              <button onClick={() => setConflictInfo(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
+
+      {/* Hidden file input for attachment */}
+      <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} />
+
+      {/* Attachment Modal */}
+      {showAttachModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowAttachModal(false)} />
+          <div className="relative bg-white rounded-3xl w-full max-w-lg p-1 shadow-2xl overflow-hidden border border-white/20">
+            <div className="p-10 border-2 border-dashed border-slate-200 rounded-[1.4rem] m-2 flex flex-col items-center justify-center text-center space-y-5">
+              <div className="relative w-12 h-16">
+                <div className="absolute inset-0 border-2 border-slate-400 rounded-sm" />
+                <div className="absolute top-0 right-0 w-4 h-4 bg-white border-l-2 border-b-2 border-slate-400" />
+                <div className="absolute inset-x-2 top-6 space-y-1">
+                  {[1,2,3].map(i => <div key={i} className="h-[1px] bg-slate-300 w-full" />)}
+                </div>
+              </div>
+              <h3 className="text-lg font-bold text-slate-700">Drop document here to upload</h3>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-2.5 rounded-xl font-bold text-sm shadow-sm active:scale-95 transition-all"
+              >
+                Select from device
+              </button>
+            </div>
+            <button
+              onClick={() => setShowAttachModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {showUploadModal && (
         <UploadModal classId={classId} onClose={() => setShowUploadModal(false)} onSaved={() => showToast('✅ Curriculum entry saved!')} />
       )}
       {showLmsModal && (
-        <LmsModal onClose={() => setShowLmsModal(false)} onConnected={() => { setLmsConnected(true); setShowLmsModal(false) }} />
+        <LmsModal
+          classId={classId}
+          onClose={() => setShowLmsModal(false)}
+          onConnected={() => { handleLmsConnected(); setShowLmsModal(false) }}
+        />
       )}
       {hitlItem && (
         <HitlPopup
@@ -1241,7 +2309,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
           onClose={() => setHitlItem(null)}
           onResultUpdate={updated => setAiResults(prev => ({
             ...prev,
-            [`${CURRENT_WEEK}_${hitlItem.item.subject}`]: updated,
+            [`${currentWeekNum}_${hitlItem.item.subject}`]: updated,
           }))}
         />
       )}
