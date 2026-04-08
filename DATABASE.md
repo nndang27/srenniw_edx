@@ -205,6 +205,69 @@ alter publication supabase_realtime add table public.briefs;
 
 ---
 
+## Step 6 — Family background (migration — run after initial setup)
+
+The suggestion agent reads `class_parents.family_background` to personalise
+Sydney event recommendations. Add this column to an existing database:
+
+```sql
+-- Add family_background JSONB to class_parents.
+-- Safe to run on an existing table; existing rows get NULL (tool falls back to defaults).
+alter table public.class_parents
+  add column if not exists family_background jsonb;
+
+-- Optional: add an index if you filter by religion or suburb frequently.
+create index if not exists idx_class_parents_background
+  on public.class_parents using gin (family_background);
+```
+
+### family_background JSON shape
+
+```json
+{
+  "religion": "catholic",
+  "cultural_origin": "irish-australian",
+  "languages_spoken": ["en"],
+  "suburb": "Surry Hills",
+  "interests": ["music", "history", "nature"],
+  "family_size": 4,
+  "transport": "public",
+  "budget_level": "medium",
+  "weekend_availability": "weekends"
+}
+```
+
+| Field | Type | Values | Notes |
+|-------|------|--------|-------|
+| `religion` | string \| null | `"catholic"`, `"muslim"`, `"buddhist"`, `"hindu"`, `"jewish"`, `"secular"`, `null` | `null` = not specified; religious venues only suggested when this matches |
+| `cultural_origin` | string \| null | free text, e.g. `"vietnamese"`, `"lebanese"` | informational only |
+| `languages_spoken` | string[] | `["en", "vi"]` | falls back to `preferred_language` if absent |
+| `suburb` | string | e.g. `"Bankstown"` | used as proximity anchor for event search |
+| `interests` | string[] | `["sports", "music", "nature", "science", "art"]` | boosts matching score for events in those categories |
+| `family_size` | int \| null | — | informational |
+| `transport` | string | `"car"`, `"public"`, `"limited"` | `"limited"` penalises events far from the family's suburb |
+| `budget_level` | string | `"low"`, `"medium"`, `"high"` | `"low"` deprioritises `$$` / `$$$` events |
+| `weekend_availability` | string | `"weekends"`, `"any"`, `"limited"` | informational |
+
+All fields are optional — the tool fills missing keys with neutral defaults.
+
+### Update a parent's family background (backend service key)
+
+```sql
+update public.class_parents
+set family_background = '{
+  "religion": "catholic",
+  "suburb": "Parramatta",
+  "transport": "car",
+  "budget_level": "medium",
+  "interests": ["history", "music"]
+}'::jsonb
+where parent_clerk_id = 'user_xxx'
+  and class_id = 'class-uuid-here';
+```
+
+---
+
 ## Data Shape Examples
 
 ### Brief with at_home_activities (jsonb)
