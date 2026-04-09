@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { SUBJECTS } from '@/lib/mockTeacherData'
 import type { ClassroomCourseData, ClassroomItem, ClassroomWeeklyTopic } from '@/lib/api'
+import { cacheGet, cacheSet, cacheDelete } from '@/lib/sessionCache'
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -1124,14 +1125,23 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
   }
 
   // ── Lecture block API helpers ────────────────────────────────────────────────
-  const fetchLectureBlocks = useCallback(async () => {
+  const fetchLectureBlocks = useCallback(async (forceRefresh = false) => {
+    const cacheKey = `lectureBlocks:${classId}:${subject}`
+    if (!forceRefresh) {
+      const cached = cacheGet<LectureBlock[]>(cacheKey)
+      if (cached) { setLectureBlocks(cached); return }
+    }
     try {
       const token = await getToken()
       const url = `${BASE_URL}/api/teacher/classes/${classId}/lecture-blocks${subject === 'All' ? '?all_subjects=true' : ''}`
       const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (res.ok) setLectureBlocks(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        cacheSet(cacheKey, data)
+        setLectureBlocks(data)
+      }
     } catch { /* silent */ }
   }, [classId, subject, getToken])
 
@@ -1332,7 +1342,17 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
   const [aiResults, setAiResults] = useState<Record<string, AIResult>>({})
   const [hitlItem, setHitlItem] = useState<{ item: WeekItem; result: AIResult; weekId: string } | null>(null)
 
-  const fetchCurriculumData = useCallback(async () => {
+  const fetchCurriculumData = useCallback(async (forceRefresh = false) => {
+    const cacheKey = `curriculum:${classId}:${subject}`
+    if (!forceRefresh) {
+      const cached = cacheGet<ClassroomCourseData>(cacheKey)
+      if (cached) {
+        setGcData(cached)
+        if (cached.weekly_topics) setDbWeeklyTopics(cached.weekly_topics)
+        setGcLoading(false)
+        return
+      }
+    }
     setGcLoading(true)
     try {
       const token = await getToken()
@@ -1342,6 +1362,7 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
       })
       if (!res.ok) throw new Error('Failed to load')
       const data: ClassroomCourseData = await res.json()
+      cacheSet(cacheKey, data)
       setGcData(data)
       if (data.weekly_topics) {
         setDbWeeklyTopics(data.weekly_topics)
@@ -1364,9 +1385,11 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
   }, [classId, subject, getToken])
 
   const handleLmsConnected = useCallback(() => {
-    // Sync done — re-fetch fresh data from DB (source of truth)
-    fetchCurriculumData()
-  }, [fetchCurriculumData])
+    // Sync done — clear cache and re-fetch fresh data from DB
+    cacheDelete(`curriculum:${classId}:${subject}`)
+    cacheDelete(`lectureBlocks:${classId}:${subject}`)
+    fetchCurriculumData(true)
+  }, [fetchCurriculumData, classId, subject])
 
   useEffect(() => {
     fetch('/api/timetable').then(r => r.json()).then(setTimetable).catch(console.error)

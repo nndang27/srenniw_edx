@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { RefreshCw, Table } from 'lucide-react'
+import { cacheGet, cacheSet } from '@/lib/sessionCache'
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -62,6 +63,10 @@ export default function TranscriptTab({ classId }: Props) {
   const [visibleWeeks, setVisibleWeeks] = useState(10)
 
   useEffect(() => {
+    const cacheKey = `transcript:${classId}`
+    const cached = cacheGet<TranscriptData>(cacheKey)
+    if (cached) { setData(cached); setLoading(false); return }
+
     const load = async () => {
       setLoading(true)
       try {
@@ -70,7 +75,9 @@ export default function TranscriptTab({ classId }: Props) {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         })
         if (!res.ok) throw new Error()
-        setData(await res.json())
+        const json = await res.json()
+        cacheSet(cacheKey, json)
+        setData(json)
       } catch { /* silent */ } finally { setLoading(false) }
     }
     load()
