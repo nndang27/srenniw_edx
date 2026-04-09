@@ -1,28 +1,18 @@
-import { promises as fs } from 'fs'
-import path from 'path'
+// Static JSON imports — bundled by Next.js/webpack, works on Vercel
+import sampleUsers from '../data/sample_users.json'
+import sampleCurriculum from '../data/sample_curriculum.json'
+import sampleActivities from '../data/sample_activities.json'
+import sampleTranscript from '../data/sample_transcript.json'
+import sampleTimetable from '../data/sample_timetable.json'
+import sampleAnalytics from '../data/sample_analytics_insights.json'
+import mockData400days from '../data/mock_data_400days.json'
 
-// Mock Data Path
-// const DATA_DIR = '../../backend/tests/data'
-const DATA_DIR = path.join(process.cwd(), 'backend/tests/data');
-
-export async function readMockFile<T>(filename: string): Promise<T | null> {
-  try {
-    const filePath = path.join(DATA_DIR, filename)
-    const content = await fs.readFile(filePath, 'utf-8')
-    return JSON.parse(content) as T
-  } catch (error) {
-    console.error(`Error reading ${filename}:`, error)
-    return null
-  }
-}
-
-// Data API calls
 export const dataService = {
-  getUsers: () => readMockFile<any>('sample_users.json'),
-  getCurriculum: () => readMockFile<any[]>('sample_curriculum.json'),
-  getDailyInsights: () => readMockFile<any[]>('mock_data_400days.json'),
-  getTranscript: () => readMockFile<any>('sample_transcript.json'),
-  getTimetable: () => readMockFile<any>('sample_timetable.json'),
-  getActivities: () => readMockFile<any>('sample_activities.json'),
-  getAnalytics: () => readMockFile<any>('sample_analytics_insights.json'),
+  getUsers: () => Promise.resolve(sampleUsers as any),
+  getCurriculum: () => Promise.resolve(sampleCurriculum as any[]),
+  getDailyInsights: () => Promise.resolve(mockData400days as any[]),
+  getTranscript: () => Promise.resolve(sampleTranscript as any),
+  getTimetable: () => Promise.resolve(sampleTimetable as any),
+  getActivities: () => Promise.resolve(sampleActivities as any),
+  getAnalytics: () => Promise.resolve(sampleAnalytics as any),
 }

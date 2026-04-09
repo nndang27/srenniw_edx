@@ -1,0 +1,248 @@
+{
+  "previewPrompts": {
+    "Maths": "Do you know what we use fractions for in real life?",
+    "Science": "Can you name one thing that changes from solid to liquid?",
+    "English": "What makes a piece of writing convincing to you?",
+    "HSIE": "What do you know about how our local community works?",
+    "Creative Arts": "What colours do you think make a painting look peaceful?",
+    "PE": "How do you think you can improve your team's speed?"
+  },
+  "suggestions": {
+    "Maths": [
+      {
+        "emoji": "🎲",
+        "title": "Fraction War Card Game",
+        "desc": "Use a deck of cards to create fractions. Highest fraction wins the round."
+      },
+      {
+        "emoji": "🛒",
+        "title": "Supermarket Maths",
+        "desc": "Let them calculate totals and change during the next grocery run."
+      },
+      {
+        "emoji": "📏",
+        "title": "Measure the House",
+        "desc": "Estimate then measure furniture — compare metric and informal units."
+      }
+    ],
+    "Science": [
+      {
+        "emoji": "🌱",
+        "title": "Kitchen Garden Experiment",
+        "desc": "Grow beans in a jar — observe roots and shoots forming over days."
+      },
+      {
+        "emoji": "🧊",
+        "title": "States of Matter Kitchen Lab",
+        "desc": "Observe ice melting and water boiling — record observations together."
+      },
+      {
+        "emoji": "🔦",
+        "title": "Shadow Tracing",
+        "desc": "Trace shadows hourly to understand how the sun moves."
+      }
+    ],
+    "English": [
+      {
+        "emoji": "✍️",
+        "title": "Story Starter Jar",
+        "desc": "Write prompts on paper, pull one out, write for 10 minutes."
+      },
+      {
+        "emoji": "📰",
+        "title": "Family Newspaper",
+        "desc": "Write a short article about something that happened this week."
+      },
+      {
+        "emoji": "🎙️",
+        "title": "Persuasion Challenge",
+        "desc": "Give them 2 mins to convince you of something — then discuss."
+      }
+    ],
+    "HSIE": [
+      {
+        "emoji": "🗺️",
+        "title": "Map Your Neighbourhood",
+        "desc": "Draw a map of your local area with landmarks."
+      },
+      {
+        "emoji": "📸",
+        "title": "Community Photo Walk",
+        "desc": "Photograph things that show community roles (post box, park, school)."
+      },
+      {
+        "emoji": "🌍",
+        "title": "Country Research Box",
+        "desc": "Pick a country and find 5 interesting facts together."
+      }
+    ],
+    "Creative Arts": [
+      {
+        "emoji": "🖌️",
+        "title": "Watercolour Wash Sunset",
+        "desc": "Practice blending colours to create a gradient sky."
+      },
+      {
+        "emoji": "🎵",
+        "title": "Rhythm Clapping Game",
+        "desc": "Clap patterns and challenge each other to repeat them."
+      },
+      {
+        "emoji": "🎭",
+        "title": "Mini Play",
+        "desc": "Act out a favourite story scene — swap roles."
+      }
+    ],
+    "PE": [
+      {
+        "emoji": "⏱️",
+        "title": "Backyard Obstacle Course",
+        "desc": "Set up a timed course with hula hoops, cones, and jumps."
+      },
+      {
+        "emoji": "🎯",
+        "title": "Target Throwing",
+        "desc": "Throw beanbags at chalk circles — record accuracy."
+      },
+      {
+        "emoji": "🚴",
+        "title": "Bike Ride Challenge",
+        "desc": "Set a distance goal and track it on a map app."
+      }
+    ]
+  },
+  "playQuestions": {
+    "Maths": [
+      {
+        "q": "What is 3/4 of 20?",
+        "options": [
+          "12",
+          "15",
+          "10",
+          "8"
+        ],
+        "answer": 1
+      },
+      {
+        "q": "Which is bigger: 0.75 or 3/4?",
+        "options": [
+          "0.75",
+          "3/4",
+          "They are equal",
+          "Cannot tell"
+        ],
+        "answer": 2
+      }
+    ],
+    "Science": [
+      {
+        "q": "Water changing from liquid to gas is called?",
+        "options": [
+          "Freezing",
+          "Condensation",
+          "Evaporation",
+          "Melting"
+        ],
+        "answer": 2
+      },
+      {
+        "q": "Which organism makes its own food from sunlight?",
+        "options": [
+          "Lion",
+          "Mushroom",
+          "Plant",
+          "Fish"
+        ],
+        "answer": 2
+      }
+    ],
+    "English": [
+      {
+        "q": "Which word is an adjective?",
+        "options": [
+          "Run",
+          "Quickly",
+          "Beautiful",
+          "Jump"
+        ],
+        "answer": 2
+      },
+      {
+        "q": "A piece of writing that tries to convince is called…?",
+        "options": [
+          "Narrative",
+          "Persuasive",
+          "Descriptive",
+          "Report"
+        ],
+        "answer": 1
+      }
+    ],
+    "HSIE": [
+      {
+        "q": "What is the capital of Australia?",
+        "options": [
+          "Sydney",
+          "Melbourne",
+          "Canberra",
+          "Brisbane"
+        ],
+        "answer": 2
+      },
+      {
+        "q": "Who makes laws in Australia?",
+        "options": [
+          "The Police",
+          "Parliament",
+          "The Queen",
+          "Schools"
+        ],
+        "answer": 1
+      }
+    ],
+    "Creative Arts": [
+      {
+        "q": "Red + Blue = ?",
+        "options": [
+          "Orange",
+          "Green",
+          "Purple",
+          "Brown"
+        ],
+        "answer": 2
+      },
+      {
+        "q": "What is a melody?",
+        "options": [
+          "A beat pattern",
+          "A tune of notes",
+          "A type of dance",
+          "A painting style"
+        ],
+        "answer": 1
+      }
+    ],
+    "PE": [
+      {
+        "q": "How many players in a basketball team on court?",
+        "options": [
+          "4",
+          "5",
+          "6",
+          "7"
+        ],
+        "answer": 1
+      },
+      {
+        "q": "Which muscle group do squats primarily work?",
+        "options": [
+          "Arms",
+          "Chest",
+          "Legs",
+          "Back"
+        ],
+        "answer": 2
+      }
+    ]
+  }
+}

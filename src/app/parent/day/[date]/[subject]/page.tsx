@@ -1064,18 +1064,16 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
     key_vocabulary: normalizeVocab(ddObj?.key_vocabulary) || quickPeekFallback.key_vocabulary,
     why_this_matters: ddObj?.why_this_matters || quickPeekFallback.why_this_matters,
     videos: (() => {
-      const VIDEO_FOLDERS: Record<string, string> = {
-        'Maths': 'Maths', 'Math': 'Maths',
-        'English': 'English',
-        'HSIE': 'HSIE', 'History': 'HSIE',
-        'Science': 'Science',
+      const CDN = 'https://res.cloudinary.com/ddnrrg0hp/video/upload'
+      const CLOUDINARY_VIDEOS: Record<string, string[]> = {
+        'Maths': [`${CDN}/sample3_r8bena.mp4`, `${CDN}/sample2_jsmpsp.mp4`, `${CDN}/sample1_qfytop.mp4`],
+        'Math':  [`${CDN}/sample3_r8bena.mp4`, `${CDN}/sample2_jsmpsp.mp4`, `${CDN}/sample1_qfytop.mp4`],
+        'Science': [`${CDN}/sample1_r6wje2.mp4`, `${CDN}/sample2_frk98j.mp4`, `${CDN}/sample3_mepmms.mp4`],
+        'English': [`${CDN}/sample3_mepmms.mp4`, `${CDN}/sample1_v4h3sw.mp4`, `${CDN}/sample3_ackcec.mp4`],
+        'HSIE':    [`${CDN}/sample1_hlvkwq.mp4`, `${CDN}/sample2_fmaucw.mp4`, `${CDN}/sample3_s1hglu.mp4`],
+        'History': [`${CDN}/sample1_hlvkwq.mp4`, `${CDN}/sample2_fmaucw.mp4`, `${CDN}/sample3_s1hglu.mp4`],
       }
-      const folder = VIDEO_FOLDERS[subject] ?? 'Science'
-      return [
-        `/samples/${folder}/sample1.mp4`,
-        `/samples/${folder}/sample2.mp4`,
-        `/samples/${folder}/sample3.mp4`,
-      ]
+      return CLOUDINARY_VIDEOS[subject] ?? CLOUDINARY_VIDEOS['Science']
     })()
   }
 

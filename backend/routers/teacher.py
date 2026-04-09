@@ -409,12 +409,18 @@ async def get_class_transcript(class_id: str, user: dict = Depends(require_teach
     """
     db = get_supabase()
 
-    cls = db.table("classes").select("id").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
+    # Validate class belongs to teacher
+    cls = db.table("classes").select("id, name").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
     if not cls.data:
         raise HTTPException(status_code=404, detail="Class not found")
 
-    # Students
-    students_raw = db.table("students").select("id, name, email").eq("class_id", class_id).execute()
+    # Get all students across the group (same class name + teacher)
+    students_data, _ = _get_group_students(db, class_id, user["sub"])
+
+    # Get all class IDs in the group to query assignments
+    group_name = cls.data[0]["name"]
+    group_classes = db.table("classes").select("id").eq("name", group_name).eq("teacher_clerk_id", user["sub"]).execute()
+    group_ids = [c["id"] for c in (group_classes.data or [])]
 
     # Academic weeks for sequential numbering
     weeks_raw = db.table("academic_weeks").select("id, start_date, week_name").order("start_date").execute()
@@ -422,10 +428,10 @@ async def get_class_transcript(class_id: str, user: dict = Depends(require_teach
     week_num_map = {w["id"]: (i + 1) for i, w in enumerate(sorted_weeks)}
     week_name_map = {w["id"]: w["week_name"] for w in sorted_weeks}
 
-    # Assignments for this class
+    # Assignments across all classes in the group
     assignments_raw = db.table("course_items").select(
         "id, week_id, title, max_points"
-    ).eq("class_id", class_id).eq("type", "assignment").execute()
+    ).in_("class_id", group_ids).eq("type", "assignment").execute()
 
     # Deduplicate by week_id (take first assignment per week)
     seen_weeks: dict[str, dict] = {}
@@ -458,7 +464,7 @@ async def get_class_transcript(class_id: str, user: dict = Depends(require_teach
 
     # Build student rows
     student_list = []
-    for st in (students_raw.data or []):
+    for st in students_data:
         st_subs = subs_by_student.get(st["id"], {})
         grades: dict[str, dict] = {}
         total_earned, total_possible, graded_count = 0, 0, 0
@@ -828,7 +834,15 @@ async def publish_topic_brief(class_id: str, body: TopicPublish, user: dict = De
         brief_id = inserted.data[0]["id"]
         
     # Insert notifications + Realtime broadcast for each parent
-    parents = db.table("class_parents").select("parent_clerk_id").eq("class_id", class_id).execute()
+    # Query across all classes in the group (same name + teacher) so we find
+    # parents regardless of which subject class UUID they were linked to.
+    cls_name_res = db.table("classes").select("name").eq("id", class_id).execute()
+    if cls_name_res.data:
+        grp_name = cls_name_res.data[0]["name"]
+        grp_ids = [c["id"] for c in (db.table("classes").select("id").eq("name", grp_name).eq("teacher_clerk_id", user["sub"]).execute().data or [])]
+        parents = db.table("class_parents").select("parent_clerk_id").in_("class_id", grp_ids).execute()
+    else:
+        parents = db.table("class_parents").select("parent_clerk_id").eq("class_id", class_id).execute()
     notifs = []
     for p in parents.data:
         notifs.append({
