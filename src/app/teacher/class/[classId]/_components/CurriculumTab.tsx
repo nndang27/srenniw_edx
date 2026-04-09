@@ -695,7 +695,7 @@ function WeekEditor({
       {items.map(({ subject: subj, topic, learningGoal, class_work }) => {
         const isEditing = editSubj === subj
         const justSaved = savedSubj === subj
-        const status: AIStatus = aiStatus?.[`${week}_${subj}`] ?? 'idle'
+        const status: AIStatus = aiStatus?.[subj] ?? 'idle'
         const isDone = status === 'done'
         const isProcessing = status === 'processing'
 
@@ -1525,7 +1525,7 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
         // Check if we were aborted between subjects
         if (controller.signal.aborted) break
 
-        const key = `${currentWeekNum}_${item.subject}`
+        const key = item.subject
         setAiSubjectStatus(prev => {
           const next = { ...prev, [key]: 'processing' as AIStatus }
           cacheSet(`aiStatus:${classId}`, next)
@@ -1817,13 +1817,13 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
 
                       {/* AI Status / Review Button */}
                       <div className="ml-auto flex items-center gap-2">
-                        {aiSubjectStatus[`${displayWeek}_${subj}`] === 'processing' && (
+                        {aiSubjectStatus[subj] === 'processing' && (
                           <span className="flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
                             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
                             AI running…
                           </span>
                         )}
-                        {aiSubjectStatus[`${displayWeek}_${subj}`] === 'done' && (
+                        {aiSubjectStatus[subj] === 'done' && (
                           <button
                             onClick={() => handleSubjectClick({ subject: subj, topic: cleanMaterialTitle, learningGoal: topicInfo?.learningGoal ?? '', class_work: topicInfo?.class_work }, displayWeek)}
                             className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full hover:bg-emerald-100 transition-colors shadow-sm"
