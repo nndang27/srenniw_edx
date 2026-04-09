@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { dataService } from '@/lib/dataService'
 import { backendFetch } from '@/lib/backendFetch'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
