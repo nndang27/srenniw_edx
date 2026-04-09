@@ -1586,8 +1586,7 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
   }, [classId, currentWeekNum, getToken, weekMap, listFilterSubject])
 
   const handleSubjectClick = (item: WeekItem, weekNum: number) => {
-    const key = `${weekNum}_${item.subject}`
-    const result = aiResults[key]
+    const result = aiResults[item.subject]
     const weekId = dbWeeklyTopics.find(wt => wt.week === weekNum)?.week_id || todayWeekId
     if (result) setHitlItem({ item, result, weekId })
   }
@@ -2745,7 +2744,7 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
           weekId={hitlItem.weekId}
           onClose={() => setHitlItem(null)}
           onResultUpdate={updated => setAiResults(prev => {
-            const next = { ...prev, [`${hitlItem.weekId.split('-W')[1] ? parseInt(hitlItem.weekId.split('-W')[1]) : currentWeekNum}_${hitlItem.item.subject}`]: updated }
+            const next = { ...prev, [hitlItem.item.subject]: updated }
             cacheSet(`aiResults:${classId}`, next)
             return next
           })}
