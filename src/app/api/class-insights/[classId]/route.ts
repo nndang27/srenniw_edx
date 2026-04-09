@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { backendFetch } from '@/lib/backendFetch'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -13,7 +14,7 @@ export async function GET(
     const token = await getToken()
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const res = await fetch(`${BACKEND_URL}/api/teacher/classes/${classId}/insights`, {
+    const res = await backendFetch(`${BACKEND_URL}/api/teacher/classes/${classId}/insights`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (res.ok) return NextResponse.json(await res.json())

@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { dataService } from '@/lib/dataService'
+import { backendFetch } from '@/lib/backendFetch'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
 
     if (token) {
       // Proxy to FastAPI — returns journal entries from student_diaries table
-      const res = await fetch(`${BACKEND_URL}/api/parent/diary`, {
+      const res = await backendFetch(`${BACKEND_URL}/api/parent/diary`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
