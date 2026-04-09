@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, Fragment } from 'react'
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import {
   ChevronDown, ChevronLeft, ChevronRight, Pencil, Calendar, List,
@@ -52,7 +52,12 @@ interface AIResult {
 }
 type AIStatus = 'idle' | 'processing' | 'done'
 
-interface Props { classId: string; subject: string }
+interface Props {
+  classId: string;
+  subject: string;
+  onSubjectChange?: (s: string) => void;
+  aiRunningRef?: React.MutableRefObject<boolean>;
+}
 
 // ── Mock AI content ──────────────────────────────────────────────────────────
 
@@ -1004,7 +1009,7 @@ function GcItem({ item, expanded, onToggle }: { item: ClassroomItem; expanded: b
 
 // ── Main Export ──────────────────────────────────────────────────────────────
 
-export default function CurriculumTab({ classId, subject }: Props) {
+export default function CurriculumTab({ classId, subject, onSubjectChange, aiRunningRef: parentAiRunningRef }: Props) {
   const { getToken } = useAuth()
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([CURRENT_WEEK]))
@@ -1013,6 +1018,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const [showLmsModal, setShowLmsModal] = useState(false)
   const [lmsConnected, setLmsConnected] = useState(false)
   const [calendarWeek, setCalendarWeek] = useState(CURRENT_WEEK)
+  const [listFilterSubject, setListFilterSubject] = useState<string | null>(null)
   const [expandedCalDay, setExpandedCalDay] = useState<string | null>(null)
   // null = show currentWeekNum; set by calendar click to navigate to a specific week
   const [listWeek, setListWeek] = useState<number | null>(null)
@@ -1037,6 +1043,11 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const homeworkEditorRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [wordCount, setWordCount] = useState(0)
+  // Local fallback if no parent ref provided, but we prefer the parent one for stability
+  const localAiRunningRef = useRef(false)
+  const isAiAgentRunningRef = parentAiRunningRef || localAiRunningRef
+  // AbortController to cancel fetches if component unmounts during generation
+  const abortControllerRef = useRef<AbortController | null>(null)
   const [homeworkWordCount, setHomeworkWordCount] = useState(0)
   const [editorActiveMenu, setEditorActiveMenu] = useState<string | null>(null)
   const [fontSize, setFontSize] = useState('12pt')
@@ -1113,15 +1124,16 @@ export default function CurriculumTab({ classId, subject }: Props) {
   }
 
   // ── Lecture block API helpers ────────────────────────────────────────────────
-  const fetchLectureBlocks = async () => {
+  const fetchLectureBlocks = useCallback(async () => {
     try {
       const token = await getToken()
-      const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/lecture-blocks`, {
+      const url = `${BASE_URL}/api/teacher/classes/${classId}/lecture-blocks${subject === 'All' ? '?all_subjects=true' : ''}`
+      const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (res.ok) setLectureBlocks(await res.json())
     } catch { /* silent */ }
-  }
+  }, [classId, subject, getToken])
 
   const handleEditBlock = (lb: LectureBlock) => {
     setEditingBlock(lb)
@@ -1320,11 +1332,12 @@ export default function CurriculumTab({ classId, subject }: Props) {
   const [aiResults, setAiResults] = useState<Record<string, AIResult>>({})
   const [hitlItem, setHitlItem] = useState<{ item: WeekItem; result: AIResult; weekId: string } | null>(null)
 
-  const fetchCurriculumData = async () => {
+  const fetchCurriculumData = useCallback(async () => {
     setGcLoading(true)
     try {
       const token = await getToken()
-      const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/curriculum`, {
+      const url = `${BASE_URL}/api/teacher/classes/${classId}/curriculum${subject === 'All' ? '?all_subjects=true' : ''}`
+      const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (!res.ok) throw new Error('Failed to load')
@@ -1348,12 +1361,12 @@ export default function CurriculumTab({ classId, subject }: Props) {
         setCalendarWeek(cur)
       }
     } catch { /* silent */ } finally { setGcLoading(false) }
-  }
+  }, [classId, subject, getToken])
 
-  const handleLmsConnected = () => {
+  const handleLmsConnected = useCallback(() => {
     // Sync done — re-fetch fresh data from DB (source of truth)
     fetchCurriculumData()
-  }
+  }, [fetchCurriculumData])
 
   useEffect(() => {
     fetch('/api/timetable').then(r => r.json()).then(setTimetable).catch(console.error)
@@ -1362,17 +1375,28 @@ export default function CurriculumTab({ classId, subject }: Props) {
   // Auto-load curriculum + lecture blocks from DB on mount
   useEffect(() => {
     fetchCurriculumData()
+    // TODO: support fetching all blocks if needed
     fetchLectureBlocks()
-  }, [classId])
+
+    return () => {
+      // Cleanup: Abort any pending AI generation fetches on unmount
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+        isAiAgentRunningRef.current = false
+      }
+    }
+  }, [classId, subject])
 
   useEffect(() => {
+    setListFilterSubject(null)
     const overrides: Record<string, Record<string, SavedEntry>> = {}
     for (let w = 1; w <= 20; w++) {
       const raw = localStorage.getItem(`curriculum_${classId}_week_${w}`)
       if (raw) { try { overrides[String(w)] = JSON.parse(raw) } catch { /* ignore */ } }
     }
     setSavedOverrides(overrides)
-  }, [classId])
+  }, [classId, subject])
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2000) }
 
@@ -1447,42 +1471,76 @@ export default function CurriculumTab({ classId, subject }: Props) {
   })
 
   // ── AI Agent run ────────────────────────────────────────────────────────────
-  const runAiAgent = async () => {
-    const currentWeekItems = weekMap[currentWeekNum] ?? []
+  const runAiAgent = useCallback(async () => {
+    if (isAiAgentRunningRef.current) {
+      console.log("AI Agent is already running, skipping trigger.")
+      return
+    }
+    let currentWeekItems = weekMap[currentWeekNum] ?? []
+    // Filter by local List View subject if one is set
+    if (listFilterSubject) {
+      currentWeekItems = currentWeekItems.filter(item => item.subject === listFilterSubject)
+    }
+
     if (!currentWeekItems.length) return
+
+    isAiAgentRunningRef.current = true
     setAiRunning(true)
     // Expand current week
     setExpandedWeeks(prev => new Set([...prev, currentWeekNum]))
 
-    for (const item of currentWeekItems) {
-      const key = `${currentWeekNum}_${item.subject}`
-      setAiSubjectStatus(prev => ({ ...prev, [key]: 'processing' }))
-      try {
-        const token = await getToken()
-        const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/topics/ai-generate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            week: currentWeekNum,
-            subject: item.subject,
-            topic: item.topic,
-            learningGoal: item.learningGoal,
-            class_work: item.class_work,
+    // Create a new AbortController for this run
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    try {
+      for (const item of currentWeekItems) {
+        // Check if we were aborted between subjects
+        if (controller.signal.aborted) break
+
+        const key = `${currentWeekNum}_${item.subject}`
+        setAiSubjectStatus(prev => ({ ...prev, [key]: 'processing' }))
+        try {
+          const token = await getToken()
+          const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/topics/ai-generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              week: currentWeekNum,
+              subject: item.subject,
+              topic: item.topic,
+              learningGoal: item.learningGoal,
+              class_work: item.class_work,
+            }),
+            signal: controller.signal // Link to abort signal
           })
-        })
-        const result = await res.json()
-        setAiResults(prev => ({ ...prev, [key]: result }))
-      } catch (err) {
-        console.error('Failed to generate AI data for', item.subject, err)
-        // Fallback struct so it doesn't crash the UI component
-        const fb = { summary: 'Error generating', deepDive: 'Please try again manually.', tiktoks: [] }
-        setAiResults(prev => ({ ...prev, [key]: fb }))
+
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+          const result = await res.json()
+          setAiResults(prev => ({ ...prev, [key]: result }))
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            console.log('AI generation fetch was aborted.')
+            return // Stop everything if aborted
+          }
+          console.error('Failed to generate AI data for', item.subject, err)
+          const fb = { summary: 'Error generating', deepDive: 'Please try again manually.', tiktoks: [] }
+          setAiResults(prev => ({ ...prev, [key]: fb }))
+        }
+        setAiSubjectStatus(prev => ({ ...prev, [key]: 'done' }))
       }
-      setAiSubjectStatus(prev => ({ ...prev, [key]: 'done' }))
+      if (!controller.signal.aborted) {
+        showToast('✅ AI analysis complete for this week!')
+      }
+    } finally {
+      // Only clear the running flag if this specific run finished (wasn't replaced/aborted by another mount)
+      if (abortControllerRef.current === controller) {
+        isAiAgentRunningRef.current = false
+        abortControllerRef.current = null
+      }
+      setAiRunning(false)
     }
-    setAiRunning(false)
-    showToast('✅ AI analysis complete for this week!')
-  }
+  }, [classId, currentWeekNum, getToken, weekMap, listFilterSubject])
 
   const handleSubjectClick = (item: WeekItem, weekNum: number) => {
     const key = `${weekNum}_${item.subject}`
@@ -1578,12 +1636,12 @@ export default function CurriculumTab({ classId, subject }: Props) {
         {/* ── Actions row ──────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2">
-            <button onClick={() => { setView('list'); setListWeek(null) }}
+            <button onClick={() => { setView('list'); setListWeek(null); setListFilterSubject(null) }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
                   ${view === 'list' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}>
               <List size={13} /> List View
             </button>
-            <button onClick={() => setView('calendar')}
+            <button onClick={() => { setView('calendar'); setListFilterSubject(null) }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
                   ${view === 'calendar' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}>
               <Calendar size={13} /> Calendar View
@@ -1652,11 +1710,13 @@ export default function CurriculumTab({ classId, subject }: Props) {
 
           const hasData = weekTopics.length > 0 || weekMaterials.length > 0
 
+          const activeFilter = listFilterSubject || subject
           // Build per-subject map
           const subjects = [...new Set([
             ...weekTopics.map(t => t.subject),
-            ...weekMaterials.map(() => 'Maths'),
-          ])]
+            ...weekMaterials.map(m => m.subject || (activeFilter === 'All' ? 'Maths' : activeFilter)),
+            ...weekAssignments.map(a => a.subject || (activeFilter === 'All' ? 'Maths' : activeFilter)),
+          ])].filter(s => s && (activeFilter === 'All' || s === activeFilter))
 
           return (
             <div className="space-y-3">
@@ -1682,8 +1742,9 @@ export default function CurriculumTab({ classId, subject }: Props) {
                   No curriculum data found. Try syncing your LMS.
                 </div>
               ) : subjects.map(subj => {
-                const material = weekMaterials[0] ?? null // 1 material per week
-                const assignment = weekAssignments[0] ?? null // 1 assignment per week
+                const activeFilter = listFilterSubject || subject
+                const material = weekMaterials.find(m => (m.subject || (activeFilter === 'All' ? 'Maths' : activeFilter)) === subj) ?? null
+                const assignment = weekAssignments.find(a => (a.subject || (activeFilter === 'All' ? 'Maths' : activeFilter)) === subj) ?? null
                 const topicInfo = weekTopics.find(t => t.subject === subj)
                 const subjectColor = SUBJECT_COLORS[subj] ?? 'bg-slate-100 text-slate-600 border-slate-200'
 
@@ -1926,11 +1987,15 @@ export default function CurriculumTab({ classId, subject }: Props) {
                                   onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverBlockId(it.id); setDragOverCell(null); setDragOverIndex(null) }}
                                   onDragLeave={() => setDragOverBlockId(null)}
                                   onDrop={e => { calWeekId && handleDropOnCell(e, calWeekId, dayIdx, it.id) }}
-                                  onClick={() => { setListWeek(calendarWeek); setView('list') }}
-                                  className={`rounded-xl p-2 border text-left w-full cursor-grab active:cursor-grabbing transition-all select-none bg-indigo-50 border-indigo-200 text-indigo-700 my-0.5 ${dragOverBlockId === it.id ? 'ring-2 ring-red-500 scale-105 z-10 shadow-lg' :
+                                  onClick={() => {
+                                    if (it.subject) setListFilterSubject(it.subject)
+                                    setListWeek(calendarWeek)
+                                    setView('list')
+                                  }}
+                                  className={`rounded-xl p-2 border text-left w-full cursor-grab active:cursor-grabbing transition-all select-none ${SUBJECT_COLORS[it.subject || subject] ?? 'bg-indigo-50 border-indigo-200 text-indigo-700'} my-0.5 ${dragOverBlockId === it.id ? 'ring-2 ring-red-500 scale-105 z-10 shadow-lg' :
                                     draggingGcItem?.id === it.id ? 'opacity-40 scale-95' : 'hover:shadow-sm hover:scale-[1.02]'}`}
                                 >
-                                  <p className="text-[9px] font-bold leading-tight opacity-60 uppercase">📖 Lesson</p>
+                                  <p className="text-[9px] font-bold leading-tight opacity-60 uppercase">📖 {it.subject || subject}</p>
                                   <p className="text-[9px] leading-tight mt-0.5 font-medium line-clamp-2">{cleanTitle}</p>
                                 </div>
                               </Fragment>
@@ -1940,15 +2005,7 @@ export default function CurriculumTab({ classId, subject }: Props) {
                           {/* Teacher lecture blocks (draggable) */}
                           {lblocks.map((lb, index) => {
                             const isGcOverride = lb.content?.includes('<!--GC_ITEM_ID:')
-                            const subjectColor: Record<string, string> = {
-                              Maths: 'bg-blue-50 border-blue-200 text-blue-700',
-                              Science: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-                              English: 'bg-violet-50 border-violet-200 text-violet-700',
-                              HSIE: 'bg-amber-50 border-amber-200 text-amber-700',
-                              'Creative Arts': 'bg-pink-50 border-pink-200 text-pink-700',
-                              PE: 'bg-orange-50 border-orange-200 text-orange-700',
-                            }
-                            const color = isGcOverride ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : (subjectColor[lb.subject] ?? 'bg-slate-50 border-slate-200 text-slate-700')
+                            const color = isGcOverride ? (SUBJECT_COLORS[lb.subject || subject] ?? 'bg-indigo-50 border-indigo-200 text-indigo-700') : (SUBJECT_COLORS[lb.subject] ?? 'bg-slate-50 border-slate-200 text-slate-700')
                             return (
                               <Fragment key={lb.id}>
                                 {/* Insert Zone Above Block */}
@@ -1965,12 +2022,20 @@ export default function CurriculumTab({ classId, subject }: Props) {
                                   onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverBlockId(lb.id); setDragOverCell(null); setDragOverIndex(null) }}
                                   onDragLeave={() => setDragOverBlockId(null)}
                                   onDrop={e => { calWeekId && handleDropOnCell(e, calWeekId, dayIdx, lb.id) }}
-                                  onClick={() => isGcOverride ? (() => { setListWeek(calendarWeek); setView('list') })() : handleEditBlock(lb)}
+                                  onClick={() => {
+                                    if (lb.subject) setListFilterSubject(lb.subject)
+                                    if (isGcOverride) {
+                                      setListWeek(calendarWeek)
+                                      setView('list')
+                                    } else {
+                                      handleEditBlock(lb)
+                                    }
+                                  }}
                                   className={`rounded-xl p-2 border text-left w-full cursor-grab active:cursor-grabbing transition-all select-none ${color} ${dragOverBlockId === lb.id ? 'ring-2 ring-red-500 scale-105 z-10 shadow-lg' :
                                     draggingId === lb.id ? 'opacity-40 scale-95' : 'hover:shadow-sm'
                                     }`}
                                 >
-                                  <p className="text-[9px] font-bold leading-tight opacity-60 uppercase">{isGcOverride ? '📖 Lesson' : `✏️ ${lb.subject}`}</p>
+                                  <p className="text-[9px] font-bold leading-tight opacity-60 uppercase">{isGcOverride ? `📖 ${lb.subject || subject}` : `✏️ ${lb.subject}`}</p>
                                   <p className="text-[9px] leading-tight mt-0.5 font-medium line-clamp-2">{lb.title}</p>
                                 </div>
                               </Fragment>

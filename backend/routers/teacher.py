@@ -8,15 +8,52 @@ from agent.pipeline import run_agent_pipeline
 
 router = APIRouter(prefix="/api/teacher", tags=["teacher"])
 
+
+def _get_group_students(db, class_id: str, teacher_id: str) -> tuple[list[dict], dict[str, str]]:
+    """
+    Return all students belonging to any subject class in the same group.
+    A "group" = all classes rows sharing the same (name, teacher_clerk_id).
+    e.g. when viewing '10A Stars — Science', still returns all 20 students
+    of 10A Stars whose records sit under the Math home class.
+    """
+    cls_info = db.table("classes").select("name").eq("id", class_id).eq("teacher_clerk_id", teacher_id).execute()
+    if not cls_info.data:
+        return [], {}
+    group_name = cls_info.data[0]["name"]
+    group_classes = db.table("classes").select("id").eq("name", group_name).eq("teacher_clerk_id", teacher_id).execute()
+    group_ids = [c["id"] for c in group_classes.data]
+    students_raw = db.table("students").select("id, name, email").in_("class_id", group_ids).execute()
+    student_map = {s["id"]: s["name"] for s in (students_raw.data or [])}
+    return students_raw.data or [], student_map
+
+
 @router.get("/classes")
 async def get_classes(user: dict = Depends(require_teacher)):
     db = get_supabase()
     classes = db.table("classes").select("*").eq("teacher_clerk_id", user["sub"]).execute()
-    result = []
-    for cls in classes.data:
-        count = db.table("class_parents").select("id", count="exact").eq("class_id", cls["id"]).execute()
-        result.append({**cls, "parent_count": count.count or 0})
-    return result
+
+    # Group by class name so each physical class appears once.
+    # Multiple rows sharing the same name (one per subject) are merged into
+    # a single entry with a `subjects` array.
+    groups: dict[str, dict] = {}
+    for cls in (classes.data or []):
+        gname = cls["name"]
+        if gname not in groups:
+            parent_count = db.table("class_parents").select("id", count="exact").eq("class_id", cls["id"]).execute().count or 0
+            students_data, _ = _get_group_students(db, cls["id"], user["sub"])
+            groups[gname] = {
+                **cls,
+                "parent_count": parent_count,
+                "student_count": len(students_data),
+                "subjects": [],
+            }
+        groups[gname]["subjects"].append({
+            "id": cls["id"],
+            "subject": cls["subject"],
+            "class_id": cls.get("class_id", ""),
+        })
+
+    return list(groups.values())
 
 @router.post("/classes", status_code=201)
 async def create_class(body: ClassCreate, user: dict = Depends(require_teacher)):
@@ -68,7 +105,9 @@ async def get_class_students(class_id: str, user: dict = Depends(require_teacher
     cls = db.table("classes").select("id").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
     if not cls.data:
         raise HTTPException(status_code=404, detail="Class not found")
-    students = db.table("students").select("id, name, email").eq("class_id", class_id).execute()
+    # Query students across all subject classes in this group (same class name)
+    students_data, _ = _get_group_students(db, class_id, user["sub"])
+    students = type("R", (), {"data": students_data})()
     result = []
     for student in students.data:
         diaries = db.table("student_diaries").select(
@@ -96,20 +135,28 @@ async def get_class_students(class_id: str, user: dict = Depends(require_teacher
 
 
 @router.get("/classes/{class_id}/curriculum")
-async def get_class_curriculum(class_id: str, user: dict = Depends(require_teacher)):
+async def get_class_curriculum(class_id: str, all_subjects: bool = False, user: dict = Depends(require_teacher)):
     """Return course items (materials + assignments) for a class with submission stats."""
     db = get_supabase()
-    cls = db.table("classes").select("id, course_id, subject").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
+    cls = db.table("classes").select("id, name, course_id, subject").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
     if not cls.data:
         raise HTTPException(status_code=404, detail="Class not found")
     class_info = cls.data[0]
     course_id = class_info.get("course_id") or class_id
-    class_subject = class_info.get("subject", "General")
 
-    student_count = db.table("students").select("id", count="exact").eq("class_id", class_id).execute().count or 0
-    student_map = {s["id"]: s["name"] for s in (db.table("students").select("id, name").eq("class_id", class_id).execute().data or [])}
+    # Resolve group mapping
+    group_name = class_info["name"]
+    group_classes = db.table("classes").select("id, subject").eq("name", group_name).eq("teacher_clerk_id", user["sub"]).execute()
+    group_ids = [c["id"] for c in group_classes.data]
+    subject_map = {c["id"]: c["subject"] for c in group_classes.data}
 
-    items_raw = db.table("course_items").select("*").eq("class_id", class_id).order("week_id").execute()
+    students_data, student_map = _get_group_students(db, class_id, user["sub"])
+    student_count = len(students_data)
+
+    target_ids = group_ids if all_subjects else [class_id]
+
+    # Batch query handling IN limitation safety by executing straight query
+    items_raw = db.table("course_items").select("*").in_("class_id", target_ids).order("week_id").execute()
 
     # Build sequential week number from academic_weeks sorted by start_date
     weeks_raw = db.table("academic_weeks").select("id, start_date, week_name").order("start_date").execute()
@@ -119,10 +166,12 @@ async def get_class_curriculum(class_id: str, user: dict = Depends(require_teach
 
     materials, assignments, all_items = [], [], []
     weekly_topics: list[dict] = []
-    seen_weeks: set = set()
+    seen_week_subjects: set = set()
 
     for item in items_raw.data:
         subs, submission_summary = [], None
+        item_subject = subject_map.get(item["class_id"], "General")
+
         if item["type"] == "assignment":
             subs_raw = db.table("student_submissions").select(
                 "item_id, student_id, state, late, assigned_grade, draft_grade, submitted_at"
@@ -157,6 +206,7 @@ async def get_class_curriculum(class_id: str, user: dict = Depends(require_teach
             "max_points": item.get("max_points"),
             "attachments": item.get("attachments") or [],
             "students": subs,
+            "subject": item_subject,
             "submission_summary": submission_summary,
             "week_id": week_id,
         }
@@ -164,8 +214,9 @@ async def get_class_curriculum(class_id: str, user: dict = Depends(require_teach
         if item["type"] == "material":
             materials.append(formatted)
             week_num = week_num_map.get(week_id, 1)
-            if week_id not in seen_weeks:
-                seen_weeks.add(week_id)
+            sig = f"{week_id}_{item_subject}"
+            if sig not in seen_week_subjects:
+                seen_week_subjects.add(sig)
                 import re as _re
                 raw_title = item["title"]
                 clean = _re.sub(r'^\[\d{4}-W\d{2}\]\s*', '', raw_title)
@@ -175,7 +226,7 @@ async def get_class_curriculum(class_id: str, user: dict = Depends(require_teach
                     "week": week_num,
                     "week_id": week_id,
                     "week_name": week_name_map.get(week_id, week_id),
-                    "subject": class_subject,
+                    "subject": item_subject,
                     "topic": clean or raw_title,
                     "learningGoal": (item.get("description") or "")[:300],
                     "class_work": item.get("description") or "",
@@ -208,8 +259,9 @@ async def get_class_insights(class_id: str, user: dict = Depends(require_teacher
     if not cls.data:
         raise HTTPException(status_code=404, detail="Class not found")
 
-    students = db.table("students").select("id").eq("class_id", class_id).execute()
-    student_ids = [s["id"] for s in students.data]
+    # Query students across all subject classes in this group
+    students_data, _ = _get_group_students(db, class_id, user["sub"])
+    student_ids = [s["id"] for s in students_data]
 
     # Fetch ALL fields including note scores — same as parent side
     all_entries: list[dict] = []
@@ -447,12 +499,20 @@ async def get_class_transcript(class_id: str, user: dict = Depends(require_teach
 # ── Lecture Blocks (drag-and-drop calendar) ────────────────────────────────────
 
 @router.get("/classes/{class_id}/lecture-blocks")
-async def get_lecture_blocks(class_id: str, user: dict = Depends(require_teacher)):
+async def get_lecture_blocks(class_id: str, all_subjects: bool = False, user: dict = Depends(require_teacher)):
     db = get_supabase()
-    cls = db.table("classes").select("id").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
-    if not cls.data:
+    cls_info = db.table("classes").select("id, name").eq("id", class_id).eq("teacher_clerk_id", user["sub"]).execute()
+    if not cls_info.data:
         raise HTTPException(status_code=404, detail="Class not found")
-    blocks = db.table("lecture_blocks").select("*").eq("class_id", class_id).order("sort_order").execute()
+    
+    if all_subjects:
+        group_name = cls_info.data[0]["name"]
+        group_classes = db.table("classes").select("id").eq("name", group_name).eq("teacher_clerk_id", user["sub"]).execute()
+        group_ids = [c["id"] for c in group_classes.data]
+        blocks = db.table("lecture_blocks").select("*").in_("class_id", group_ids).order("sort_order").execute()
+    else:
+        blocks = db.table("lecture_blocks").select("*").eq("class_id", class_id).order("sort_order").execute()
+    
     return blocks.data or []
 
 
@@ -600,51 +660,51 @@ async def generate_topic_ai(class_id: str, body: dict, user: dict = Depends(requ
             keywords = parsed_dd.get("keywords", [])
         except Exception as e:
             print("Failed to parse keywords from deepdive:", e)
-            
-        import asyncio
-        async def fetch_tiktok(kw):
-            tt_prompt = f"Search and download an educational TikTok using this keyword: '{kw}'"
-            try:
-                res_tt = await _feature_agents["tiktokpull"].ainvoke({"messages": [HumanMessage(content=tt_prompt)]})
-                tt_content = res_tt.get("messages", [])[-1].content
-                tt_json = tt_content.strip()
-                if tt_json.startswith("```json"): tt_json = tt_json[7:]
-                if tt_json.endswith("```"): tt_json = tt_json[:-3]
-                parsed_tt = json.loads(tt_json.strip())
+        # ======================== TikTok ========================== 
+        # import asyncio
+        # async def fetch_tiktok(kw):
+        #     tt_prompt = f"Search and download an educational TikTok using this keyword: '{kw}'"
+        #     try:
+        #         res_tt = await _feature_agents["tiktokpull"].ainvoke({"messages": [HumanMessage(content=tt_prompt)]})
+        #         tt_content = res_tt.get("messages", [])[-1].content
+        #         tt_json = tt_content.strip()
+        #         if tt_json.startswith("```json"): tt_json = tt_json[7:]
+        #         if tt_json.endswith("```"): tt_json = tt_json[:-3]
+        #         parsed_tt = json.loads(tt_json.strip())
                 
-                local_path = parsed_tt.get("video_local_path", "")
-                if not local_path or "failed" in local_path.lower():
-                    return None
+        #         local_path = parsed_tt.get("video_local_path", "")
+        #         if not local_path or "failed" in local_path.lower():
+        #             return None
                     
-                meta = parsed_tt.get("video_metadata", {})
-                return {
-                    "title": meta.get("desc", kw)[:60] + "...",
-                    "creator": meta.get("author", "@tiktok"),
-                    "views": str(meta.get("views", "0")),
-                    "url": meta.get("url", "#")
-                }
-            except Exception as e:
-                print(f"Error fetching tiktok for keyword '{kw}': {e}")
-                return None
+        #         meta = parsed_tt.get("video_metadata", {})
+        #         return {
+        #             "title": meta.get("desc", kw)[:60] + "...",
+        #             "creator": meta.get("author", "@tiktok"),
+        #             "views": str(meta.get("views", "0")),
+        #             "url": meta.get("url", "#")
+        #         }
+        #     except Exception as e:
+        #         print(f"Error fetching tiktok for keyword '{kw}': {e}")
+        #         return None
                 
-        # To get up to 4 videos, we run multiple tasks
-        extended_kw = (keywords * 4)[:8] if keywords else ["educational video"] * 4
-        tt_tasks = [fetch_tiktok(kw) for kw in extended_kw]
-        tt_results = await asyncio.gather(*tt_tasks)
+        # # To get up to 4 videos, we run multiple tasks
+        # extended_kw = (keywords * 4)[:8] if keywords else ["educational video"] * 4
+        # tt_tasks = [fetch_tiktok(kw) for kw in extended_kw]
+        # tt_results = await asyncio.gather(*tt_tasks)
         
-        tiktok_data = []
-        for t in tt_results:
-            if t is not None:
-                tiktok_data.append(t)
-            if len(tiktok_data) >= 4:
-                break
+        # tiktok_data = []
+        # for t in tt_results:
+        #     if t is not None:
+        #         tiktok_data.append(t)
+        #     if len(tiktok_data) >= 4:
+        #         break
         
-        if not tiktok_data:
-            tiktok_data = [
-                {"title": f"{topic} explained easily", "creator": "@edu_star", "views": "1.2M"},
-                {"title": "Fun activity for " + subject, "creator": "@learning_hacks", "views": "830K"}
-            ]
-
+        # if not tiktok_data:
+        #     tiktok_data = [
+        #         {"title": f"{topic} explained easily", "creator": "@edu_star", "views": "1.2M"},
+        #         {"title": "Fun activity for " + subject, "creator": "@learning_hacks", "views": "830K"}
+        #     ]
+# ======================================================
         # Summarize for parents
         prompt_sum = f"Topic Info:\n{prompt_base}\n\nDeepdive:\n{deepdive_out}"
         result_sum = await _feature_agents["summarize"].ainvoke({"messages": [HumanMessage(content=prompt_sum)]})
@@ -667,7 +727,11 @@ async def generate_topic_ai(class_id: str, body: dict, user: dict = Depends(requ
     return {
         "summary": sum_out,
         "deepDive": deepdive_out,
-        "tiktoks": tiktok_data
+        "tiktoks": [
+            {"title": f"{topic} explained easily", "creator": "@edu_star", "views": "1.2M"},
+            {"title": "Fun activity for " + subject, "creator": "@learning_hacks", "views": "830K"},
+            {"title": f"How to master {subject} quickly", "creator": "@subject_master", "views": "2.1M"}
+        ] #tiktok_data
     }
 
 @router.post("/classes/{class_id}/topics/ai-regenerate")
@@ -763,7 +827,7 @@ async def publish_topic_brief(class_id: str, body: TopicPublish, user: dict = De
         inserted = db.table("briefs").insert(brief_data).execute()
         brief_id = inserted.data[0]["id"]
         
-    # Broadcast Notification to parents
+    # Insert notifications + Realtime broadcast for each parent
     parents = db.table("class_parents").select("parent_clerk_id").eq("class_id", class_id).execute()
     notifs = []
     for p in parents.data:
@@ -771,8 +835,29 @@ async def publish_topic_brief(class_id: str, body: TopicPublish, user: dict = De
             "parent_clerk_id": p["parent_clerk_id"],
             "brief_id": brief_id
         })
-        
+
     if notifs:
         db.table("notifications").insert(notifs).execute()
-        
+        # Broadcast via Supabase Realtime so parent UI updates without page reload
+        import httpx, os
+        supabase_url = os.getenv("SUPABASE_URL", "")
+        service_key  = os.getenv("SUPABASE_SERVICE_KEY", "")
+        messages = [
+            {
+                "topic": f"notifications:{p['parent_clerk_id']}",
+                "event": "new_notification",
+                "payload": {"brief_id": brief_id, "subject": body.subject},
+            }
+            for p in parents.data
+        ]
+        try:
+            httpx.post(
+                f"{supabase_url}/realtime/v1/api/broadcast",
+                headers={"apikey": service_key, "Authorization": f"Bearer {service_key}"},
+                json={"messages": messages},
+                timeout=5,
+            )
+        except Exception:
+            pass  # broadcast failure is non-fatal
+
     return {"status": "success", "brief_id": brief_id}

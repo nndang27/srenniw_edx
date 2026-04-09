@@ -44,7 +44,7 @@ export default function TeacherLandingPage() {
         const classList: TeacherClass[] = data.map((cls: any) => ({
           id: cls.id,
           name: cls.name,
-          studentCount: cls.parent_count ?? 0,
+          studentCount: cls.student_count ?? 0,
           students: [],
         }))
         setClasses(classList)

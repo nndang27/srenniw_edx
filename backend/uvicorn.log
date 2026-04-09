@@ -1,5 +1,189 @@
-INFO:     Started server process [88212]
+INFO:     Will watch for changes in these directories: ['/Users/nndang27/Documents/hackathon_edx/srenniw_edx/backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [92795] using WatchFiles
+INFO:     Started server process [92801]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:51224 - "POST /api/game/generate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58971 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58988 - "OPTIONS /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58988 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59000 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59002 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59000 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58988 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59002 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58988 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58988 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59002 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59007 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58988 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59012 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59018 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59007 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59007 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59014 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59018 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59028 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59018 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59018 - "GET /api/teacher/students/STU-A-01/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59018 - "GET /api/teacher/students/STU-A-01/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59018 - "GET /api/teacher/students/STU-A-02/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59018 - "GET /api/teacher/students/STU-A-01/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59018 - "GET /api/teacher/students/STU-A-19/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59038 - "GET /api/teacher/students/STU-A-01/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59043 - "GET /api/teacher/students/STU-A-03/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59038 - "GET /api/teacher/students/STU-A-05/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59043 - "GET /api/teacher/students/STU-A-06/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59038 - "GET /api/teacher/students/STU-A-14/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59038 - "GET /api/teacher/students/STU-A-19/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59053 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59053 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59066 - "GET /api/teacher/students/STU-A-01/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59053 - "GET /api/teacher/students/STU-A-01/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59074 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59074 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59109 - "OPTIONS /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59110 - "OPTIONS /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59109 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59107 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59110 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59109 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59110 - "OPTIONS /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59107 - "OPTIONS /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59112 - "OPTIONS /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59120 - "OPTIONS /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59122 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59109 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59112 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59122 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59107 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59120 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59109 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59120 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59143 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59145 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59150 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59143 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59210 - "GET /api/teacher/classes HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:59230 - "OPTIONS /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59231 - "OPTIONS /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59231 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59230 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59231 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59231 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59238 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59230 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59231 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59238 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59251 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59251 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59251 - "GET /api/teacher/students/STU-A-01/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59251 - "GET /api/teacher/students/STU-A-01/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59251 - "GET /api/teacher/students/STU-A-03/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59251 - "GET /api/teacher/students/STU-A-05/insights HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59239 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59262 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59263 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59239 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59262 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59251 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59264 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59239 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59251 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59266 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59277 - "OPTIONS /api/teacher/classes/a16e2f24-b202-4ec2-88bd-41da947d74f7/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59278 - "OPTIONS /api/teacher/classes/a16e2f24-b202-4ec2-88bd-41da947d74f7/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59278 - "GET /api/teacher/classes/a16e2f24-b202-4ec2-88bd-41da947d74f7/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59277 - "GET /api/teacher/classes/a16e2f24-b202-4ec2-88bd-41da947d74f7/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59281 - "OPTIONS /api/teacher/classes/3cdfc2c4-ab37-4dfd-a1a8-2115a5e6494f/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59282 - "OPTIONS /api/teacher/classes/3cdfc2c4-ab37-4dfd-a1a8-2115a5e6494f/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59282 - "GET /api/teacher/classes/3cdfc2c4-ab37-4dfd-a1a8-2115a5e6494f/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59281 - "GET /api/teacher/classes/3cdfc2c4-ab37-4dfd-a1a8-2115a5e6494f/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59314 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59314 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59314 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59319 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59325 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59314 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59314 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59334 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59325 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59340 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59337 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59334 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59325 - "GET /api/teacher/classes/660cfe51-c93f-49b6-87ee-9d8eda90bedf/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59314 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59325 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59314 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59325 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59340 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'routers/teacher.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [92801]
+INFO:     Started server process [98026]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:59551 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59552 - "GET /api/parent/diary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59555 - "GET /api/parent/transcript?year=2026&semester=Semester%201 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59557 - "GET /api/parent/insights HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 59571) - "WebSocket /ws/chatbot/guest?token=eyJhbGciOiJSUzI1NiIsImNhdCI6ImNsX0I3ZDRQRDExMUFBQSIsImtpZCI6Imluc18zQm54MXNGMVRyVFc0eWpGaGp0MjJlVjFYZ2siLCJ0eXAiOiJKV1QifQ.eyJhenAiOiJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJleHAiOjE3NzU2NjkxMDgsImZ2YSI6WzE3NzEsLTFdLCJpYXQiOjE3NzU2NjkwNDgsImlzcyI6Imh0dHBzOi8vcXVhbGl0eS1nb3BoZXItNjEuY2xlcmsuYWNjb3VudHMuZGV2IiwibmJmIjoxNzc1NjY5MDM4LCJzaWQiOiJzZXNzXzNDMXA5ME9sTDhMSUxxczNRdUVFRGNIRFZUNSIsInN0cyI6ImFjdGl2ZSIsInN1YiI6InVzZXJfM0MxZXl4RjhDSjBmV3FYV0RXeHd4bEwyUUZSIiwidiI6Mn0.g0qKYpXmKp3QWhkPPlvzeR8_Qp20-2BkIOGOeA3_mVyrvK0zcpL7pvbRrkL-tj8PPpYLcXTefBjFwm6Iz7Gorr1UYTaeTK85SS8eoFEdd6uiaVmEBkCKEKZ3jxGfQYXm-vaMibMbEEzqzEXNWqzNSaKdo-zJXkoPy88LRvttLzUTAFZiGlma5PGHYG8AqgkqwqZmnWLO1Z3XACYqhlkaRH9qRVuYWxO7LHpjzZckhJtivuXAyFPT16JTmrNF-Rro2dE_JJjU_-Ktq2tvhJCdHOpAHcvEQaGEbA9YiMDcxuIH3w3sYzpaHwotTGR1QTs9pzCpO6HW9Uxh3po5DxActg" [accepted]
+INFO:     127.0.0.1:59572 - "OPTIONS /api/parent/chat-rooms HTTP/1.1" 200 OK
+INFO:     connection open
+INFO:     127.0.0.1:59574 - "OPTIONS /api/parent/inbox HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     ('127.0.0.1', 59576) - "WebSocket /ws/chatbot/user_3C1eyxF8CJ0fWqXWDWxwxlL2QFR?token=eyJhbGciOiJSUzI1NiIsImNhdCI6ImNsX0I3ZDRQRDExMUFBQSIsImtpZCI6Imluc18zQm54MXNGMVRyVFc0eWpGaGp0MjJlVjFYZ2siLCJ0eXAiOiJKV1QifQ.eyJhenAiOiJodHRwOi8vbG9jYWxob3N0OjMwMDAiLCJleHAiOjE3NzU2NjkxMDgsImZ2YSI6WzE3NzEsLTFdLCJpYXQiOjE3NzU2NjkwNDgsImlzcyI6Imh0dHBzOi8vcXVhbGl0eS1nb3BoZXItNjEuY2xlcmsuYWNjb3VudHMuZGV2IiwibmJmIjoxNzc1NjY5MDM4LCJzaWQiOiJzZXNzXzNDMXA5ME9sTDhMSUxxczNRdUVFRGNIRFZUNSIsInN0cyI6ImFjdGl2ZSIsInN1YiI6InVzZXJfM0MxZXl4RjhDSjBmV3FYV0RXeHd4bEwyUUZSIiwidiI6Mn0.g0qKYpXmKp3QWhkPPlvzeR8_Qp20-2BkIOGOeA3_mVyrvK0zcpL7pvbRrkL-tj8PPpYLcXTefBjFwm6Iz7Gorr1UYTaeTK85SS8eoFEdd6uiaVmEBkCKEKZ3jxGfQYXm-vaMibMbEEzqzEXNWqzNSaKdo-zJXkoPy88LRvttLzUTAFZiGlma5PGHYG8AqgkqwqZmnWLO1Z3XACYqhlkaRH9qRVuYWxO7LHpjzZckhJtivuXAyFPT16JTmrNF-Rro2dE_JJjU_-Ktq2tvhJCdHOpAHcvEQaGEbA9YiMDcxuIH3w3sYzpaHwotTGR1QTs9pzCpO6HW9Uxh3po5DxActg" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:59551 - "GET /api/parent/diary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59572 - "GET /api/parent/chat-rooms HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59582 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59551 - "GET /api/parent/diary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59581 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59584 - "GET /api/parent/inbox HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59718 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59719 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59719 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum?all_subjects=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59726 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum?all_subjects=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59718 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59719 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum?all_subjects=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59732 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59726 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59728 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum?all_subjects=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59739 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59847 - "OPTIONS /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59848 - "OPTIONS /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59847 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59848 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59847 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59850 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59848 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59847 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59848 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59850 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59847 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59855 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59848 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum?all_subjects=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59861 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59850 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59855 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum?all_subjects=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59876 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59847 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60086 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60086 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60086 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60090 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60086 - "GET /api/teacher/classes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60096 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/students HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60096 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum?all_subjects=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60090 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum?all_subjects=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60096 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum?all_subjects=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60086 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60109 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60090 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60105 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum?all_subjects=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60114 - "GET /api/parent/timetable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60090 - "OPTIONS /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60090 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/curriculum HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60096 - "GET /api/teacher/classes/5c67b669-faa5-45a7-a42a-cb0a72522711/lecture-blocks HTTP/1.1" 200 OK

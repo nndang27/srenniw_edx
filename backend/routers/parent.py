@@ -244,38 +244,74 @@ async def get_transcript(year: str = None, semester: str = "Semester 1", user: d
 
 @router.get("/timetable")
 async def get_parent_timetable(user: dict = Depends(require_parent)):
-    """Return timetable keyed by date, built from the child's diary entries."""
+    """Return timetable keyed by date, built from lecture_blocks (same source as teacher calendar)."""
     db = get_supabase()
-    profile = db.table("class_parents").select("student_id, class_id")\
+    profile = db.table("class_parents").select("class_id")\
         .eq("parent_clerk_id", user["sub"]).limit(1).execute()
     if not profile.data:
         return {}
-    student_id = profile.data[0]["student_id"]
-    class_id   = profile.data[0]["class_id"]
+    class_id = profile.data[0]["class_id"]
 
-    # Get class info for teacher name fallback
-    cls = db.table("classes").select("name, subject").eq("id", class_id).limit(1).execute()
-    class_subject = cls.data[0]["subject"] if cls.data else "Maths"
+    # Find all sibling subject-classes in the same group (same name + teacher)
+    cls_info = db.table("classes").select("name, teacher_clerk_id").eq("id", class_id).limit(1).execute()
+    if not cls_info.data:
+        return {}
+    group_name       = cls_info.data[0]["name"]
+    teacher_clerk_id = cls_info.data[0]["teacher_clerk_id"]
+    group_classes = db.table("classes").select("id").eq("name", group_name)\
+        .eq("teacher_clerk_id", teacher_clerk_id).execute()
+    group_class_ids = [c["id"] for c in (group_classes.data or [])]
 
-    diaries = db.table("student_diaries").select("date, subject, cognitive_level, emotion")\
-        .eq("student_id", student_id).order("date").execute()
+    # Fetch all lecture_blocks for the group
+    blocks = db.table("lecture_blocks").select(
+        "class_id, subject, week_id, day_of_week, title, sort_order"
+    ).in_("class_id", group_class_ids).execute()
 
-    # Group by date → list of schedule items
+    if not blocks.data:
+        return {}
+
+    # Build week_id → start_date map
+    week_ids = list({b["week_id"] for b in blocks.data if b.get("week_id")})
+    weeks_raw = db.table("academic_weeks").select("id, start_date")\
+        .in_("id", week_ids).execute()
+    week_start: dict[str, str] = {w["id"]: w["start_date"] for w in (weeks_raw.data or [])}
+
+    # Assign time slots per subject (same order as SUBJECT_COLORS)
+    SUBJECT_TIMES = {
+        "Maths":         "8:00–9:00",
+        "Science":       "9:00–10:00",
+        "English":       "10:00–11:00",
+        "HSIE":          "11:00–12:00",
+        "Creative Arts": "13:00–14:00",
+        "PE":            "14:00–15:00",
+    }
+
     timetable: dict = {}
-    for d in diaries.data:
-        date_str = str(d["date"])
-        subj = d["subject"] or class_subject
-        if date_str not in timetable:
-            timetable[date_str] = []
-        # Avoid duplicate subjects on same day
-        if not any(item["subject"] == subj for item in timetable[date_str]):
-            timetable[date_str].append({
+    from datetime import date as _date, timedelta
+
+    for b in blocks.data:
+        wid = b.get("week_id")
+        dow = b.get("day_of_week")
+        if wid is None or dow is None or wid not in week_start:
+            continue
+        start = _date.fromisoformat(week_start[wid])
+        actual_date = (start + timedelta(days=dow)).isoformat()
+        subj  = b.get("subject") or "Lesson"
+        title = b.get("title") or f"{subj} lesson"
+        time  = SUBJECT_TIMES.get(subj, "9:00–10:00")
+
+        if actual_date not in timetable:
+            timetable[actual_date] = []
+        # Avoid duplicate subject blocks on the same day
+        if not any(item["subject"] == subj for item in timetable[actual_date]):
+            timetable[actual_date].append({
                 "subject": subj,
-                "time": "9:00–10:00",
+                "time":    time,
                 "teacher": "Class Teacher",
-                "topic": f"{subj} lesson",
-                "type": "before-school",
+                "topic":   title,
+                "type":    "before-school",
             })
+
     return timetable
 
 

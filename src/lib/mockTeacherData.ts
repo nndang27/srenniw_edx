@@ -22,6 +22,7 @@ export interface TeacherClass {
   name: string
   studentCount: number
   students: Student[]
+  subjects?: { id: string; subject: string }[]
 }
 
 export interface WeeklyTopic {

@@ -96,8 +96,10 @@ export function useApi() {
     return res.json()
   }
 
-  const getClassCurriculum = async (class_id: string): Promise<ClassroomCourseData> => {
-    const res = await fetch(`${BASE_URL}/api/teacher/classes/${class_id}/curriculum`, { headers: await headers() })
+  const getClassCurriculum = async (classId: string, allSubjects: boolean = false): Promise<ClassroomCourseData> => {
+    const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/curriculum${allSubjects ? '?all_subjects=true' : ''}`, {
+      headers: await headers()
+    })
     if (!res.ok) throw await res.json()
     return res.json()
   }
@@ -180,6 +182,7 @@ export interface ClassroomItem {
     avg_grade: number | null
   } | null
   week_id?: string
+  subject?: string
 }
 
 export interface ClassroomWeeklyTopic {

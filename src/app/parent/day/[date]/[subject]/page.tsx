@@ -1025,24 +1025,58 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
   }
   const quickPeekFallback = getQuickPeekForSchedule(subject, subjectEntry.topic)
 
-  let sumObj = briefLoad?.summarize_data?.content || briefLoad?.summarize_data
-  if (typeof sumObj === 'string') { try { sumObj = JSON.parse(sumObj) } catch (e) { } }
-  if (!sumObj && briefLoad?.processed_en) {
-    if (typeof briefLoad.processed_en === 'string' && briefLoad.processed_en.trim().startsWith('{')) {
-      try { sumObj = JSON.parse(briefLoad.processed_en) } catch (e) { }
-    }
+  // Strip markdown code fences (```json ... ```) then parse JSON
+  function stripAndParse(val: unknown): any {
+    if (!val) return null
+    if (typeof val === 'object') return val
+    if (typeof val !== 'string') return null
+    const stripped = val.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+    try { return JSON.parse(stripped) } catch { return null }
   }
 
-  let ddObj = briefLoad?.deepdive_data?.content || briefLoad?.deepdive_data
-  if (typeof ddObj === 'string') { try { ddObj = JSON.parse(ddObj) } catch (e) { } }
+  // Normalise key_vocabulary to Record<string,string> regardless of source format
+  function normalizeVocab(vocab: unknown): Record<string, string> {
+    if (!vocab) return {}
+    if (Array.isArray(vocab)) {
+      return Object.fromEntries(
+        vocab.map((v: any) => [v.term ?? v.word ?? String(v), v.definition ?? v.meaning ?? ''])
+      )
+    }
+    if (typeof vocab === 'object') return vocab as Record<string, string>
+    return {}
+  }
+
+  let sumObj = stripAndParse(briefLoad?.summarize_data?.content ?? briefLoad?.summarize_data)
+  // Second fallback: processed_en might itself be JSON or a markdown-fenced JSON block
+  if (!sumObj && briefLoad?.processed_en) {
+    sumObj = stripAndParse(briefLoad.processed_en)
+  }
+
+  let ddObj = stripAndParse(briefLoad?.deepdive_data?.content ?? briefLoad?.deepdive_data)
 
   const quickPeek = {
-    essence_text: sumObj?.essence || (typeof briefLoad?.processed_en === 'string' && !briefLoad.processed_en.trim().startsWith('{') ? briefLoad.processed_en : null) || quickPeekFallback.essence_text,
+    essence_text: sumObj?.essence
+      || (typeof briefLoad?.processed_en === 'string' && !briefLoad.processed_en.trim().startsWith('{') && !briefLoad.processed_en.trim().startsWith('`')
+          ? briefLoad.processed_en : null)
+      || quickPeekFallback.essence_text,
     relatable_example: sumObj?.example || quickPeekFallback.relatable_example,
     core_concept: ddObj?.core_concept || quickPeekFallback.core_concept,
-    key_vocabulary: ddObj?.key_vocabulary || quickPeekFallback.key_vocabulary,
+    key_vocabulary: normalizeVocab(ddObj?.key_vocabulary) || quickPeekFallback.key_vocabulary,
     why_this_matters: ddObj?.why_this_matters || quickPeekFallback.why_this_matters,
-    videos: briefLoad?.tiktok_data?.videos || quickPeekFallback.videos
+    videos: (() => {
+      const VIDEO_FOLDERS: Record<string, string> = {
+        'Maths': 'Maths', 'Math': 'Maths',
+        'English': 'English',
+        'HSIE': 'HSIE', 'History': 'HSIE',
+        'Science': 'Science',
+      }
+      const folder = VIDEO_FOLDERS[subject] ?? 'Science'
+      return [
+        `/samples/${folder}/sample1.mp4`,
+        `/samples/${folder}/sample2.mp4`,
+        `/samples/${folder}/sample3.mp4`,
+      ]
+    })()
   }
 
   const subjectIndex = schedule.findIndex((s: any) => s.subject === subject)
@@ -1300,13 +1334,7 @@ export default function DaySubjectPage({ params }: { params: Promise<{ date: str
 
       {/* Right: TikTok panel — always shown */}
       <div className="w-full lg:w-[400px] shrink-0 lg:pt-4 pb-12">
-        <TikTokHookPanel videos={quickPeek.videos.length > 1 ? quickPeek.videos : [
-          "/samples/sample1.mp4",
-          "/samples/sample2.mp4",
-          "/samples/sample3.mp4",
-          "/samples/sample4.mp4",
-          "/samples/sample5.mp4"
-        ]} />
+        <TikTokHookPanel videos={quickPeek.videos} />
       </div>
     </div>
   )

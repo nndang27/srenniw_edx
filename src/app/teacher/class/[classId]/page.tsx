@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, LayoutDashboard, BookOpen, BarChart2, MessageSquare, Table } from 'lucide-react'
 import { SUBJECTS } from '@/lib/mockTeacherData'
@@ -43,20 +43,37 @@ export default function ClassDashboardPage() {
   const [subject, setSubject] = useState(initialSubject)
   const [cls, setCls] = useState<TeacherClass | null>(null)
   const [loadingClass, setLoadingClass] = useState(true)
-
+  // activeSubjectId: which subject-class UUID is selected (controls Curriculum + Transcript)
+  const [activeSubjectId, setActiveSubjectId] = useState<string>(classId)
+  // Mutex for AI generation - persists across tab switches to prevent infinite loops
+  const aiRunningRef = useRef(false)
 
   useEffect(() => {
     Promise.all([
       api.getClasses(),
       api.getClassStudents(classId),
     ]).then(([classes, students]) => {
-      const classInfo = classes.find((c: any) => c.id === classId)
+      // Support both grouped (new) and legacy flat responses
+      let classInfo = classes.find((c: any) => c.id === classId)
+      // If classId is a subject-specific UUID, search inside subjects arrays
+      if (!classInfo) {
+        classInfo = classes.find((c: any) =>
+          (c.subjects || []).some((s: any) => s.id === classId)
+        )
+      }
       if (classInfo) {
+        const subjects = classInfo.subjects || []
+        // Determine which subject UUID is "active" — prefer the one matching the URL classId
+        const matchedSubject = subjects.find((s: any) => s.id === classId)
+        if (matchedSubject) setActiveSubjectId(classId)
+        else if (subjects.length > 0) setActiveSubjectId(subjects[0].id)
+
         setCls({
           id: classInfo.id,
           name: classInfo.name,
           studentCount: students.length,
           students,
+          subjects,
         })
       }
     }).catch(console.error).finally(() => setLoadingClass(false))
@@ -127,39 +144,79 @@ export default function ClassDashboardPage() {
             </p>
           </div>
 
-          {/* Subject filter pills — shown for overview and insights */}
-          {(activeTab === 'overview' || activeTab === 'insights') && (
+          {/* Subject pills — for overview/insights: filter display; for curriculum/transcript: switch data source */}
+          {cls.subjects && cls.subjects.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setSubject('All')}
-                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all
-                  ${subject === 'All' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}
-              >
-                All
-              </button>
-              {SUBJECTS.map(subj => (
+              {/* "All" pill for overview/insights/curriculum/transcript */}
+              {(activeTab === 'overview' || activeTab === 'insights' || activeTab === 'curriculum') && (
                 <button
-                  key={subj}
-                  onClick={() => setSubject(subj)}
+                  onClick={() => {
+                    setSubject('All')
+                    // fallback to classId if reverting to All, though not strictly required
+                    setActiveSubjectId(classId)
+                  }}
                   className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all
-                    ${subject === subj
-                      ? `ring-1 ${SUBJECT_COLORS[subj]}`
-                      : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'
-                    }`}
+                    ${subject === 'All' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'}`}
                 >
-                  {subj}
+                  All
                 </button>
-              ))}
+              )}
+              {cls.subjects.map(subj => {
+                const isActive = activeTab === 'curriculum' || activeTab === 'transcript'
+                  ? activeSubjectId === subj.id && subject !== 'All'
+                  : subject === subj.subject
+                return (
+                  <button
+                    key={subj.id}
+                    onClick={() => {
+                      setSubject(subj.subject)
+                      setActiveSubjectId(subj.id)
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all
+                      ${isActive
+                        ? `ring-1 ${SUBJECT_COLORS[subj.subject] ?? 'bg-slate-100 text-slate-700 ring-slate-300'}`
+                        : 'bg-white/70 text-slate-600 border-slate-200 hover:bg-white'
+                      }`}
+                  >
+                    {subj.subject}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
 
-        {/* Tab content */}
-        {activeTab === 'overview' && <OverviewTab cls={cls} subject={subject} />}
-        {activeTab === 'curriculum' && <CurriculumTab classId={classId} subject={subject} />}
-        {activeTab === 'insights' && <InsightsTab cls={cls} subject={subject} />}
-        {activeTab === 'communication' && <CommunicationTab cls={cls} />}
-        {activeTab === 'transcript' && <TranscriptTab classId={classId} />}
+        {/* Tab content - Use persistent rendering to avoid re-fetches and preserve state */}
+        <div className={activeTab === 'overview' ? 'block' : 'hidden'}>
+          <OverviewTab cls={cls} subject={subject} />
+        </div>
+
+        <div className={activeTab === 'curriculum' ? 'block' : 'hidden'}>
+          <CurriculumTab
+            classId={activeSubjectId}
+            subject={subject}
+            aiRunningRef={aiRunningRef}
+            onSubjectChange={(newSubj) => {
+              const sObj = cls.subjects?.find(s => s.subject === newSubj)
+              if (sObj) {
+                setSubject(sObj.subject)
+                setActiveSubjectId(sObj.id)
+              }
+            }}
+          />
+        </div>
+
+        <div className={activeTab === 'insights' ? 'block' : 'hidden'}>
+          <InsightsTab cls={cls} subject={subject} />
+        </div>
+
+        <div className={activeTab === 'communication' ? 'block' : 'hidden'}>
+          <CommunicationTab cls={cls} />
+        </div>
+
+        <div className={activeTab === 'transcript' ? 'block' : 'hidden'}>
+          <TranscriptTab classId={activeSubjectId} />
+        </div>
       </main>
     </div>
   )

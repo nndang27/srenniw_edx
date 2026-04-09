@@ -86,11 +86,9 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!user?.id) return
     const supabase = createBrowserClient()
-    const channel = supabase.channel('parent-notifications-layout')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
-        const notif = payload.new as any
-        if (notif.parent_clerk_id === user.id) fetchInbox()
-      })
+    // Use Broadcast (not postgres_changes) — works without Realtime publication config
+    const channel = supabase.channel(`notifications:${user.id}`)
+      .on('broadcast', { event: 'new_notification' }, () => fetchInbox())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [user?.id])
