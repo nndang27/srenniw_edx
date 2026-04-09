@@ -1338,8 +1338,12 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
 
   // AI Agent state
   const [aiRunning, setAiRunning] = useState(false)
-  const [aiSubjectStatus, setAiSubjectStatus] = useState<Record<string, AIStatus>>({})
-  const [aiResults, setAiResults] = useState<Record<string, AIResult>>({})
+  const [aiSubjectStatus, setAiSubjectStatus] = useState<Record<string, AIStatus>>(
+    () => cacheGet<Record<string, AIStatus>>(`aiStatus:${classId}`) ?? {}
+  )
+  const [aiResults, setAiResults] = useState<Record<string, AIResult>>(
+    () => cacheGet<Record<string, AIResult>>(`aiResults:${classId}`) ?? {}
+  )
   const [hitlItem, setHitlItem] = useState<{ item: WeekItem; result: AIResult; weekId: string } | null>(null)
 
   const fetchCurriculumData = useCallback(async (forceRefresh = false) => {
@@ -1522,7 +1526,11 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
         if (controller.signal.aborted) break
 
         const key = `${currentWeekNum}_${item.subject}`
-        setAiSubjectStatus(prev => ({ ...prev, [key]: 'processing' }))
+        setAiSubjectStatus(prev => {
+          const next = { ...prev, [key]: 'processing' as AIStatus }
+          cacheSet(`aiStatus:${classId}`, next)
+          return next
+        })
         try {
           const token = await getToken()
           const res = await fetch(`${BASE_URL}/api/teacher/classes/${classId}/topics/ai-generate`, {
@@ -1540,7 +1548,11 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
 
           if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
           const result = await res.json()
-          setAiResults(prev => ({ ...prev, [key]: result }))
+          setAiResults(prev => {
+            const next = { ...prev, [key]: result }
+            cacheSet(`aiResults:${classId}`, next)
+            return next
+          })
         } catch (err: any) {
           if (err.name === 'AbortError') {
             console.log('AI generation fetch was aborted.')
@@ -1548,9 +1560,17 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
           }
           console.error('Failed to generate AI data for', item.subject, err)
           const fb = { summary: 'Error generating', deepDive: 'Please try again manually.', tiktoks: [] }
-          setAiResults(prev => ({ ...prev, [key]: fb }))
+          setAiResults(prev => {
+            const next = { ...prev, [key]: fb }
+            cacheSet(`aiResults:${classId}`, next)
+            return next
+          })
         }
-        setAiSubjectStatus(prev => ({ ...prev, [key]: 'done' }))
+        setAiSubjectStatus(prev => {
+          const next = { ...prev, [key]: 'done' as AIStatus }
+          cacheSet(`aiStatus:${classId}`, next)
+          return next
+        })
       }
       if (!controller.signal.aborted) {
         showToast('✅ AI analysis complete for this week!')
@@ -2724,10 +2744,11 @@ export default function CurriculumTab({ classId, subject, onSubjectChange, aiRun
           classId={classId}
           weekId={hitlItem.weekId}
           onClose={() => setHitlItem(null)}
-          onResultUpdate={updated => setAiResults(prev => ({
-            ...prev,
-            [`${hitlItem.weekId.split('-W')[1] ? parseInt(hitlItem.weekId.split('-W')[1]) : currentWeekNum}_${hitlItem.item.subject}`]: updated,
-          }))}
+          onResultUpdate={updated => setAiResults(prev => {
+            const next = { ...prev, [`${hitlItem.weekId.split('-W')[1] ? parseInt(hitlItem.weekId.split('-W')[1]) : currentWeekNum}_${hitlItem.item.subject}`]: updated }
+            cacheSet(`aiResults:${classId}`, next)
+            return next
+          })}
         />
       )}
 
