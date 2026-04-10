@@ -67,11 +67,23 @@ async def get_inbox(limit: int = 20, offset: int = 0, user: dict = Depends(requi
 async def get_parent_brief(date: str, subject: str, user: dict = Depends(require_parent)):
     db = get_supabase()
     parents = db.table("class_parents").select("class_id").eq("parent_clerk_id", user["sub"]).execute()
-    class_ids = [p["class_id"] for p in parents.data]
-    if not class_ids:
+    direct_class_ids = [p["class_id"] for p in parents.data]
+    if not direct_class_ids:
         return {"brief": None}
-    
-    briefs = db.table("briefs").select("*").in_("class_id", class_ids).eq("date", date).eq("subject", subject).order("created_at", desc=True).limit(1).execute()
+
+    # Expand to all classes in the same group (same name + teacher) so briefs
+    # published under any subject-specific class UUID are found.
+    group_ids = set(direct_class_ids)
+    for cid in direct_class_ids:
+        cls_info = db.table("classes").select("name, teacher_clerk_id").eq("id", cid).execute()
+        if cls_info.data:
+            name = cls_info.data[0]["name"]
+            teacher = cls_info.data[0]["teacher_clerk_id"]
+            siblings = db.table("classes").select("id").eq("name", name).eq("teacher_clerk_id", teacher).execute()
+            for s in (siblings.data or []):
+                group_ids.add(s["id"])
+
+    briefs = db.table("briefs").select("*").in_("class_id", list(group_ids)).eq("date", date).eq("subject", subject).order("created_at", desc=True).limit(1).execute()
     return {"brief": briefs.data[0] if briefs.data else None}
 
 @router.patch("/inbox/{notification_id}/read")
