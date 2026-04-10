@@ -4,11 +4,12 @@
 
 ### *AI-Powered Communication Platform for Teachers & Parents*
 
-[![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python)](https://www.python.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Realtime-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
+[![Claude](https://img.shields.io/badge/Claude-AI-CC785C?style=for-the-badge&logo=anthropic)](https://anthropic.com/)
 
 **[EduX Hackathon 2026](https://cambridge-edtech-society.org/edux/edux-challenge-5.html) — Open EdTech Innovation Track**
 
@@ -64,9 +65,10 @@ Srenniw is built around a **custom multi-agent orchestration pipeline** — hand
 The **Orchestrator** sits at the centre of the system, equipped with:
 - **Memory** — retains context across sessions for personalised, consistent responses
 - **Skills** — specialised capability modules loaded per task type
-- **Tools** — RAG retrieval, Web Search, File I/O, Database access
+- **Tools** — RAG retrieval, Web Search, Bash/File I/O, Database access
+- **Human-in-the-Loop** — teacher feedback loop for review and refinement before delivery
 
-When a teacher submits content, the Orchestrator delegates in parallel to two specialised task pipelines, with a **Human-in-the-Loop** feedback mechanism for teacher review and refinement.
+When a teacher submits content, the Orchestrator delegates in parallel to two specialised task pipelines. A **feedback channel** allows the human-in-the-loop to steer the pipeline output before it reaches parents.
 
 ---
 
@@ -78,7 +80,7 @@ Subagent Deepdive ──→ Subagent Summarise ──→ ┐
 TikTok Fetch ──→ Validate Content ────────────┘
 ```
 
-Produces a curriculum-aligned, jargon-free summary of the teacher's content. A sub-agent deep-dives into the learning objectives, another handles media content validation, and a middleware layer cross-checks everything against the **Australian Curriculum Standard** before delivery.
+Produces a curriculum-aligned, jargon-free summary of the teacher's content. A sub-agent deep-dives into the learning objectives, another handles media content validation (including TikTok/social media fetching), and a middleware layer cross-checks everything against the **Australian Curriculum Standard** before delivery.
 
 ---
 
@@ -91,7 +93,7 @@ Subagent Activities  +  Subagent Web Search (Bonding Activities)
               Middleware: Validate against User Profile
 ```
 
-Generates personalised at-home activity suggestions matched to the child's age, interests, and learning stage. A web-search sub-agent enriches suggestions with current, real-world bonding activities before a profile-aware middleware validates relevance.
+Generates personalised at-home activity suggestions matched to the child's age, interests, and learning stage. A web-search sub-agent enriches suggestions with current, real-world bonding activities before a profile-aware middleware validates relevance and appropriateness per child profile.
 
 ---
 
