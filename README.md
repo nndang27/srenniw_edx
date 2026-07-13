@@ -1,7 +1,6 @@
 <div align="center">
 
-# 🏫 Srenniw — Bridging Classroom and Home
-
+# 🏫 LearnBridge — Bridging Classroom and Home
 ### *AI-Powered Communication Platform for Teachers & Parents*
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
@@ -27,7 +26,7 @@ For families from non-English speaking backgrounds, this gap is even wider. **Re
 
 ## 💡 Our Solution
 
-**Srenniw** is an AI-powered platform that acts as an intelligent bridge between teachers and parents. A teacher writes once — the AI does the rest:
+**LearnBridge** is an AI-powered platform that acts as an intelligent bridge between teachers and parents. A teacher writes once — the AI does the rest:
 
 - Translates complex curriculum language into clear, parent-friendly summaries
 - Generates **actionable at-home activity suggestions** tailored to each child's profile
@@ -56,13 +55,14 @@ For families from non-English speaking backgrounds, this gap is even wider. **Re
 
 ## 🤖 Agentic System
 
-Srenniw is built around a **custom multi-agent orchestration pipeline** — hand-crafted in Python with no LangChain, no black-box frameworks. Every agent is purpose-built, readable, and auditable.
+LearnBridge is built around a **custom multi-agent orchestration pipeline** — hand-crafted in Python with no LangChain, no black-box frameworks. Every agent is purpose-built, readable, and auditable.
 
 ![Agentic System Architecture](./docs/agent_architecture.png)
 
 ### Orchestrator (Planning)
 
 The **Orchestrator** sits at the centre of the system, equipped with:
+
 - **Memory** — retains context across sessions for personalised, consistent responses
 - **Skills** — specialised capability modules loaded per task type
 - **Tools** — RAG retrieval, Web Search, Bash/File I/O, Database access
@@ -74,11 +74,11 @@ When a teacher submits content, the Orchestrator delegates in parallel to two sp
 
 ### 📋 Task Summarise Pipeline
 
-```
+````
 Subagent Deepdive ──→ Subagent Summarise ──→ ┐
                                               ├──→ Middleware: Validate by AU Curriculum Standard
 TikTok Fetch ──→ Validate Content ────────────┘
-```
+````
 
 Produces a curriculum-aligned, jargon-free summary of the teacher's content. A sub-agent deep-dives into the learning objectives, another handles media content validation (including TikTok/social media fetching), and a middleware layer cross-checks everything against the **Australian Curriculum Standard** before delivery.
 
@@ -86,12 +86,12 @@ Produces a curriculum-aligned, jargon-free summary of the teacher's content. A s
 
 ### 💡 Task Suggestion Pipeline
 
-```
+````
 Subagent Activities  +  Subagent Web Search (Bonding Activities)
                               │
                               ▼
               Middleware: Validate against User Profile
-```
+````
 
 Generates personalised at-home activity suggestions matched to the child's age, interests, and learning stage. A web-search sub-agent enriches suggestions with current, real-world bonding activities before a profile-aware middleware validates relevance and appropriateness per child profile.
 
@@ -114,7 +114,7 @@ A dedicated chatbot layer handles parent queries across **six specialised domain
 
 ## 🛠 Tech Stack
 
-```
+````
 ┌─────────────────────────────────────────────────────────────┐
 │                         Frontend                            │
 │   Next.js 14 (App Router) · TypeScript · Tailwind CSS      │
@@ -134,13 +134,13 @@ A dedicated chatbot layer handles parent queries across **six specialised domain
 │   WebSocket (FastAPI) for chat + token streaming           │
 │   Clerk for role-based auth (teacher | parent)             │
 └─────────────────────────────────────────────────────────────┘
-```
+````
 
 ---
 
 ## 🗂 Project Structure
 
-```
+````
 srenniw_edx/
 ├── src/                               ← Next.js 14 frontend (App Router)
 │   └── app/
@@ -166,7 +166,7 @@ srenniw_edx/
 │       └── supabase.py                ← Supabase client singleton
 └── docs/
     └── agent_architecture.png         ← System architecture diagram
-```
+````
 
 ---
 
